@@ -1,0 +1,183 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import "@/legacy-dashboard.css";
+import { useDashboardData } from "@/hooks/useDashboardData";
+import { buildDefaultConfig, loadConfig } from "@/lib/dashboardConfig";
+import { filterRows } from "@/lib/aggregate";
+import type { DashboardConfig } from "@/types/dashboard";
+import { KpiRow } from "@/components/dashboard/KpiRow";
+import { FilterBar } from "@/components/dashboard/FilterBar";
+import { ChartCard } from "@/components/dashboard/ChartCard";
+import { DataTable } from "@/components/dashboard/DataTable";
+import { GuideDrawer } from "@/components/dashboard/GuideDrawer";
+
+export const Route = createFileRoute("/")({
+  head: () => ({ meta: [{ title: "Survey Dashboard" }] }),
+  component: DashboardPage,
+});
+
+function DashboardPage() {
+  const initialUrl =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("data") || undefined
+      : undefined;
+
+  const { projects, data, url, loading, error, switchProject } = useDashboardData(initialUrl);
+  const [tab, setTab] = useState<"dashboard" | "list">("dashboard");
+  const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [theme, setTheme] = useState<string>("");
+  const [guideOpen, setGuideOpen] = useState(false);
+
+  // load theme
+  useEffect(() => {
+    const saved = typeof window !== "undefined" ? localStorage.getItem("theme") || "" : "";
+    setTheme(saved);
+    if (typeof document !== "undefined") document.documentElement.dataset.theme = saved;
+  }, []);
+
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "" : "dark";
+    setTheme(next);
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem("theme", next);
+  };
+
+  const cfg: DashboardConfig | null = useMemo(() => {
+    if (!data) return null;
+    const saved = loadConfig(data.meta.project, data.dashboard || null);
+    return saved || buildDefaultConfig(data.meta);
+  }, [data]);
+
+  // reset filters when data changes
+  useEffect(() => {
+    setSearch("");
+    setFilters({});
+  }, [data]);
+
+  const filtered = useMemo(() => {
+    if (!data) return [];
+    return filterRows(data.rows, search.trim().toLowerCase(), filters);
+  }, [data, search, filters]);
+
+  if (loading && !data) {
+    return <div id="loading">⏳ 데이터 로드 중...</div>;
+  }
+
+  if (error && !data) {
+    return (
+      <div id="loading">
+        <p className="error" style={{ padding: 40, textAlign: "center" }}>
+          ⚠ {error}
+          <br />
+          <br />
+          <code style={{ fontSize: 12, color: "#888" }}>
+            python main.py export projects/PROJECT/config.yaml
+          </code>
+          <br />
+          <br />
+          <small>를 먼저 실행하거나, 로컬 API 서버 백엔드를 켜서 새로고침하세요.</small>
+        </p>
+      </div>
+    );
+  }
+
+  if (!data || !cfg) return null;
+
+  const adminHref = `/admin?project=${encodeURIComponent(data.meta.project)}${url ? `&data=${encodeURIComponent(url)}` : ""}`;
+
+  return (
+    <div className="app-wrap">
+      <header className="header">
+        <span className="header-logo">📊 Survey</span>
+        <select
+          className="project-select"
+          title="프로젝트 선택"
+          value={url ?? ""}
+          onChange={(e) => e.target.value && switchProject(e.target.value)}
+        >
+          <option value="">프로젝트 선택...</option>
+          {projects.map((p) => {
+            const v = p.file.startsWith("data/") ? "/" + p.file : "/data/" + p.file;
+            return (
+              <option key={p.id} value={v}>
+                {p.name} {p.updated ? `(${p.updated})` : ""}
+              </option>
+            );
+          })}
+        </select>
+        <span className="header-spacer" />
+        <span className="header-meta">
+          {data.meta.generated_at?.slice(0, 16).replace("T", " ")}
+        </span>
+        <button className="theme-toggle btn-ghost btn-sm" onClick={toggleTheme} title="다크모드">
+          {theme === "dark" ? "☀️" : "🌙"}
+        </button>
+        <button className="btn-ghost btn-sm" onClick={() => setGuideOpen(true)} title="설문 정제 가이드 보기">
+          📖 가이드
+        </button>
+        <Link to="/admin" search={{ project: data.meta.project, data: url ?? "" }} className="btn-ghost btn-sm">
+          ⚙ 설정 매니저
+        </Link>
+        <a href={adminHref} style={{ display: "none" }}>compat</a>
+      </header>
+
+      <KpiRow rows={filtered} cfg={cfg} />
+
+      <FilterBar
+        data={data}
+        cfg={cfg}
+        search={search}
+        filters={filters}
+        filteredCount={filtered.length}
+        onSearch={setSearch}
+        onFilterChange={(col, val) =>
+          setFilters((prev) => {
+            const next = { ...prev };
+            if (val) next[col] = val;
+            else delete next[col];
+            return next;
+          })
+        }
+        onReset={() => {
+          setSearch("");
+          setFilters({});
+        }}
+      />
+
+      <nav className="tab-nav">
+        <button
+          className={`tab-btn${tab === "dashboard" ? " active" : ""}`}
+          onClick={() => setTab("dashboard")}
+        >
+          📈 대시보드
+        </button>
+        <button
+          className={`tab-btn${tab === "list" ? " active" : ""}`}
+          onClick={() => setTab("list")}
+        >
+          📋 목록 · 검색
+        </button>
+      </nav>
+
+      <section className={`tab-panel${tab !== "dashboard" ? " hidden" : ""}`}>
+        {filtered.length === 0 ? (
+          <div className="no-data">필터 조건에 해당하는 데이터가 없습니다.</div>
+        ) : (
+          <div className="chart-grid">
+            {(cfg.charts || []).map((c, i) => (
+              <ChartCard key={i} chart={c} rows={filtered} data={data} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className={`tab-panel${tab !== "list" ? " hidden" : ""}`}>
+        <DataTable rows={filtered} cfg={cfg} search={search} />
+      </section>
+
+      <GuideDrawer isOpen={guideOpen} onClose={() => setGuideOpen(false)} />
+    </div>
+  );
+}
+

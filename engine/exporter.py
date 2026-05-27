@@ -1,0 +1,263 @@
+"""Export cleaned.xlsx → survey_data.json for web dashboard."""
+from __future__ import annotations
+
+import json
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+import openpyxl
+
+from engine.config import SurveyConfig
+
+
+# ---------------------------------------------------------------------------
+# Type detection
+# ---------------------------------------------------------------------------
+
+def _detect_type(values: list[Any]) -> str:
+    if not values:
+        return "text"
+    non_null = [v for v in values if v is not None]
+    if not non_null:
+        return "text"
+
+    numeric_count = sum(1 for v in non_null if isinstance(v, (int, float)))
+    if numeric_count / len(non_null) >= 0.8:
+        return "numeric"
+
+    unique_strs = {str(v).strip() for v in non_null if str(v).strip()}
+    ratio = len(unique_strs) / len(non_null)
+    if ratio <= 0.5 and len(unique_strs) <= 40:
+        return "category"
+
+    return "text"
+
+
+# ---------------------------------------------------------------------------
+# Main export function
+# ---------------------------------------------------------------------------
+
+def _auto_web_config(columns: list[dict]) -> dict:
+    """컬럼 메타데이터에서 KPI·검색필드·차트 구성을 자동 감지.
+
+    반환 형식:
+      kpi: [{label, field, agg}]  — 상단 박스 통계 (최대 5개)
+      search_fields: [col_key]    — 전문 검색 대상 컬럼
+      charts: [{field, type, title}]  — 차트 구성 (최대 6개)
+    """
+    cat_cols = [c for c in columns if c["type"] == "category"]
+    num_cols = [c for c in columns if c["type"] == "numeric"]
+    txt_cols = [c for c in columns if c["type"] == "text"]
+
+    # ── KPI ────────────────────────────────────────────────────────────────
+    kpi: list[dict] = [{"label": "전체 건수", "field": None, "agg": "count"}]
+    # 고유값 수 적은 카테고리 컬럼 → 고유값 수 KPI
+    for col in sorted(cat_cols, key=lambda c: c.get("unique_count", 99))[:3]:
+        kpi.append({
+            "label": col["label"],
+            "field": col["key"],
+            "agg":   "unique_count",
+        })
+    # 숫자 컬럼 → 합계 KPI
+    for col in num_cols[:1]:
+        kpi.append({"label": col["label"], "field": col["key"], "agg": "sum"})
+
+    # ── 검색 필드 ──────────────────────────────────────────────────────────
+    search_fields = [c["key"] for c in txt_cols[:5]]
+    if not search_fields:
+        # 텍스트 없으면 카테고리 컬럼
+        search_fields = [c["key"] for c in cat_cols[:3]]
+
+    # ── 차트 ───────────────────────────────────────────────────────────────
+    charts: list[dict] = []
+    for col in cat_cols[:6]:
+        uc = col.get("unique_count", 0)
+        chart_type = "donut" if uc <= 5 else ("bar" if uc <= 15 else "hbar")
+        charts.append({
+            "field": col["key"],
+            "type":  chart_type,
+            "title": col["label"],
+        })
+
+    return {
+        "kpi":           kpi[:5],
+        "search_fields": search_fields,
+        "charts":        charts,
+    }
+
+
+def export_to_json(
+    cleaned_xlsx: Path,
+    cfg: SurveyConfig,
+    output_path: Path | None = None,
+    project_dir: Path | None = None,
+) -> dict:
+    """Read Cleaned sheet from xlsx → return JSON-serializable dict.
+
+    project_dir: 프로젝트 폴더 경로. dashboard.json이 있으면 result["dashboard"]에 포함.
+    Also writes to output_path if provided.
+    """
+    # read_only=True is more tolerant of slicer-patched XMLs; fall back if needed
+    try:
+        wb = openpyxl.load_workbook(cleaned_xlsx, data_only=True, read_only=True)
+    except Exception:
+        wb = openpyxl.load_workbook(cleaned_xlsx, data_only=True)
+    ws_name = cfg.sheets.cleaned
+    if ws_name not in wb.sheetnames:
+        raise ValueError(f"'{ws_name}' 시트를 찾을 수 없습니다: {cleaned_xlsx.name}")
+    ws = wb[ws_name]
+
+    # ── headers from row 2 (output header row) ───────────────────────────────
+    # read_only worksheets use .rows iterator; cell() is not available
+    all_rows_iter = list(ws.rows)
+    hdr_row_cells = all_rows_iter[1] if len(all_rows_iter) > 1 else []
+    headers: list[str] = [
+        str(c.value).strip() if c.value is not None else ""
+        for c in hdr_row_cells
+    ]
+    max_col = len(headers)
+
+    # ── rows from row 3+ ──────────────────────────────────────────────────────
+    rows: list[dict] = []
+    for row_cells in all_rows_iter[2:]:
+        row: dict = {}
+        for ci, (h, cell) in enumerate(zip(headers, row_cells), 1):
+            if not h:
+                continue
+            row[h] = cell.value
+        if any(v is not None and str(v).strip() != "" for v in row.values()):
+            rows.append(row)
+
+    # ── column metadata ───────────────────────────────────────────────────────
+    columns: list[dict] = []
+    for h in headers:
+        if not h:
+            continue
+        vals = [r[h] for r in rows if r.get(h) is not None]
+        col_type = _detect_type(vals)
+        unique_strs = sorted({str(v).strip() for v in vals if str(v).strip()}) if col_type == "category" else []
+        entry: dict = {
+            "key":          h,
+            "label":        h,
+            "type":         col_type,
+        }
+        if col_type == "category":
+            entry["unique_count"] = len(unique_strs)
+            entry["unique_values"] = unique_strs[:60]   # cap for JSON size
+        elif col_type == "numeric":
+            nums = [float(v) for v in vals if isinstance(v, (int, float))]
+            if nums:
+                entry["min"] = min(nums)
+                entry["max"] = max(nums)
+                entry["sum"] = sum(nums)
+        columns.append(entry)
+
+    # ── aggregates (category counts) ──────────────────────────────────────────
+    aggregates: dict[str, dict[str, int]] = {}
+    for col in columns:
+        if col["type"] == "category":
+            counts: dict[str, int] = {}
+            for row in rows:
+                v = str(row.get(col["key"]) or "").strip()
+                if v:
+                    counts[v] = counts.get(v, 0) + 1
+            aggregates[col["key"]] = dict(sorted(counts.items(), key=lambda x: -x[1]))
+
+    # ── numeric aggregates ────────────────────────────────────────────────────
+    numeric_totals: dict[str, float] = {}
+    for col in columns:
+        if col["type"] == "numeric":
+            total = sum(
+                float(row[col["key"]])
+                for row in rows
+                if isinstance(row.get(col["key"]), (int, float))
+            )
+            numeric_totals[col["key"]] = total
+
+    # ── serialize rows (convert non-JSON types) ───────────────────────────────
+    def _clean(v: Any) -> Any:
+        if v is None:
+            return None
+        if isinstance(v, (int, float, bool)):
+            return v
+        return str(v)
+
+    clean_rows = [{h: _clean(row.get(h)) for h in headers if h} for row in rows]
+
+    # ── 웹 대시보드 자동 config (KPI / 검색 필드 / 차트) ─────────────────────
+    auto_cfg = _auto_web_config(columns)
+
+    result = {
+        "meta": {
+            "project":      cfg.project,
+            "generated_at": datetime.now().isoformat(timespec="seconds"),
+            "total_rows":   len(rows),
+            "source_file":  cleaned_xlsx.name,
+            "columns":      columns,
+        },
+        "config":         auto_cfg,    # KPI / 검색필드 / 차트 자동 구성
+        "rows":           clean_rows,
+        "aggregates":     aggregates,
+        "numeric_totals": numeric_totals,
+    }
+
+    # ── embed dashboard config ────────────────────────────────────────────────
+    # 우선순위: project/dashboard.json > config/dashboard_defaults.yaml
+    dash_cfg: dict | None = None
+
+    # 1. 조직 공통 기본값 (config/dashboard_defaults.yaml)
+    if project_dir is not None:
+        defaults_path = project_dir.parent.parent / "config" / "dashboard_defaults.yaml"
+        if defaults_path.exists():
+            import yaml as _yaml
+            with open(defaults_path, encoding="utf-8") as f:
+                raw_defaults = _yaml.safe_load(f) or {}
+            # 주석만 있는 파일은 실제 키가 없을 수 있음
+            if any(v is not None for v in raw_defaults.values()) if raw_defaults else False:
+                dash_cfg = raw_defaults
+
+    # 2. 프로젝트별 설정 (project/dashboard.json) — 공통값 위에 덮어씀
+    if project_dir is not None:
+        dash_path = project_dir / "dashboard.json"
+        if dash_path.exists():
+            with open(dash_path, encoding="utf-8") as f:
+                dash_cfg = json.load(f)
+            print(f"대시보드 설정 포함: {dash_path}")
+
+    if dash_cfg:
+        result["dashboard"] = dash_cfg
+
+    if output_path:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(result, f, ensure_ascii=False, indent=2)
+        print(f"내보내기 완료: {output_path} ({len(rows)}행, {len(columns)}컬럼)")
+        _update_manifest(output_path, cfg)
+
+    return result
+
+
+def _update_manifest(data_json: Path, cfg: SurveyConfig) -> None:
+    """Update web/data/projects.json manifest."""
+    manifest_path = data_json.parent / "projects.json"
+    existing: list[dict] = []
+    if manifest_path.exists():
+        try:
+            with open(manifest_path, encoding="utf-8") as f:
+                existing = json.load(f)
+        except Exception:
+            existing = []
+
+    entry = {
+        "id":      cfg.project,
+        "name":    cfg.project,
+        "file":    data_json.name,
+        "updated": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }
+    existing = [e for e in existing if e.get("id") != cfg.project]
+    existing.append(entry)
+
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump(existing, f, ensure_ascii=False, indent=2)
+    print(f"프로젝트 목록 갱신: {manifest_path}")

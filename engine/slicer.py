@@ -1,0 +1,281 @@
+from __future__ import annotations
+
+import zipfile
+from pathlib import Path
+from xml.etree import ElementTree as ET
+
+from engine.config import SurveyConfig
+
+_NS_MAIN  = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+_NS_PKG   = "http://schemas.openxmlformats.org/package/2006/relationships"
+_NS_R     = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+_NS_REL   = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+_NS_X14   = "http://schemas.microsoft.com/office/spreadsheetml/2009/9/main"
+_NS_X15   = "http://schemas.microsoft.com/office/spreadsheetml/2010/11/main"
+_NS_MC    = "http://schemas.openxmlformats.org/markup-compatibility/2006"
+_NS_XDR   = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
+_NS_A     = "http://schemas.openxmlformats.org/drawingml/2006/main"
+_NS_SLE   = "http://schemas.microsoft.com/office/drawing/2010/slicer"
+_REL_CACHE  = "http://schemas.microsoft.com/office/2007/relationships/slicerCache"
+_REL_SLICER = "http://schemas.microsoft.com/office/2007/relationships/slicer"
+_REL_DRAW   = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing"
+
+
+# ---------------------------------------------------------------------------
+# XML builders
+# ---------------------------------------------------------------------------
+
+def _slicer_xml(cname: str, caption: str) -> str:
+    """One slicer definition file (xl/slicers/slicerN.xml)."""
+    return (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        f'<slicers xmlns="{_NS_X15}" xmlns:mc="{_NS_MC}" xmlns:x14="{_NS_X14}" mc:Ignorable="x14">'
+        f'<slicer name="{cname}" cache="{cname}" caption="{caption}"'
+        f' rowHeight="225720" style="SlicerStyleLight1"/>'
+        f'</slicers>'
+    )
+
+
+def _slicer_rels_xml(cache_idx: int) -> str:
+    """Rels from slicer file → slicerCache file."""
+    return (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        f'<Relationships xmlns="{_NS_PKG}">'
+        f'<Relationship Id="rId1" Type="{_REL_CACHE}"'
+        f' Target="../slicerCaches/slicerCache{cache_idx}.xml"/>'
+        f'</Relationships>'
+    )
+
+
+def _cache_xml(cname: str, label: str, table_id: int, col_idx: int) -> str:
+    """SlicerCache definition referencing the Table column."""
+    return (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        f'<slicerCacheDefinition xmlns="{_NS_X14}" xmlns:r="{_NS_R}"'
+        f' name="{cname}" sourceName="{label}">'
+        f'<extLst>'
+        f'<ext uri="{{2F2917AC-EB37-4324-AD4E-5DD8C200BD13}}">'
+        f'<x15:tableSlicerCache xmlns:x15="{_NS_X15}" tableId="{table_id}" column="{col_idx}"/>'
+        f'</ext>'
+        f'</extLst>'
+        f'</slicerCacheDefinition>'
+    )
+
+
+def _drawing_xml(n_slicers: int, n_data_cols: int) -> str:
+    """Drawing that positions slicers to the right of data columns, side by side."""
+    anchors = []
+    for i in range(1, n_slicers + 1):
+        from_col = n_data_cols + (i - 1) * 4   # 0-based column
+        from_row = 2                              # below subtotal+header rows
+        to_col   = from_col + 4
+        to_row   = from_row + 12
+        anchor = (
+            f'<xdr:twoCellAnchor editAs="oneCell">'
+            f'<xdr:from>'
+            f'<xdr:col>{from_col}</xdr:col><xdr:colOff>0</xdr:colOff>'
+            f'<xdr:row>{from_row}</xdr:row><xdr:rowOff>0</xdr:rowOff>'
+            f'</xdr:from>'
+            f'<xdr:to>'
+            f'<xdr:col>{to_col}</xdr:col><xdr:colOff>0</xdr:colOff>'
+            f'<xdr:row>{to_row}</xdr:row><xdr:rowOff>0</xdr:rowOff>'
+            f'</xdr:to>'
+            f'<xdr:graphicFrame macro="">'
+            f'<xdr:nvGraphicFramePr>'
+            f'<xdr:cNvPr id="{i + 1}" name="Slicer {i}"/>'
+            f'<xdr:cNvGraphicFramePr/>'
+            f'</xdr:nvGraphicFramePr>'
+            f'<xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm>'
+            f'<a:graphic>'
+            f'<a:graphicData uri="http://schemas.microsoft.com/office/drawing/2010/slicer">'
+            f'<sle:slicer xmlns:sle="{_NS_SLE}" r:id="rId{i}"/>'
+            f'</a:graphicData>'
+            f'</a:graphic>'
+            f'</xdr:graphicFrame>'
+            f'<xdr:clientData/>'
+            f'</xdr:twoCellAnchor>'
+        )
+        anchors.append(anchor)
+
+    return (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        f'<xdr:wsDr xmlns:xdr="{_NS_XDR}" xmlns:a="{_NS_A}" xmlns:r="{_NS_R}">'
+        + "".join(anchors)
+        + '</xdr:wsDr>'
+    )
+
+
+def _drawing_rels_xml(n_slicers: int) -> str:
+    """Drawing rels: each rIdN → slicerN.xml."""
+    rels = "".join(
+        f'<Relationship Id="rId{i}" Type="{_REL_SLICER}"'
+        f' Target="../slicers/slicer{i}.xml"/>'
+        for i in range(1, n_slicers + 1)
+    )
+    return (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        f'<Relationships xmlns="{_NS_PKG}">'
+        + rels
+        + '</Relationships>'
+    )
+
+
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
+
+def inject_slicers(output_path: Path, cfg: SurveyConfig, col_index_map: dict[str, int]) -> None:
+    """Patch xlsx ZIP to inject table slicers with proper drawing positioning.
+
+    Each slicer gets its own file. A drawing XML positions them visually
+    to the right of the data columns.
+    """
+    if not cfg.slicers:
+        return
+
+    cleaned_sheet = cfg.sheets.cleaned
+    n_data_cols   = max(col_index_map.values()) if col_index_map else 0
+    n_slicers     = len(cfg.slicers)
+
+    with zipfile.ZipFile(output_path, "r") as zin:
+        orig = {n: zin.read(n) for n in zin.namelist()}
+
+    # ── locate cleaned sheet ──────────────────────────────────────────────────
+    wb_root = ET.fromstring(orig["xl/workbook.xml"])
+    cleaned_rid: str | None = None
+    for sh in wb_root.iter(f"{{{_NS_MAIN}}}sheet"):
+        if sh.get("name") == cleaned_sheet:
+            cleaned_rid = sh.get(f"{{{_NS_REL}}}id")
+            break
+
+    if not cleaned_rid:
+        print(f"Warning: sheet '{cleaned_sheet}' not found — slicers skipped")
+        return
+
+    wb_rels_root = ET.fromstring(orig["xl/_rels/workbook.xml.rels"])
+    ws_target: str | None = None
+    for rel in wb_rels_root.iter(f"{{{_NS_PKG}}}Relationship"):
+        if rel.get("Id") == cleaned_rid:
+            ws_target = rel.get("Target")
+            break
+
+    if not ws_target:
+        print("Warning: worksheet target not found — slicers skipped")
+        return
+
+    ws_target_clean = ws_target.lstrip("/")
+    ws_file         = ws_target_clean if ws_target_clean.startswith("xl/") else f"xl/{ws_target_clean}"
+    ws_basename     = ws_target_clean.split("/")[-1]
+    ws_rels_path    = f"xl/worksheets/_rels/{ws_basename}.rels"
+
+    # ── get table id ──────────────────────────────────────────────────────────
+    table_id = 1
+    if ws_rels_path in orig:
+        ws_rels_root = ET.fromstring(orig[ws_rels_path])
+        for rel in ws_rels_root.iter(f"{{{_NS_PKG}}}Relationship"):
+            if "table" in rel.get("Type", "").lower():
+                tgt = rel.get("Target", "")
+                tgt_file = ("xl/" + tgt[3:]) if tgt.startswith("../") else f"xl/worksheets/{tgt}"
+                if tgt_file in orig:
+                    tbl_root = ET.fromstring(orig[tgt_file])
+                    table_id = int(tbl_root.get("id", 1))
+                break
+
+    new_files = dict(orig)
+
+    # ── per-slicer files (slicer + cache + slicer rels) ───────────────────────
+    for i, sdef in enumerate(cfg.slicers, 1):
+        label   = sdef.col
+        caption = sdef.caption or label
+        cname   = f"Slicer_{label}"
+        col_idx = col_index_map.get(label, 1)
+
+        new_files[f"xl/slicers/slicer{i}.xml"]             = _slicer_xml(cname, caption).encode("utf-8")
+        new_files[f"xl/slicers/_rels/slicer{i}.xml.rels"]  = _slicer_rels_xml(i).encode("utf-8")
+        new_files[f"xl/slicerCaches/slicerCache{i}.xml"]   = _cache_xml(cname, label, table_id, col_idx).encode("utf-8")
+
+    # ── drawing XML (visual positioning) ─────────────────────────────────────
+    new_files["xl/drawings/drawing1.xml"]               = _drawing_xml(n_slicers, n_data_cols).encode("utf-8")
+    new_files["xl/drawings/_rels/drawing1.xml.rels"]    = _drawing_rels_xml(n_slicers).encode("utf-8")
+
+    # ── patch worksheet XML ───────────────────────────────────────────────────
+    ws_drw_rid = "rId_drw1"
+    ws_xml     = orig[ws_file].decode("utf-8")
+
+    slicer_list_items = "".join(
+        f'<x14:slicer xmlns:r="{_NS_R}" r:id="rId_slc{i}"/>'
+        for i in range(1, n_slicers + 1)
+    )
+    slicer_ext = (
+        f'<ext xmlns:x14="{_NS_X14}" uri="{{A8765BA9-456A-4daa-B4F3-9B99337C10BE}}">'
+        f'<x14:slicerList>{slicer_list_items}</x14:slicerList>'
+        f'</ext>'
+    )
+    drawing_el = f'<drawing xmlns:r="{_NS_R}" r:id="{ws_drw_rid}"/>'
+
+    ws_end          = ws_xml.rfind("</worksheet>")
+    last_extlst_end = ws_xml.rfind("</extLst>")
+
+    if last_extlst_end != -1 and last_extlst_end > ws_end - 2000:
+        # inject slicer ext into existing extLst, and drawing before extLst
+        ws_xml = ws_xml[:last_extlst_end] + slicer_ext + ws_xml[last_extlst_end:]
+        extlst_start = ws_xml.rfind("<extLst", 0, ws_xml.rfind("</extLst>"))
+        if extlst_start == -1:
+            extlst_start = ws_xml.rfind("<extLst")
+        ws_xml = ws_xml[:extlst_start] + drawing_el + ws_xml[extlst_start:]
+    else:
+        ws_xml = ws_xml[:ws_end] + drawing_el + f"<extLst>{slicer_ext}</extLst>" + ws_xml[ws_end:]
+
+    new_files[ws_file] = ws_xml.encode("utf-8")
+
+    # ── patch worksheet rels ──────────────────────────────────────────────────
+    new_ws_rels = f'<Relationship Id="{ws_drw_rid}" Type="{_REL_DRAW}" Target="../drawings/drawing1.xml"/>'
+    for i in range(1, n_slicers + 1):
+        new_ws_rels += (
+            f'<Relationship Id="rId_slc{i}" Type="{_REL_SLICER}"'
+            f' Target="../slicers/slicer{i}.xml"/>'
+        )
+
+    if ws_rels_path in new_files:
+        ws_rels_str = new_files[ws_rels_path].decode("utf-8")
+        ws_rels_str = ws_rels_str.replace("</Relationships>", new_ws_rels + "</Relationships>")
+    else:
+        ws_rels_str = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<Relationships xmlns="{_NS_PKG}">{new_ws_rels}</Relationships>'
+        )
+    new_files[ws_rels_path] = ws_rels_str.encode("utf-8")
+
+    # ── patch workbook.xml.rels: slicerCache relationships ───────────────────
+    wb_rels_str  = orig["xl/_rels/workbook.xml.rels"].decode("utf-8")
+    wb_cache_rels = "".join(
+        f'<Relationship Id="rId_cache{i}" Type="{_REL_CACHE}"'
+        f' Target="slicerCaches/slicerCache{i}.xml"/>'
+        for i in range(1, n_slicers + 1)
+    )
+    wb_rels_str = wb_rels_str.replace("</Relationships>", wb_cache_rels + "</Relationships>")
+    new_files["xl/_rels/workbook.xml.rels"] = wb_rels_str.encode("utf-8")
+
+    # ── patch [Content_Types].xml ─────────────────────────────────────────────
+    ct_str = orig["[Content_Types].xml"].decode("utf-8")
+    new_ct = (
+        '<Override PartName="/xl/drawings/drawing1.xml"'
+        ' ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>'
+    )
+    for i in range(1, n_slicers + 1):
+        new_ct += (
+            f'<Override PartName="/xl/slicers/slicer{i}.xml"'
+            f' ContentType="application/vnd.ms-excel.slicer+xml"/>'
+            f'<Override PartName="/xl/slicerCaches/slicerCache{i}.xml"'
+            f' ContentType="application/vnd.ms-excel.slicerCache+xml"/>'
+        )
+    ct_str = ct_str.replace("</Types>", new_ct + "</Types>")
+    new_files["[Content_Types].xml"] = ct_str.encode("utf-8")
+
+    # ── write patched zip ─────────────────────────────────────────────────────
+    tmp_path = output_path.with_suffix(".sltmp.xlsx")
+    with zipfile.ZipFile(tmp_path, "w", compression=zipfile.ZIP_DEFLATED) as zout:
+        for name, data in new_files.items():
+            zout.writestr(name, data)
+    tmp_path.replace(output_path)
+    print(f"슬라이서 {n_slicers}개 삽입 완료")
