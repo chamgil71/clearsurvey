@@ -116,7 +116,7 @@ function DashboardPage() {
         <button className="btn-ghost btn-sm" onClick={() => setGuideOpen(true)} title="설문 정제 가이드 보기">
           📖 가이드
         </button>
-        <Link to="/admin" search={{ project: data.meta.project, data: url ?? "" }} className="btn-ghost btn-sm">
+        <Link to="/admin" search={{ project: data.meta.project }} className="btn-ghost btn-sm">
           ⚙ 설정 매니저
         </Link>
         <a href={adminHref} style={{ display: "none" }}>compat</a>

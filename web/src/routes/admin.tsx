@@ -1,5 +1,6 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import "@/legacy-dashboard.css";
 import { useManagerApi } from "@/hooks/useManagerApi";
 import { Step1_ProjectUpload } from "@/components/manager/Step1_ProjectUpload";
@@ -23,7 +24,6 @@ export const Route = createFileRoute("/admin")({
 
 function AdminPage() {
   const search = Route.useSearch();
-  const navigate = useNavigate();
   const initialProject = search.project || "";
 
   const [activeStep, setActiveStep] = useState<number>(1);
@@ -71,10 +71,10 @@ function AdminPage() {
       // Reload updated config
       const refreshed = await api.loadProjectConfig(selectedProject);
       setLoadedConfig(refreshed);
-      alert("프로젝트 설정이 영구 저장되었습니다!");
+      toast.success("프로젝트 설정이 영구 저장되었습니다!");
       setActiveStep(3); // Advance to run pipeline step
     } catch (err: any) {
-      alert(`설정 저장 중 에러: ${err.message}`);
+      toast.error(`설정 저장 중 에러: ${err.message}`);
     }
   };
 

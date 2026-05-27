@@ -1,26 +1,46 @@
 import { useState, useEffect } from "react";
 
+/**
+ * FastAPI 백엔드 URL.
+ * 개발: http://localhost:8000 (기본값)
+ * 변경: web/.env.local 에 VITE_API_BASE_URL=http://your-server 추가
+ */
+const API_BASE =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ??
+  "http://localhost:8000";
+
+/**
+ * 컬럼 정의 — Python engine/config.py ColumnDef 와 동일한 구조.
+ * transforms/registry.py 에 등록된 실제 transform 이름만 사용합니다.
+ */
+export interface ColumnDef {
+  output_col: string;            // 출력 컬럼명 (필수)
+  source_col?: number | null;    // 원본 엑셀 열번호 (1-based)
+  source_col_name?: string;      // 원본 헤더명 (참조용)
+  transform?: string | null;     // 정제 규칙 이름 (단일 문자열)
+  flag_keyword?: string;         // to_binary 전용
+  backup_col?: number | null;    // jang 전용
+  include_in_slicer?: boolean;
+  type?: string;                 // UI 표시 힌트 (내보내기 시 자동 감지)
+}
+
+/**
+ * 프로젝트 설정 — Python SurveyConfig 의 핵심 필드 타입.
+ * (전체 필드가 아닌 웹 편집에 필요한 필드만 포함)
+ */
 export interface ProjectConfig {
   project: string;
   paths: {
-    source_file: string;
     output_dir: string;
     output_file: string;
   };
-  parser: {
+  source: {
+    file?: string | null;
+    sheet?: string | null;
     header_row: number;
-    data_start_row: number;
-    encoding: string;
+    data_start_row?: number | null;
   };
-  columns: Array<{
-    name: string;
-    type: string;
-    source_col: number | string;
-    target_name?: string;
-    transforms?: Array<{ rule: string; args?: Record<string, any> }>;
-    include_in_slicer?: boolean;
-    slicer_order?: number;
-  }>;
+  columns: ColumnDef[];
 }
 
 export function useManagerApi() {
@@ -29,8 +49,6 @@ export function useManagerApi() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
-
-  const API_BASE = "http://localhost:8000";
 
   // Check health on mount
   useEffect(() => {

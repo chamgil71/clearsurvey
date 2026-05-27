@@ -85,30 +85,37 @@ def _write_raw_sheet(out_wb: Workbook, src_wb: openpyxl.Workbook | None,
 
 
 def _build_registry(cfg: SurveyConfig) -> TransformRegistry:
-    from transforms.registry import registry
+    """파이프라인 실행마다 독립된 TransformRegistry 인스턴스를 생성합니다.
 
-    # built-in passthrough
-    registry.register("copy", lambda val, **kw: val)
+    모듈 수준 싱글톤을 공유하지 않으므로 FastAPI 멀티스레드 환경에서도
+    요청 간 transform 등록이 서로 간섭하지 않습니다.
+    """
+    reg = TransformRegistry()  # ← 글로벌 singleton 대신 요청별 인스턴스 생성
 
-    # address transforms (context-aware closures with shared cache)
+    # ── 내장 pass-through ─────────────────────────────────────────────────────
+    reg.register("copy", lambda val, **kw: val)
+
+    # ── 주소 변환 (project address_parsing 설정 기반 클로저) ──────────────────
+    # 클로저가 해당 프로젝트의 address_parsing 설정을 캡처하므로
+    # 싱글톤에 등록하면 동시 요청 간 설정이 덮어써집니다.
     if cfg.address_parsing:
         from transforms.common.address import AddressParser
         ap     = AddressParser(cfg.address_parsing.model_dump())
-        _cache: dict = {}
+        _cache: dict[str, tuple] = {}
 
-        def _parse_cached(val):
+        def _parse_cached(val: object) -> tuple:
             k = str(val) if val is not None else ""
             if k not in _cache:
                 _cache[k] = ap.parse(val)
             return _cache[k]
 
-        def _sido(val, **kw):
+        def _sido(val: object, **kw: object) -> str | None:
             return _parse_cached(val)[0] or None
 
-        def _sigungu(val, **kw):
+        def _sigungu(val: object, **kw: object) -> str | None:
             return _parse_cached(val)[1] or None
 
-        def _addr_split(val, **kw):
+        def _addr_split(val: object, **kw: object) -> dict | None:
             if not val:
                 return None
             sido, sigungu, detail = _parse_cached(val)
@@ -119,24 +126,24 @@ def _build_registry(cfg: SurveyConfig) -> TransformRegistry:
                 "_상세":  detail or None,
             }
 
-        registry.register("address_sido",    _sido)
-        registry.register("address_sigungu", _sigungu)
-        registry.register("addr_split",      _addr_split)
+        reg.register("address_sido",    _sido)
+        reg.register("address_sigungu", _sigungu)
+        reg.register("addr_split",      _addr_split)
 
-    # auto-load domain modules (includes cleansing.py with to_binary/to_pct/norm_date_parts/etc.)
+    # ── domain 모듈 자동 로드 (cleansing.py, gpu_survey.py 등) ───────────────
     try:
-        registry.auto_load_domain("transforms.domain")
+        reg.auto_load_domain("transforms.domain")
     except Exception as exc:
         print(f"[경고] domain 모듈 자동 로드 실패: {exc}")
 
-    # auto-load common modules (address.py fallback when address_parsing not set)
+    # ── 공통 주소 모듈 폴백 (address_parsing 미설정 시) ───────────────────────
     try:
         from transforms.common.address import _TRANSFORMS as _addr_transforms
-        registry.register_dict(_addr_transforms)
+        reg.register_dict(_addr_transforms)
     except Exception:
         pass
 
-    return registry
+    return reg
 
 
 class SurveyPipeline:
