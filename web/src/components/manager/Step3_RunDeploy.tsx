@@ -6,8 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 interface Step3Props {
   projectName: string;
   logs: string[];
-  onRunPipeline: () => Promise<any>;
-  onExportDashboard: () => Promise<any>;
+  /** 파이프라인 시작 → 폴링 → export까지 포함한 통합 핸들러 (admin.tsx 에서 주입) */
+  onRunPipeline: () => Promise<void>;
+  /** 독립 export 버튼용 (현재 UI에서는 미노출, 확장을 위해 유지) */
+  onExportDashboard?: () => Promise<any>;
   downloadUrl: string;
   loading: boolean;
   clearLogs: () => void;
@@ -17,7 +19,6 @@ export const Step3_RunDeploy: React.FC<Step3Props> = ({
   projectName,
   logs,
   onRunPipeline,
-  onExportDashboard,
   downloadUrl,
   loading,
   clearLogs,
@@ -32,12 +33,7 @@ export const Step3_RunDeploy: React.FC<Step3Props> = ({
   const handleRun = async () => {
     clearLogs();
     try {
-      // 1. Run pipeline
-      const runResult = await onRunPipeline();
-      if (runResult && runResult.status === "success") {
-        // 2. Proactively export dashboard json
-        await onExportDashboard();
-      }
+      await onRunPipeline();
     } catch (err) {
       console.error(err);
     }

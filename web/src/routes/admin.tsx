@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import "@/legacy-dashboard.css";
 import { useManagerApi } from "@/hooks/useManagerApi";
@@ -7,7 +7,7 @@ import { Step1_ProjectUpload } from "@/components/manager/Step1_ProjectUpload";
 import { Step2_ConfigEditor } from "@/components/manager/Step2_ConfigEditor";
 import { Step3_RunDeploy } from "@/components/manager/Step3_RunDeploy";
 import { GuideDrawer } from "@/components/dashboard/GuideDrawer";
-import { ArrowLeft, BookOpen, ChevronRight, HelpCircle } from "lucide-react";
+import { ArrowLeft, BookOpen, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface AdminSearch {
@@ -30,8 +30,19 @@ function AdminPage() {
   const [selectedProject, setSelectedProject] = useState<string>(initialProject);
   const [loadedConfig, setLoadedConfig] = useState<any>(null);
   const [guideOpen, setGuideOpen] = useState<boolean>(false);
+  const [pipelineRunning, setPipelineRunning] = useState<boolean>(false);
+
+  // 폴링 interval ref — 컴포넌트 언마운트 시 정리
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const api = useManagerApi();
+
+  // 언마운트 시 폴링 정리
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, []);
 
   // Load project config if a project is selected or initial search param exists
   useEffect(() => {
@@ -76,6 +87,67 @@ function AdminPage() {
     } catch (err: any) {
       toast.error(`설정 저장 중 에러: ${err.message}`);
     }
+  };
+
+  /**
+   * 파이프라인 실행 + 상태 폴링 + 대시보드 export 통합 핸들러.
+   * Step3 의 onRunPipeline prop 으로 전달합니다.
+   */
+  const handleRunWithPolling = async (): Promise<void> => {
+    if (!selectedProject) return;
+
+    // 이전 폴링 정리
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+
+    // 1. 파이프라인 시작 요청
+    let startResult: { status: string } | undefined;
+    try {
+      startResult = await api.runPipeline(selectedProject);
+    } catch {
+      return; // runPipeline 내부에서 에러 로그 처리
+    }
+    if (startResult?.status !== "started") return;
+
+    // 2. 폴링 시작
+    setPipelineRunning(true);
+    let pollTick = 0;
+
+    pollingRef.current = setInterval(async () => {
+      pollTick++;
+      const status = await api.getPipelineStatus(selectedProject);
+
+      if (status.status === "done") {
+        clearInterval(pollingRef.current!);
+        pollingRef.current = null;
+
+        api.addLog(`[SUCCESS] 정제 프로세스 완료!`);
+        if (status.cleaned_file) api.addLog(` - 정제 완료 파일: ${status.cleaned_file}`);
+        if (status.output_dir)   api.addLog(` - 저장 디렉토리: ${status.output_dir}`);
+
+        // 3. 대시보드 JSON 자동 내보내기
+        try {
+          await api.exportDashboard(selectedProject);
+        } catch {
+          // export 에러는 api 내부에서 로그 처리
+        }
+        setPipelineRunning(false);
+
+      } else if (status.status === "error") {
+        clearInterval(pollingRef.current!);
+        pollingRef.current = null;
+        api.addLog(`[ERROR] 파이프라인 실패: ${status.detail ?? "알 수 없는 오류"}`);
+        toast.error(`정제 실패: ${status.detail ?? "알 수 없는 오류"}`);
+        setPipelineRunning(false);
+
+      } else if (pollTick % 4 === 0) {
+        // ~10초마다 진행 상황 표시
+        const elapsed = Math.round(pollTick * 2.5);
+        api.addLog(`[RUNNING] 처리 중... (경과 ${elapsed}초)`);
+      }
+    }, 2500);
   };
 
   return (
@@ -167,10 +239,9 @@ function AdminPage() {
           <Step3_RunDeploy
             projectName={selectedProject}
             logs={api.logs}
-            onRunPipeline={() => api.runPipeline(selectedProject)}
-            onExportDashboard={() => api.exportDashboard(selectedProject)}
+            onRunPipeline={handleRunWithPolling}
             downloadUrl={api.getDownloadUrl(selectedProject)}
-            loading={api.loading}
+            loading={api.loading || pipelineRunning}
             clearLogs={api.clearLogs}
           />
         )}

@@ -169,13 +169,15 @@ export function useManagerApi() {
     }
   };
 
+  /**
+   * 파이프라인 실행 요청 — 즉시 반환합니다 (백그라운드 실행).
+   * 완료 여부는 getPipelineStatus()로 폴링하세요.
+   */
   const runPipeline = async (name: string) => {
-    setLoading(true);
     setError(null);
     setLogs((prev) => [
       ...prev,
-      `[SYSTEM] 파이프라인 정제 실행 요청 중...`,
-      `[RUNNING] 정제 엔진 구동 시작 (Excel cleansing & validation)...`,
+      `[SYSTEM] 파이프라인 실행 요청 전송 중...`,
     ]);
     try {
       const res = await fetch(`${API_BASE}/api/projects/${name}/run`, {
@@ -185,22 +187,39 @@ export function useManagerApi() {
         const errDetail = await res.json().catch(() => ({ detail: "알 수 없는 에러" }));
         throw new Error(errDetail.detail || "파이프라인 실행 실패");
       }
-      const data = await res.json();
+      const data = await res.json(); // { status: "started" }
       setLogs((prev) => [
         ...prev,
-        `[SUCCESS] 정제 프로세스 성공적으로 완료!`,
-        ` - 정제 완료 파일: ${data.cleaned_file}`,
-        ` - 저장 디렉토리: ${data.output_dir}`,
+        `[RUNNING] 정제 엔진이 백그라운드에서 구동을 시작했습니다...`,
       ]);
       return data;
     } catch (err: any) {
       setError(err.message);
       setLogs((prev) => [...prev, `[ERROR] 파이프라인 실행 중 오류: ${err.message}`]);
       throw err;
-    } finally {
-      setLoading(false);
     }
   };
+
+  /** 파이프라인 실행 상태 폴링 — GET /api/projects/{name}/status */
+  const getPipelineStatus = async (name: string): Promise<{
+    status: "idle" | "running" | "done" | "error";
+    cleaned_file?: string;
+    output_dir?: string;
+    detail?: string;
+    started_at?: string;
+    finished_at?: string;
+  }> => {
+    try {
+      const res = await fetch(`${API_BASE}/api/projects/${name}/status`);
+      if (!res.ok) return { status: "error", detail: "상태 조회 실패" };
+      return await res.json();
+    } catch {
+      return { status: "error", detail: "서버 연결 오류" };
+    }
+  };
+
+  /** 로그 메시지 한 줄 추가 (폴링 로직에서 사용) */
+  const addLog = (msg: string) => setLogs((prev) => [...prev, msg]);
 
   const exportDashboard = async (name: string) => {
     setLoading(true);
@@ -243,10 +262,12 @@ export function useManagerApi() {
     error,
     logs,
     clearLogs,
+    addLog,
     createProject,
     loadProjectConfig,
     saveProjectConfig,
     runPipeline,
+    getPipelineStatus,
     exportDashboard,
     getDownloadUrl,
   };
