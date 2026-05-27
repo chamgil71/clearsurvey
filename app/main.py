@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import sys
 import json
 import shutil
@@ -32,6 +33,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+_SAFE_NAME_RE = re.compile(r"^[a-zA-Z0-9_\-가-힣]{1,64}$")
+
+
+def _validate_project_name(name: str) -> None:
+    """프로젝트 이름의 경로 순회·특수문자 삽입 공격을 방지합니다."""
+    if not _SAFE_NAME_RE.match(name):
+        raise HTTPException(
+            status_code=400,
+            detail="프로젝트 이름은 영문·숫자·한글·_·- 만 허용하며 최대 64자입니다.",
+        )
+
+
+def _safe_filename(filename: str) -> str:
+    """업로드 파일명의 경로 순회(path traversal) 공격을 방지합니다."""
+    # 경로 구분자 제거 후 위험 문자를 _ 로 치환
+    name = Path(filename).name          # 디렉터리 부분 제거
+    name = re.sub(r"[^\w\-.]", "_", name)   # 안전한 문자만 허용
+    if not name or name.startswith("."):
+        name = "upload_" + name.lstrip(".")
+    return name
+
 
 def _get_project_dir(name: str) -> Path:
     proj_dir = PROJECT_ROOT / "projects" / name
@@ -80,12 +103,20 @@ async def create_project(
     name = name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="프로젝트 이름이 필요합니다.")
-        
+
+    # ── 보안 검증 ──────────────────────────────────────────────────────────
+    _validate_project_name(name)
+
+    safe_fname = _safe_filename(file.filename or "upload.xlsx")
+    # xlsx / xls 확장자만 허용
+    if not safe_fname.lower().endswith((".xlsx", ".xls")):
+        raise HTTPException(status_code=400, detail="xlsx 또는 xls 파일만 업로드할 수 있습니다.")
+
     storage_dir = PROJECT_ROOT / "storage"
     storage_dir.mkdir(exist_ok=True)
-    
-    # Save uploaded raw file
-    raw_file_path = storage_dir / file.filename
+
+    # Save uploaded raw file (sanitized filename)
+    raw_file_path = storage_dir / safe_fname
     with open(raw_file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
         
@@ -143,6 +174,7 @@ async def create_project(
 @app.get("/api/projects/{name}/config")
 def get_project_config(name: str):
     """프로젝트의 SurveyConfig 및 dashboard.json 설정을 로드합니다."""
+    _validate_project_name(name)
     proj_dir = _get_project_dir(name)
     if not proj_dir.exists():
         raise HTTPException(status_code=404, detail="프로젝트를 찾을 수 없습니다.")
@@ -187,6 +219,7 @@ def get_project_config(name: str):
 @app.post("/api/projects/{name}/config")
 async def save_project_config(name: str, payload: dict):
     """프로젝트의 SurveyConfig 및 dashboard.json 설정을 웹에서 편집 후 저장합니다."""
+    _validate_project_name(name)
     proj_dir = _get_project_dir(name)
     if not proj_dir.exists():
         raise HTTPException(status_code=404, detail="프로젝트를 찾을 수 없습니다.")
@@ -223,6 +256,7 @@ async def save_project_config(name: str, payload: dict):
 @app.post("/api/projects/{name}/run")
 def run_project_pipeline(name: str):
     """파이프라인을 원격 실행하여 정제된 데이터를 생성합니다."""
+    _validate_project_name(name)
     proj_dir = _get_project_dir(name)
     if not proj_dir.exists():
         raise HTTPException(status_code=404, detail="프로젝트를 찾을 수 없습니다.")
@@ -261,6 +295,7 @@ def run_project_pipeline(name: str):
 @app.post("/api/projects/{name}/export")
 def export_project_json(name: str):
     """정제된 엑셀을 웹 대시보드용 JSON 데이터로 내보냅니다."""
+    _validate_project_name(name)
     proj_dir = _get_project_dir(name)
     if not proj_dir.exists():
         raise HTTPException(status_code=404, detail="프로젝트를 찾을 수 없습니다.")
@@ -298,6 +333,7 @@ def export_project_json(name: str):
 @app.get("/api/projects/{name}/download")
 def download_cleaned_xlsx(name: str):
     """정제 완료된 결과 엑셀 파일을 다운로드합니다."""
+    _validate_project_name(name)
     proj_dir = _get_project_dir(name)
     if not proj_dir.exists():
         raise HTTPException(status_code=404, detail="프로젝트를 찾을 수 없습니다.")

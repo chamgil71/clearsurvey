@@ -38,52 +38,50 @@ def _detect_type(values: list[Any]) -> str:
 # Main export function
 # ---------------------------------------------------------------------------
 
-def _auto_web_config(columns: list[dict]) -> dict:
-    """컬럼 메타데이터에서 KPI·검색필드·차트 구성을 자동 감지.
+def _build_default_dashboard(columns: list[dict]) -> dict:
+    """컬럼 메타에서 React DashboardConfig 호환 기본 설정을 생성합니다.
 
-    반환 형식:
-      kpi: [{label, field, agg}]  — 상단 박스 통계 (최대 5개)
-      search_fields: [col_key]    — 전문 검색 대상 컬럼
-      charts: [{field, type, title}]  — 차트 구성 (최대 6개)
+    React 타입 (web/src/types/dashboard.ts) 과 동일한 구조를 반환합니다:
+      version: number
+      kpi:    [{label, type: "total_rows"|"sum"|"count_value", col?, value?}]
+      charts: [{col, type: "donut"|"bar"|"hbar"|"multibar", title?}]
+      list:   {visible_cols: [...], filter_cols: [...]}
     """
     cat_cols = [c for c in columns if c["type"] == "category"]
     num_cols = [c for c in columns if c["type"] == "numeric"]
-    txt_cols = [c for c in columns if c["type"] == "text"]
 
     # ── KPI ────────────────────────────────────────────────────────────────
-    kpi: list[dict] = [{"label": "전체 건수", "field": None, "agg": "count"}]
-    # 고유값 수 적은 카테고리 컬럼 → 고유값 수 KPI
-    for col in sorted(cat_cols, key=lambda c: c.get("unique_count", 99))[:3]:
-        kpi.append({
-            "label": col["label"],
-            "field": col["key"],
-            "agg":   "unique_count",
-        })
-    # 숫자 컬럼 → 합계 KPI
+    kpi: list[dict] = [{"label": "총 응답수", "type": "total_rows"}]
     for col in num_cols[:1]:
-        kpi.append({"label": col["label"], "field": col["key"], "agg": "sum"})
-
-    # ── 검색 필드 ──────────────────────────────────────────────────────────
-    search_fields = [c["key"] for c in txt_cols[:5]]
-    if not search_fields:
-        # 텍스트 없으면 카테고리 컬럼
-        search_fields = [c["key"] for c in cat_cols[:3]]
+        kpi.append({"label": col["label"] + " 합계", "type": "sum", "col": col["key"]})
 
     # ── 차트 ───────────────────────────────────────────────────────────────
     charts: list[dict] = []
-    for col in cat_cols[:6]:
+    for i, col in enumerate(cat_cols[:5]):
         uc = col.get("unique_count", 0)
         chart_type = "donut" if uc <= 5 else ("bar" if uc <= 15 else "hbar")
+        charts.append({"col": col["key"], "type": chart_type, "title": col["label"]})
+
+    # O_ 접두사 이진 컬럼 → multibar 하나로 묶기
+    binary_cols = [c for c in num_cols if c["key"].startswith("O_")]
+    if len(binary_cols) >= 2:
         charts.append({
-            "field": col["key"],
-            "type":  chart_type,
-            "title": col["label"],
+            "type": "multibar",
+            "title": "항목별 현황",
+            "cols": [
+                {"col": c["key"], "label": c["label"].replace("O_", "")}
+                for c in binary_cols
+            ],
         })
 
     return {
-        "kpi":           kpi[:5],
-        "search_fields": search_fields,
-        "charts":        charts,
+        "version": 1,
+        "kpi": kpi[:4],
+        "charts": charts[:6],
+        "list": {
+            "visible_cols": [c["key"] for c in columns[:8]],
+            "filter_cols":  [c["key"] for c in cat_cols[:3]],
+        },
     }
 
 
@@ -185,9 +183,6 @@ def export_to_json(
 
     clean_rows = [{h: _clean(row.get(h)) for h in headers if h} for row in rows]
 
-    # ── 웹 대시보드 자동 config (KPI / 검색 필드 / 차트) ─────────────────────
-    auto_cfg = _auto_web_config(columns)
-
     result = {
         "meta": {
             "project":      cfg.project,
@@ -196,14 +191,13 @@ def export_to_json(
             "source_file":  cleaned_xlsx.name,
             "columns":      columns,
         },
-        "config":         auto_cfg,    # KPI / 검색필드 / 차트 자동 구성
-        "rows":           clean_rows,
-        "aggregates":     aggregates,
-        "numeric_totals": numeric_totals,
+        "rows":       clean_rows,
+        "aggregates": aggregates,
     }
 
     # ── embed dashboard config ────────────────────────────────────────────────
-    # 우선순위: project/dashboard.json > config/dashboard_defaults.yaml
+    # 우선순위: project/dashboard.json > config/dashboard_defaults.yaml > 자동 생성
+    # 자동 생성 결과는 React DashboardConfig 타입과 호환됩니다.
     dash_cfg: dict | None = None
 
     # 1. 조직 공통 기본값 (config/dashboard_defaults.yaml)
@@ -214,7 +208,7 @@ def export_to_json(
             with open(defaults_path, encoding="utf-8") as f:
                 raw_defaults = _yaml.safe_load(f) or {}
             # 주석만 있는 파일은 실제 키가 없을 수 있음
-            if any(v is not None for v in raw_defaults.values()) if raw_defaults else False:
+            if raw_defaults and any(v is not None for v in raw_defaults.values()):
                 dash_cfg = raw_defaults
 
     # 2. 프로젝트별 설정 (project/dashboard.json) — 공통값 위에 덮어씀
@@ -225,8 +219,11 @@ def export_to_json(
                 dash_cfg = json.load(f)
             print(f"대시보드 설정 포함: {dash_path}")
 
-    if dash_cfg:
-        result["dashboard"] = dash_cfg
+    # 3. 설정 없으면 컬럼 메타에서 DashboardConfig 호환 기본값 자동 생성
+    if not dash_cfg:
+        dash_cfg = _build_default_dashboard(columns)
+
+    result["dashboard"] = dash_cfg
 
     if output_path:
         output_path.parent.mkdir(parents=True, exist_ok=True)
