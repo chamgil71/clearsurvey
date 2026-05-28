@@ -4,6 +4,61 @@
 
 ---
 
+## 🗒️ 기술 결정 노트 (ADR)
+
+### [ADR-001] Step3 로그 스트리밍 방식 — 폴링 vs SSE vs WebSocket
+
+#### 방식별 비교
+
+| | 폴링 (현재) | SSE | WebSocket |
+|--|-------------|-----|-----------|
+| 방향 | 클라이언트 주도 요청 반복 | 서버→클라이언트 단방향 | 양방향 |
+| 프로토콜 | HTTP | HTTP | ws:// (별도) |
+| 연결 | 매번 새 요청 | 1회 연결 유지 | 1회 연결 유지 |
+| 실시간성 | 낮음 (뭉쳐서 옴) | 높음 (즉시 한 줄씩) | 높음 |
+| 재연결 | 자동 | 브라우저 자동 | 직접 구현 필요 |
+| 방화벽 | 무난 | 무난 | 일부 차단 가능 |
+| 구현 복잡도 | 낮음 | 보통 | 높음 |
+| FastAPI 지원 | ✅ | ✅ `StreamingResponse` | ✅ `WebSocket` |
+
+#### 각 방식이 유리한 상황
+
+- **폴링**: 완료 여부만 확인, 빈도가 낮을 때
+- **SSE**: 서버→클라이언트 단방향 스트리밍 (파이프라인 로그, 진행상황)
+- **WebSocket**: 사용자가 실행 중 **취소** 전송, 다수 클라이언트 브로드캐스트, 양방향 인터랙션
+
+#### FastAPI 구현 스케치
+
+```python
+# SSE
+from fastapi.responses import StreamingResponse
+
+@app.post("/api/projects/{name}/run-stream")
+async def run_stream(name: str):
+    async def generate():
+        async for line in run_pipeline_stream(name):
+            yield f"data: {line}\n\n"
+    return StreamingResponse(generate(), media_type="text/event-stream")
+
+# WebSocket
+from fastapi import WebSocket
+
+@app.websocket("/ws/projects/{name}/run")
+async def run_ws(websocket: WebSocket, name: str):
+    await websocket.accept()
+    async for line in run_pipeline_stream(name):
+        await websocket.send_json({"type": "log", "message": line})
+    await websocket.send_json({"type": "done"})
+    await websocket.close()
+```
+
+#### 결정
+
+현재 Step3는 **실행 → 로그 출력 → 완료** 단방향 흐름이므로 **SSE 적용이 적합**.
+WebSocket은 파이프라인 **취소 버튼** 기능 추가 시점에 재검토.
+
+---
+
 ## 📅 주요 개발 일지 및 마일스톤
 
 ### 2026-05-18 ~ 2026-05-20: [Phase 1] 요구사항 식별 및 파이썬 정제 코어 구축
