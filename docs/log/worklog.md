@@ -76,6 +76,29 @@ projects/*/output/*.xlsx  →  ❌  (신규 추가)
 - 단계별 권장 경로: Railway Persistent Volume → Cloudflare R2 / Supabase Storage
 - 로컬 안정화 완료 후 진행 예정
 
+#### 메타태그·다크모드·컬럼 순서 버그 수정 (commit ad63319)
+- `__root.tsx` 메타 정보 전면 교체: `"Lovable App"` → `"ClearSurvey"` (title/description/author/og/twitter)
+- 다크모드 이중 선택자 동기화 수정:
+  - 기존: `dataset.theme = "dark"` 만 적용 → legacy CSS만 반응
+  - 수정: `.dark` 클래스 토글 동시 추가 → shadcn 컴포넌트도 정상 반응
+- Step2_ConfigEditor 컬럼 순서 변경(▲▼) 기능 추가
+
+#### html2pdf CDN → npm 패키지 교체 및 PDF 전체 캡처 수정 (commit ee3277a)
+- **CDN 제거**: `__root.tsx` `<body>` 내 cloudflare CDN 스크립트 태그 삭제
+- **npm 설치**: `html2pdf.js` 패키지로 교체, 동적 import 방식 적용
+- **PDF 내용 잘림 버그 수정**:
+  - 원인: `#detail-pdf-content` 가 `height:flex(1) + overflow-y:auto` 구조라 html2canvas가 뷰포트 표시 영역만 캡처
+  - 해결: 오프스크린 컨테이너(`position:fixed; left:-9999px; width:760px`) 생성 후 전체 내용 빌드 → 캡처 → 제거
+  - `dl + CSS grid` → `<table>` 구조로 변경 (html2canvas grid 렌더링 호환성 개선)
+  - `try/finally` 로 컨테이너 정리 보장, 저장 중 버튼 비활성화 추가
+
+#### 오늘 전체 커밋 이력 (2026-05-28)
+| 커밋 | 내용 |
+|------|------|
+| fcd0ace | Admin Step2 크래시·경로·gitignore·가이드 현행화 |
+| ad63319 | 메타태그·다크모드·컬럼순서 버그 3종 수정 |
+| ee3277a | html2pdf CDN→npm 교체, PDF 전체 내용 캡처 수정 |
+
 ---
 
 ### 2026-05-26: [Phase 4] P4 프리미엄 웹 아키텍처 및 3단계 설정 매니저 완성 (최종 완료)
