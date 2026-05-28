@@ -216,6 +216,16 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
     }));
   };
 
+  const moveColumn = (index: number, dir: -1 | 1) => {
+    setLocalConfig((prev: any) => {
+      const cols = [...prev.columns];
+      const target = index + dir;
+      if (target < 0 || target >= cols.length) return prev;
+      [cols[index], cols[target]] = [cols[target], cols[index]];
+      return { ...prev, columns: cols };
+    });
+  };
+
   // ── KPI Handlers ─────────────────────────────────────────────────────────────
 
   const updateKpi = (i: number, patch: Partial<Record<string, unknown>>) => {
@@ -338,6 +348,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
               <Table>
                 <TableHeader className="bg-muted/50 text-[11px]">
                   <TableRow>
+                    <TableHead className="w-[52px] font-semibold text-center">순서</TableHead>
                     <TableHead className="w-[185px] font-semibold text-center">
                       출력 컬럼명 (output_col)
                     </TableHead>
@@ -364,11 +375,39 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                     const transform = col.transform ?? "";
                     const isExcluded = transform === "exclude";
 
+                    const totalCols = (localConfig.columns as ColumnDef[]).length;
                     return (
                       <TableRow
                         key={index}
                         className={`hover:bg-muted/10 ${isExcluded ? "opacity-40" : ""}`}
                       >
+                        {/* 순서 이동 */}
+                        <TableCell className="p-1 text-center">
+                          <div className="flex flex-col gap-0.5 items-center">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => moveColumn(index, -1)}
+                              disabled={index === 0}
+                              className="h-5 w-5 text-muted-foreground hover:text-foreground disabled:opacity-20"
+                              title="위로"
+                            >
+                              ▲
+                            </Button>
+                            <span className="text-[10px] text-muted-foreground font-mono leading-none">{index + 1}</span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => moveColumn(index, 1)}
+                              disabled={index === totalCols - 1}
+                              className="h-5 w-5 text-muted-foreground hover:text-foreground disabled:opacity-20"
+                              title="아래로"
+                            >
+                              ▼
+                            </Button>
+                          </div>
+                        </TableCell>
+
                         {/* 출력 컬럼명 */}
                         <TableCell className="p-2">
                           <Input

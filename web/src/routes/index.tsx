@@ -29,17 +29,21 @@ function DashboardPage() {
   const [theme, setTheme] = useState<string>("");
   const [guideOpen, setGuideOpen] = useState(false);
 
-  // load theme
+  // load theme — data-theme (legacy CSS) + .dark class (shadcn) 동시 적용
   useEffect(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem("theme") || "" : "";
     setTheme(saved);
-    if (typeof document !== "undefined") document.documentElement.dataset.theme = saved;
+    if (typeof document !== "undefined") {
+      document.documentElement.dataset.theme = saved;
+      document.documentElement.classList.toggle("dark", saved === "dark");
+    }
   }, []);
 
   const toggleTheme = () => {
     const next = theme === "dark" ? "" : "dark";
     setTheme(next);
     document.documentElement.dataset.theme = next;
+    document.documentElement.classList.toggle("dark", next === "dark");
     localStorage.setItem("theme", next);
   };
 

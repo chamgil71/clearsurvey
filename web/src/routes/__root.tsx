@@ -73,14 +73,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "ClearSurvey" },
+      { name: "description", content: "설문 데이터 정제 파이프라인 — 어드민 + 대시보드" },
+      { name: "author", content: "ClearSurvey" },
+      { property: "og:title", content: "ClearSurvey" },
+      { property: "og:description", content: "설문 데이터 정제 파이프라인 — 어드민 + 대시보드" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:site", content: "@ClearSurvey" },
     ],
     links: [
       {
