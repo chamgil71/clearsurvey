@@ -1,0 +1,141 @@
+project: 수의계약정보
+source:
+  file: ../../storage/raw/수의계약정보.xlsx
+  header_row: 1
+  data_start_row: 2
+preprocess:
+  fill_down: []
+  row_filter:
+    include: []
+    exclude: []
+columns:
+- output_col: 순번
+  source_col_name: 순번
+  source_col: 1
+  transform: copy
+  width: 14
+  include_in_slicer: false
+- output_col: 제목
+  source_col_name: 제목
+  source_col: 2
+  transform: copy
+  width: 14
+  include_in_slicer: false
+- output_col: 작성일
+  source_col_name: 작성일
+  source_col: 3
+  transform: norm_date
+  width: 14
+  include_in_slicer: true
+  type: datetime
+- output_col: 조회수
+  source_col_name: 조회수
+  source_col: 4
+  transform: copy
+  width: 14
+  include_in_slicer: false
+- output_col: 첨부파일명
+  source_col_name: 첨부파일명
+  source_col: 5
+  transform: copy
+  width: 14
+  include_in_slicer: false
+- output_col: 첨부파일주소
+  source_col_name: 첨부파일주소
+  source_col: 6
+  transform: copy
+  width: 14
+  include_in_slicer: false
+- output_col: 내용
+  source_col_name: 내용
+  source_col: 7
+  transform: copy
+  width: 14
+  include_in_slicer: false
+summary:
+  sheet_name: Summary
+  layout:
+    cols: 1
+    start_row: 1
+    col_span: 4
+    gap_cols: 0
+    gap_rows: 2
+  sections: []
+slicers: []
+paths:
+  output_dir: output
+  output_file: 수의계약정보_cleaned.xlsx
+sheets:
+  cleaned: cleaned
+  summary: summary
+transform_kwargs:
+  company_patterns:
+    corp_forms:
+    - 주식회사
+    - 유한회사
+    - 유한책임회사
+    - 합자회사
+    - 합명회사
+    - 재단법인
+    - 사단법인
+    symbol_forms:
+    - ㈜
+    - ㈔
+    bracket_forms:
+    - \(주\)
+    - \(유\)
+    - \(재\)
+    - \(사\)
+    - \(합\)
+    abbrevs:
+      주식회사: (주)
+      유한회사: (유)
+      합자회사: (합)
+      합명회사: (합명)
+      유한책임회사: (유한)
+      재단법인: (재)
+      사단법인: (사)
+  phone_patterns:
+    intl_prefix: '82'
+    area_codes:
+      '02': 2
+      '031': 3
+      '032': 3
+      '033': 3
+      '041': 3
+      '042': 3
+      '043': 3
+      '044': 3
+      '051': 3
+      '052': 3
+      '053': 3
+      '054': 3
+      '055': 3
+      '061': 3
+      '062': 3
+      '063': 3
+      '064': 3
+      '010': 3
+      '011': 3
+      '016': 3
+      '017': 3
+      018: 3
+      019: 3
+      '070': 3
+      080: 3
+  brn_patterns:
+    weights:
+    - 1
+    - 3
+    - 7
+    - 1
+    - 3
+    - 7
+    - 1
+    - 3
+    - 5
+    separator: '-'
+    parts:
+    - 3
+    - 2
+    - 5

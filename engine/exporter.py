@@ -74,6 +74,12 @@ def _build_default_dashboard(columns: list[dict]) -> dict:
             ],
         })
 
+    # category 차트가 부족하면 일반 numeric 컬럼으로 bar 차트 보충 (TS buildDefaultConfig 동기화)
+    plain_nums = [c for c in num_cols if not c["key"].startswith("O_")]
+    if len(charts) < 4:
+        for col in plain_nums[: 4 - len(charts)]:
+            charts.append({"col": col["key"], "type": "bar", "title": col["label"]})
+
     return {
         "version": 1,
         "kpi": kpi[:4],
@@ -161,17 +167,6 @@ def export_to_json(
                 if v:
                     counts[v] = counts.get(v, 0) + 1
             aggregates[col["key"]] = dict(sorted(counts.items(), key=lambda x: -x[1]))
-
-    # ── numeric aggregates ────────────────────────────────────────────────────
-    numeric_totals: dict[str, float] = {}
-    for col in columns:
-        if col["type"] == "numeric":
-            total = sum(
-                float(row[col["key"]])
-                for row in rows
-                if isinstance(row.get(col["key"]), (int, float))
-            )
-            numeric_totals[col["key"]] = total
 
     # ── serialize rows (convert non-JSON types) ───────────────────────────────
     def _clean(v: Any) -> Any:

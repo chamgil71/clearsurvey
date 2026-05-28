@@ -527,7 +527,7 @@ def export_json(
         raise typer.Exit(1)
 
     # resolve output json path
-    json_path = out or (config.parent.parent.parent / "web" / "data" / f"{cfg.project}_data.json")
+    json_path = out or (config.parent.parent.parent / "web" / "public" / "data" / f"{cfg.project}_data.json")
 
     export_to_json(xlsx, cfg, output_path=json_path, project_dir=config.parent)
     typer.echo(f"웹 대시보드 데이터: {json_path}")

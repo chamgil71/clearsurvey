@@ -12,8 +12,19 @@ node_modules
 dist
 dist-ssr
 *.local
-storage/
-storage/**
+# storage/ 원본 데이터 — 하위폴더별 제외 (README.md 는 추적)
+storage/raw/
+storage/draft/
+storage/dummy/
+storage/backup/
+storage/budget_2026/
+storage/gpu_2026/
+storage/dummy_budget/
+storage/dummy_gpu_survey/
+
+# projects/ 정제 결과물 — cleaned.xlsx 는 빌드 아티팩트 (JSON으로 대체)
+# 웹 대시보드는 web/public/data/*.json 만 있으면 동작함
+projects/*/output/
 
 # Editor directories and files
 .vscode/*

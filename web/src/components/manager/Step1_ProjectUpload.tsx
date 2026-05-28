@@ -1,15 +1,17 @@
 import React, { useState, useRef } from "react";
 import { FolderOpen, FileUp, Upload, CheckCircle2, AlertTriangle, Play } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import type { ProjectListItem } from "@/types/dashboard";
 
 interface Step1Props {
   isBackendAlive: boolean;
-  projects: any[];
+  projects: ProjectListItem[];
   onSelectProject: (name: string) => void;
-  onCreateProject: (name: string, file: File) => Promise<any>;
+  onCreateProject: (name: string, file: File) => Promise<void>;
   loading: boolean;
 }
 
@@ -45,7 +47,7 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
       if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
         setSelectedFile(file);
       } else {
-        alert("Excel 파일(.xlsx, .xls)만 업로드할 수 있습니다.");
+        toast.error("Excel 파일(.xlsx, .xls)만 업로드할 수 있습니다.");
       }
     }
   };

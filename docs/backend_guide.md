@@ -18,8 +18,11 @@
 터미널 혹은 CLI 콘솔에서 API 서버를 가동시키는 명령어입니다.
 
 ```bash
-# uvicorn 실행 (기본 8000 포트)
-python -m uvicorn app.main:app --reload
+# 방법 1: 배치 파일 (Windows)
+start_backend.bat   # → http://localhost:8000
+
+# 방법 2: 직접 실행
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 * 서버 가동이 성공하면 `http://localhost:8000/api/health` 핑을 통해 상태를 실시간으로 확인할 수 있으며, 프론트엔드가 이를 자동 감지하여 정적 데모 모드에서 풀스택 설정 모드로 즉시 전환됩니다.
 
@@ -34,7 +37,8 @@ python -m uvicorn app.main:app --reload
 | **`POST`** | `/api/projects/create` | 신규 프로젝트 및 엑셀 업로드 | `storage/`에 원본 저장 ➡️ 구조 자동 분석 ➡️ Draft xlsx 및 YAML 초안 작성 |
 | **`GET`** | `/api/projects/{name}/config` | 프로젝트 설정 로드 | YAML 설정 및 `dashboard.json` 통합 객체 반환 |
 | **`POST`** | `/api/projects/{name}/config` | 프로젝트 설정 및 빌더 저장 | 화면에서 수정한 10열 매핑 정보 및 대시보드 비주얼 레이아웃 저장 |
-| **`POST`** | `/api/projects/{name}/run` | 정제 엔진 파이프라인 트리거 | 원격 클렌징 엔진 실행 ➡️ `output/result.xlsx` 및 런타임 로그 산출 |
+| **`POST`** | `/api/projects/{name}/run` | 정제 파이프라인 비동기 실행 | BackgroundTask로 실행 후 즉시 반환. 진행 상태는 `/status`로 폴링 |
+| **`GET`** | `/api/projects/{name}/status` | 파이프라인 실행 상태 조회 | `idle` / `running` / `done` / `error` 상태 반환 |
 | **`POST`** | `/api/projects/{name}/export` | 웹 대시보드용 JSON 배포 | `web/data/{project}_data.json`으로 가시화 데이터 추출 및 즉시 갱신 |
 | **`GET`** | `/api/projects/{name}/download` | 정제 완료 결과물 다운로드 | 완성된 고품질의 엑셀 결과 파일을 원격으로 즉시 다운로드 제공 |
 

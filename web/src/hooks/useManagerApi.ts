@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import type { DashboardConfig, ProjectListItem } from "@/types/dashboard";
 
 /**
  * FastAPI 백엔드 URL.
@@ -43,9 +44,15 @@ export interface ProjectConfig {
   columns: ColumnDef[];
 }
 
+/** GET /api/projects/{name}/config 응답 구조 */
+export interface LoadedProjectConfig {
+  config: ProjectConfig;
+  dashboard: DashboardConfig | null;
+}
+
 export function useManagerApi() {
   const [isBackendAlive, setIsBackendAlive] = useState<boolean>(false);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
@@ -118,16 +125,17 @@ export function useManagerApi() {
       ]);
       await refreshProjects();
       return data;
-    } catch (err: any) {
-      setError(err.message);
-      setLogs((prev) => [...prev, `[ERROR] 생성 실패: ${err.message}`]);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      setLogs((prev) => [...prev, `[ERROR] 생성 실패: ${msg}`]);
       throw err;
     } finally {
       setLoading(false);
     }
   };
 
-  const loadProjectConfig = async (name: string) => {
+  const loadProjectConfig = async (name: string): Promise<LoadedProjectConfig> => {
     setLoading(true);
     setError(null);
     try {
@@ -136,16 +144,17 @@ export function useManagerApi() {
         const errDetail = await res.json().catch(() => ({ detail: "알 수 없는 에러" }));
         throw new Error(errDetail.detail || "프로젝트 설정 로드 실패");
       }
-      return await res.json();
-    } catch (err: any) {
-      setError(err.message);
+      return await res.json() as LoadedProjectConfig;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
       throw err;
     } finally {
       setLoading(false);
     }
   };
 
-  const saveProjectConfig = async (name: string, config: any, dashboard: any) => {
+  const saveProjectConfig = async (name: string, config: ProjectConfig, dashboard: DashboardConfig | null) => {
     setLoading(true);
     setError(null);
     try {
@@ -160,9 +169,10 @@ export function useManagerApi() {
       }
       setLogs((prev) => [...prev, `[SYSTEM] 프로젝트 '${name}' 설정 및 대시보드 저장 완료.`]);
       return await res.json();
-    } catch (err: any) {
-      setError(err.message);
-      setLogs((prev) => [...prev, `[ERROR] 설정 저장 실패: ${err.message}`]);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      setLogs((prev) => [...prev, `[ERROR] 설정 저장 실패: ${msg}`]);
       throw err;
     } finally {
       setLoading(false);
@@ -193,9 +203,10 @@ export function useManagerApi() {
         `[RUNNING] 정제 엔진이 백그라운드에서 구동을 시작했습니다...`,
       ]);
       return data;
-    } catch (err: any) {
-      setError(err.message);
-      setLogs((prev) => [...prev, `[ERROR] 파이프라인 실행 중 오류: ${err.message}`]);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      setLogs((prev) => [...prev, `[ERROR] 파이프라인 실행 중 오류: ${msg}`]);
       throw err;
     }
   };
@@ -240,9 +251,10 @@ export function useManagerApi() {
         ` - 대상 데이터: web/data/${data.json_file}`,
       ]);
       return data;
-    } catch (err: any) {
-      setError(err.message);
-      setLogs((prev) => [...prev, `[ERROR] 내보내기 실패: ${err.message}`]);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      setLogs((prev) => [...prev, `[ERROR] 내보내기 실패: ${msg}`]);
       throw err;
     } finally {
       setLoading(false);

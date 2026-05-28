@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import type { ProjectConfig } from "@/hooks/useManagerApi";
+import type { DashboardConfig, KpiItem, ChartItem } from "@/types/dashboard";
 import {
   Save,
   Settings,
@@ -53,10 +55,10 @@ interface ColumnDef {
 interface Step2Props {
   projectName: string;
   config: {
-    config: any;
-    dashboard: any;
+    config: ProjectConfig;
+    dashboard: DashboardConfig | null;
   } | null;
-  onSaveConfig: (config: any, dashboard: any) => Promise<any>;
+  onSaveConfig: (config: ProjectConfig, dashboard: DashboardConfig | null) => Promise<void>;
   loading: boolean;
 }
 
@@ -115,15 +117,33 @@ const CHART_TYPES = ["donut", "bar", "hbar", "histogram", "multibar"] as const;
 const MAX_SOURCE_COLS = 50;
 const sourceColOptions = Array.from({ length: MAX_SOURCE_COLS }, (_, i) => i + 1);
 
+const EMPTY_DASHBOARD: DashboardConfig = {
+  version: 1,
+  kpi: [],
+  charts: [],
+  list: { visible_cols: [], filter_cols: [] },
+};
+
+function normDashboard(d: DashboardConfig | null | undefined): DashboardConfig {
+  if (!d || Object.keys(d).length === 0) return EMPTY_DASHBOARD;
+  return {
+    ...EMPTY_DASHBOARD,
+    ...d,
+    kpi: d.kpi ?? [],
+    charts: d.charts ?? [],
+    list: d.list ?? EMPTY_DASHBOARD.list,
+  };
+}
+
 export const Step2_ConfigEditor: React.FC<Step2Props> = ({
   projectName,
   config,
   onSaveConfig,
   loading,
 }) => {
-  const [localConfig, setLocalConfig] = useState<any>(config?.config ?? null);
-  const [localDashboard, setLocalDashboard] = useState<any>(
-    config?.dashboard ?? { kpi: [], charts: [], list: { visible_cols: [], filter_cols: [] } },
+  const [localConfig, setLocalConfig] = useState<ProjectConfig | null>(config?.config ?? null);
+  const [localDashboard, setLocalDashboard] = useState<DashboardConfig>(
+    normDashboard(config?.dashboard),
   );
   const [activeSubTab, setActiveSubTab] = useState<"columns" | "dashboard">("columns");
 
@@ -131,9 +151,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
   React.useEffect(() => {
     if (config) {
       setLocalConfig(config.config);
-      setLocalDashboard(
-        config.dashboard ?? { kpi: [], charts: [], list: { visible_cols: [], filter_cols: [] } },
-      );
+      setLocalDashboard(normDashboard(config.dashboard));
     }
   }, [config]);
 
@@ -539,7 +557,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {localDashboard.kpi.map((k: any, i: number) => (
+                {localDashboard.kpi.map((k: KpiItem, i: number) => (
                   <div
                     key={i}
                     className="flex items-center gap-2 p-2 bg-muted/20 border rounded-md text-xs"
@@ -624,14 +642,14 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {localDashboard.charts.map((c: any, i: number) => (
+                {localDashboard.charts.map((c: ChartItem, i: number) => (
                   <div
                     key={i}
                     className="space-y-2 p-2 bg-muted/20 border rounded-md text-xs"
                   >
                     <div className="flex items-center gap-2">
                       <select
-                        value={c.col ?? ""}
+                        value={"col" in c ? c.col : ""}
                         title="차트 대상 컬럼"
                         onChange={(e) => updateChart(i, { col: e.target.value })}
                         className="p-1 rounded border border-input bg-background text-[11px] flex-1"

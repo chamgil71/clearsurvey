@@ -105,7 +105,7 @@ def _get_project_dir(name: str) -> Path:
 @app.get("/api/projects")
 def list_projects():
     """웹 대시보드 프로젝트 목록 및 현황을 리턴합니다."""
-    manifest_path = PROJECT_ROOT / "web" / "data" / "projects.json"
+    manifest_path = PROJECT_ROOT / "web" / "public" / "data" / "projects.json"
     if manifest_path.exists():
         try:
             with open(manifest_path, encoding="utf-8") as f:
@@ -152,8 +152,8 @@ async def create_project(
     if not safe_fname.lower().endswith((".xlsx", ".xls")):
         raise HTTPException(status_code=400, detail="xlsx 또는 xls 파일만 업로드할 수 있습니다.")
 
-    storage_dir = PROJECT_ROOT / "storage"
-    storage_dir.mkdir(exist_ok=True)
+    storage_dir = PROJECT_ROOT / "storage" / "raw"
+    storage_dir.mkdir(parents=True, exist_ok=True)
 
     # Save uploaded raw file (sanitized filename)
     raw_file_path = storage_dir / safe_fname
@@ -243,9 +243,9 @@ def get_project_config(name: str):
         else:
             raise HTTPException(status_code=404, detail="프로젝트 설정 파일(config.yaml)이 존재하지 않습니다.")
 
-    # Load dashboard.json if exists
+    # Load dashboard.json if exists (None if missing)
     dashboard_json = proj_dir / "dashboard.json"
-    dashboard_data = {}
+    dashboard_data: dict | None = None
     if dashboard_json.exists():
         try:
             with open(dashboard_json, encoding="utf-8") as f:
@@ -372,7 +372,7 @@ def export_project_json(name: str):
             raise HTTPException(status_code=400, detail=f"정제 엑셀 파일이 없습니다. 먼저 '실행(run)'을 수행하세요.")
             
         # Export
-        json_path = PROJECT_ROOT / "web" / "data" / f"{cfg.project}_data.json"
+        json_path = PROJECT_ROOT / "web" / "public" / "data" / f"{cfg.project}_data.json"
         export_to_json(xlsx_path, cfg, output_path=json_path, project_dir=proj_dir)
         
         return {

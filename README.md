@@ -62,23 +62,33 @@ flowchart TD
 ```
 ClearSurvey/
 ├── main.py                     # CLI 데이터 정제 및 내보내기 조율 스크립트
-├── start_web.bat               # 프론트엔드 포스팅용 배치 스크립트
+├── GUIDE.md                    # ★ 메인 통합 가이드 (시작점)
+├── start_web.bat               # 프론트엔드 Vite 개발 서버 배치 스크립트
+├── start_backend.bat           # FastAPI 백엔드 서버 배치 스크립트
 ├── pyproject.toml / uv.lock    # 파이썬 의존성 패키지 명세
 ├── storage/                    # [Git 제외] 업로드된 설문 원본 엑셀(Raw Data) 임시 보관소
-├── backup/                     # 과거 백업 문서 및 분석 자료 보존 폴더 (.bak 등)
-│   └── 2026-05-26/             # 날짜별 백업 이관 격리 아카이브
-├── engine/                     # 핵심 정제 파이프라인 코어 엔진 모듈 (README 수록)
-├── transforms/                 # 날짜/주소/마스킹 등 개별 변환 함수 레지스트리 (README 수록)
-├── projects/                   # 서브프로젝트별 yaml, json 설정 및 output 보관소 (README 수록)
-├── docs/                       # 파이썬, 백엔드, 프론트엔드별 3대 설계 가이드북 보관 폴더
-│   ├── plan/                   # 기초 구현계획 및 각 단위별 상세 설계서 (implementation_plan 수록)
-│   ├── python_guide.md         # 1단계: 파이썬 정제 코어 가이드 (CLI 및 20여종 transforms 명세)
-│   ├── project_config_guide.md # 2단계: 기본 프로젝트 구성 및 config.yaml 스키마 작성 가이드
-│   ├── backend_guide.md        # 3단계: FastAPI 백엔드 API 명세 및 uvicorn 가동 가이드
-│   ├── frontend_guide.md       # 4단계: React/Vite/shadcn/ui 3계층 관심사 격리 설계 가이드
-│   ├── integrated_guide.md     # 5단계: 엑셀 업로드부터 대시보드 배포까지의 전체 연계 데이터 흐름 가이드
-│   └── worklog.md              # 프로젝트 개발 작업 진행 히스토리 일지 (이관)
-└── web/                        # React / Vite 웹 프리미엄 대시보드 및 3단계 마법사 (README 수록)
+├── backup/                     # 과거 백업 문서 및 분석 자료 보존 폴더
+├── engine/                     # 핵심 정제 파이프라인 코어 엔진 모듈
+├── transforms/                 # 날짜/주소/마스킹 등 개별 변환 함수 레지스트리
+├── projects/                   # 서브프로젝트별 yaml, json 설정 및 output 보관소
+├── app/                        # FastAPI 백엔드 서버 (main.py)
+├── tests/                      # pytest 단위·통합·API 테스트
+├── docs/                       # 설계 가이드 문서 보관 폴더
+│   ├── workflow_guide.md       # 전체 운영 워크플로우 (처음부터 끝까지)
+│   ├── config_guide.md         # config.yaml + Excel Config 시트 10열 구조
+│   ├── project_config_guide.md # 프로젝트 폴더 구성 및 설정 스키마
+│   ├── analyze_and_merge.md    # 사전 분석 및 다중 소스 병합 설계
+│   ├── python_guide.md         # Python 정제 엔진 (transforms, pipeline)
+│   ├── backend_guide.md        # FastAPI 백엔드 API 엔드포인트 명세
+│   ├── frontend_guide.md       # React/Vite 웹 프론트엔드 컴포넌트 구조
+│   ├── integrated_guide.md     # 전체 시스템 연계 데이터 플로우
+│   ├── log/                    # 작업 로그 및 분석 보고서
+│   │   ├── worklog.md          # 개발 작업 로그 (마일스톤 이력)
+│   │   ├── qna.md              # 운영 Q&A 및 설계 결정 내역
+│   │   └── system_analysis_2026-05-27.md  # 시스템 분석 보고서
+│   ├── plan/                   # 구현 계획 및 상세 설계서
+│   └── project/                # 프로젝트별 참고 문서
+└── web/                        # React / Vite 웹 대시보드 및 3단계 마법사
 ```
 
 ---

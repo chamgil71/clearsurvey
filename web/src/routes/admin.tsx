@@ -3,6 +3,8 @@ import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import "@/legacy-dashboard.css";
 import { useManagerApi } from "@/hooks/useManagerApi";
+import type { LoadedProjectConfig, ProjectConfig } from "@/hooks/useManagerApi";
+import type { DashboardConfig } from "@/types/dashboard";
 import { Step1_ProjectUpload } from "@/components/manager/Step1_ProjectUpload";
 import { Step2_ConfigEditor } from "@/components/manager/Step2_ConfigEditor";
 import { Step3_RunDeploy } from "@/components/manager/Step3_RunDeploy";
@@ -28,7 +30,7 @@ function AdminPage() {
 
   const [activeStep, setActiveStep] = useState<number>(1);
   const [selectedProject, setSelectedProject] = useState<string>(initialProject);
-  const [loadedConfig, setLoadedConfig] = useState<any>(null);
+  const [loadedConfig, setLoadedConfig] = useState<LoadedProjectConfig | null>(null);
   const [guideOpen, setGuideOpen] = useState<boolean>(false);
   const [pipelineRunning, setPipelineRunning] = useState<boolean>(false);
 
@@ -75,7 +77,7 @@ function AdminPage() {
     }
   };
 
-  const handleSaveConfig = async (config: any, dashboard: any) => {
+  const handleSaveConfig = async (config: ProjectConfig, dashboard: DashboardConfig | null) => {
     if (!selectedProject) return;
     try {
       await api.saveProjectConfig(selectedProject, config, dashboard);

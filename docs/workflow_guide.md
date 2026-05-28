@@ -41,9 +41,10 @@ survey2/
 │   ├── dummy_gpu_survey.xlsx      ← 원본 데이터 (입력)
 │   └── dummy_budget.xlsx          ← 원본 데이터 (입력)
 ├── web/
-│   ├── index.html                 ← 통합 대시보드 (사용자용)
-│   ├── admin.html                 ← 관리자 설정 페이지
-│   └── data/
+│   └── src/
+│       ├── routes/index.tsx       ← 대시보드 (사용자용, /  )
+│       ├── routes/admin.tsx       ← 3단계 설정 마법사 (/admin)
+│       └── data/
 │       ├── projects.json          ← 프로젝트 목록 (export 시 자동 갱신)
 │       ├── gpu_2026_data.json
 │       └── budget_2026_data.json
@@ -80,7 +81,7 @@ projects/<name>/output/<name>_cleaned.xlsx
     ▼
 web/data/<name>_data.json  +  web/data/projects.json
     │
-    ▼  npm run dev  또는  python -m http.server
+    ▼  npm run dev  (start_web.bat)
 통합 웹 대시보드  (모든 프로젝트 표시)
 
     또는
@@ -326,14 +327,12 @@ python main.py export projects/my_survey_2026/config.yaml
 ### Step 6. 웹 대시보드 확인
 
 ```bash
-cd web && npm run dev
-# http://localhost:5173
-```
+# 방법 1: 배치 파일 (자동으로 npm install 포함)
+start_web.bat
 
-또는 빌드 없이:
-```bash
-cd web && python -m http.server 8080
-# http://localhost:8080
+# 방법 2: 직접 실행
+cd web && npm run dev
+# → http://localhost:5173
 ```
 
 ---
@@ -414,14 +413,26 @@ python main.py export projects/budget_2026/config.yaml
 
 ### 개발 서버 (Vite)
 ```bash
+# 방법 1: 배치 파일 (node_modules 자동 설치)
+start_web.bat
+
+# 방법 2: 직접 실행
 cd web && npm run dev
 # → http://localhost:5173
 ```
 
-### 정적 파일 서버
+> ⚠️ `python -m http.server`로는 React/TypeScript 소스(.tsx)를 실행할 수 없습니다.
+> Vite 개발 서버(`npm run dev`) 또는 빌드 후 정적 서빙만 가능합니다.
+
+### 백엔드 API 포함 실행 (Admin 마법사 사용 시)
 ```bash
-cd web && python -m http.server 8080
-# → http://localhost:8080
+# 터미널 1
+start_backend.bat   # → http://localhost:8000
+
+# 터미널 2
+start_web.bat       # → http://localhost:5173
+
+# Admin 마법사: http://localhost:5173/admin
 ```
 
 ### 특정 프로젝트 직접 열기 (URL 파라미터)
@@ -429,15 +440,12 @@ cd web && python -m http.server 8080
 http://localhost:5173/?data=budget_2026_data.json
 ```
 
-`?data=` 파라미터를 지정하면 해당 프로젝트 데이터를 바로 로드합니다.
-프로젝트 선택 드롭다운에는 여전히 전체 목록이 표시됩니다.
-
 ### 화면 구성
 
-| 페이지 | 역할 |
-|--------|------|
-| `index.html` | 프로젝트 선택, KPI 카드, 차트, 데이터 테이블 |
-| `admin.html` | KPI·차트·테이블 표시 항목 커스텀 설정 |
+| URL | 역할 |
+|-----|------|
+| `http://localhost:5173/` | 대시보드 (KPI·차트·데이터 테이블) |
+| `http://localhost:5173/admin` | 3단계 설정 마법사 (백엔드 필요) |
 
 ---
 
