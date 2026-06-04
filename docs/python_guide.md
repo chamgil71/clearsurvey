@@ -38,21 +38,21 @@
 ### ① 설문지 엑셀 분석 및 설정 초안(Draft) 생성
 원본 Excel의 데이터 영역과 헤더 영역을 자동 검출하여 설정 시트와 프로젝트 템플릿을 생성합니다.
 ```bash
-python main.py analyze storage/raw_survey.xlsx --name "my_project"
+python main.py analyze storage/raw_survey.xlsx --project "my_project" --save-project
 ```
 
 ### ② 데이터 정제 파이프라인 실행
 지정한 프로젝트의 `config.yaml` 명세에 따라 클렌징을 구동하고 최종 정제 엑셀 파일을 생성합니다.
 ```bash
 # 기본 실행
-python main.py run projects/my_project/config.yaml
+python main.py run projects/my_project/config.yaml --input storage/raw_survey.xlsx
 
 # [권장] 실제 파일 저장 없이 로직 정합성만 빠르게 확인 (시뮬레이션 모드)
-python main.py run projects/my_project/config.yaml --dry-run
+python main.py run projects/my_project/config.yaml --input storage/raw_survey.xlsx --dry-run
 ```
 
 ### ③ 웹 대시보드 연동 데이터 JSON 내보내기
-정제 완료된 엑셀 결과를 프론트엔드가 즉각 파싱할 수 있는 최적화된 대시보드 용 JSON 데이터로 배포합니다.
+정제 완료된 엑셀 결과를 프론트엔드가 즉각 파싱할 수 있는 최적화된 대시보드 용 JSON 데이터(`web/public/data/`)로 배포합니다.
 ```bash
 python main.py export projects/my_project/config.yaml
 ```
@@ -63,10 +63,20 @@ python main.py export projects/my_project/config.yaml
 
 `config.yaml` 또는 웹 매니저 Step 2에서 설정할 수 있는 대표 정합성 검증 규칙 리스트입니다:
 
+* **`copy`**: 원본 값 그대로 복사합니다.
 * **`exclude`**: 대상 컬럼을 결과 파일에서 즉시 배제합니다.
-* **`norm_date_parts`**: 연/월/일로 쪼개진 컬럼들을 단일 날짜 포맷(`YYYY-MM-DD`)으로 합병합니다.
-* **`address_split`**: 주소열을 파싱하여 `_시도`, `_시군구`, `_상세`로 자동 분할합니다.
-* **`val_range`**: 수치 데이터의 상하한 범위를 제한하고 유효성을 검증합니다. (인수: `min: 1, max: 5`)
-* **`val_in`**: 허용된 항목 목록 내에 응답이 속하는지 검증합니다. (인수: `allowed_values: [M, F]`)
-* **`to_numeric`**: 문자열을 수치형 데이터로 변환하고, 누락되거나 비어 있는 값은 `0`으로 스마트 변환합니다.
-* **`mask_email` / `mask_phone` / `mask_name`**: 개인 정보 유출을 완벽 차단하기 위해 이메일, 전화번호, 실명을 비식별화 처리(예: 홍*동)합니다.
+* **`norm_text`**: 공백 및 줄바꿈을 정리하여 정규화합니다.
+* **`norm_num` / `to_numeric`**: 다양한 형태의 숫자 표현(콤마, 한글 단위 등)을 파싱하여 숫자형으로 변환합니다.
+* **`norm_date`**: 다양한 날짜 형식을 표준 날짜 포맷(`YYYY-MM-DD`)으로 정규화합니다.
+* **`norm_date_parts`**: 단일 날짜 컬럼을 읽어 정규화하고 연/월/일 파생열 3개를 자동으로 확장 분리합니다.
+* **`norm_phone`**: 국내 전화번호 형식을 표준 하이픈 기입 형식으로 변환합니다.
+* **`norm_company`**: 회사명에서 법인 형태 표기(주식회사, ㈜ 등)를 제거하거나 약어로 정리합니다.
+* **`norm_position`**: 사내 직급/직책 명칭을 사전에 등록된 표준 명칭으로 변환합니다.
+* **`val_email` / `val_url` / `val_brn`**: 이메일, URL, 사업자등록번호의 형식을 검증하고 표준화합니다.
+* **`mask_name`**: 실명을 비식별화 처리(예: 홍*동)합니다.
+* **`mask_rrn`**: 주민등록번호 뒷자리를 마스킹합니다.
+* **`to_binary`**: 특정 키워드(`flag_keyword` 필요)가 포함되어 있으면 1, 없으면 0을 반환합니다.
+* **`to_pct`**: 퍼센트 문자열을 실수(float)로 변환합니다.
+* **`addr_split`**: 주소열을 파싱하여 `_시도`, `_시군구`, `_상세`로 자동 분할합니다.
+* **`group_sum`**: 지정한 복수 원본 열(`source_cols`)의 숫자를 합산합니다.
+

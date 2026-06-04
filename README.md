@@ -50,9 +50,50 @@ flowchart TD
 
     subgraph Dashboard_Deploy [4단계: 결과 다운로드 및 대시보드 배포]
         H -->|download API| I[cleaned_result.xlsx 다운로드 버튼 활성화]
-        H -->|export API| J[web/data/project_data.json 최신화 배포]
+        H -->|export API| J[web/public/data/project_data.json 최신화 배포]
         J -->|Vite/React Client| K[📈 100% 최신 정밀 대시보드 즉시 확인]
     end
+```
+
+### 2. 웹 마법사 실시간 정제 시퀀스 (SSE Sequence Diagram)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 사용자 (브라우저)
+    participant Client as React 프론트엔드 (web/)
+    participant API as FastAPI 백엔드 (app/main.py)
+    participant Engine as Python 정제 엔진 (engine/)
+
+    User->>Client: 1단계: 엑셀 파일 업로드
+    Client->>API: POST /api/projects/create
+    API->>Engine: ExcelAnalyzer.analyze()
+    API-->>Client: 감지된 헤더 및 draft 경로 반환
+    Client-->>User: 문항 스냅샷 UI 제공
+
+    User->>Client: 2단계: 컬럼 매핑 및 레이아웃 수정
+    Client->>API: POST /api/projects/{name}/config
+    API->>API: Pydantic Validation (SurveyConfig)
+    API-->>Client: 영구 저장 완료 (config.yaml, dashboard.json)
+
+    User->>Client: 3단계: 정제 엔진 1-Click 실행
+    Client->>API: POST /api/projects/{name}/run (비동기)
+    API-->>Client: started 반환 (백그라운드 가동)
+    
+    rect rgb(230, 245, 255)
+        note right of Client: 실시간 로그 스트리밍 (SSE)
+        Client->>API: GET /api/projects/{name}/logs/stream
+        API->>Engine: stdout/print 로그 리다이렉트 캡처
+        API-->>Client: SSE 로그 스트림 (1줄씩 실시간 전송)
+        Client-->>User: 검은색 터미널 UI에 실시간 출력
+    end
+
+    API->>Engine: SurveyPipeline.run() 실행 완료
+    API-->>Client: 상태 완료 (status = "done")
+    Client->>API: POST /api/projects/{name}/export
+    API->>Engine: export_to_json()
+    API-->>Client: web/public/data/{project}_data.json 배포 완료
+    Client-->>User: 결과 다운로드 및 대시보드 이동 활성화
 ```
 
 ---

@@ -9,7 +9,7 @@ KPI·검색·차트 설정 방법을 정리한 문서입니다.
 
 - 프레임워크: **TanStack Start (React 19) + Vite 7 + recharts**
 - 데이터 소스: `public/data/projects.json` + `public/data/{file}.json`
-- 설정 영속화: `localStorage` 키 `survey-dash-config-{project}`
+- 설정 영속화: 백엔드 서버 프로젝트 폴더의 dashboard.json (우선순위 1) 및 로컬 폴백용 localStorage 키 survey-dash-config-{project} (우선순위 2)
 - 라우트
   - `/` → 대시보드 + 목록·검색 탭 (`src/routes/index.tsx`)
   - `/admin` → KPI/차트/목록 컬럼 설정 (`src/routes/admin.tsx`)
@@ -101,7 +101,7 @@ KPI는 상단 카드 영역에 표시되며 3가지 타입이 있습니다.
 **설정 방법**
 1. `/admin` 페이지 진입
 2. KPI 섹션에서 추가/삭제/순서 변경
-3. 저장 시 `localStorage["survey-dash-config-{project}"]`에 기록 → 새로고침 후 반영
+3. 저장 시 서버 API를 통해 백엔드 프로젝트 디렉토리의 dashboard.json 파일로 저장되며(전체 사용자 동기화), 로컬 폴백을 위해 localStorage에도 기록됩니다.
 4. 최대 4개 권장(레이아웃 기준)
 
 ---
@@ -246,5 +246,5 @@ const agg = data.aggregates?.[col] ?? aggCategory(data.rows, col);
 ## 8. 향후 확장 메모
 
 - 디자인 토큰화: `src/styles.css`의 oklch 변수로 차트 팔레트 통합
-- 설정 영속화: 현재 localStorage → 백엔드 사용자 설정 API로 전환 가능
+- 설정 영속화: 백엔드 API를 통해 dashboard.json 저장이 이미 구현 완료되어, 여러 브라우저 및 사용자 간 대시보드 레이아웃 설정이 동기화됩니다. 로컬 스토리지 캐시는 서버 설정이 없는 경우의 폴백으로 동작합니다.
 - 권한: `/admin` 접근 제한 시 `_authenticated` 레이아웃으로 이동

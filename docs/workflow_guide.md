@@ -41,13 +41,14 @@ survey2/
 │   ├── dummy_gpu_survey.xlsx      ← 원본 데이터 (입력)
 │   └── dummy_budget.xlsx          ← 원본 데이터 (입력)
 ├── web/
+│   ├── public/
+│   │   └── data/
+│   │       ├── projects.json          ← 프로젝트 목록 (export 시 자동 갱신)
+│   │       ├── gpu_2026_data.json
+│   │       └── budget_2026_data.json
 │   └── src/
 │       ├── routes/index.tsx       ← 대시보드 (사용자용, /  )
-│       ├── routes/admin.tsx       ← 3단계 설정 마법사 (/admin)
-│       └── data/
-│       ├── projects.json          ← 프로젝트 목록 (export 시 자동 갱신)
-│       ├── gpu_2026_data.json
-│       └── budget_2026_data.json
+│       └── routes/admin.tsx       ← 3단계 설정 마법사 (/admin)
 ├── engine/                        ← 파이프라인 엔진
 ├── transforms/                    ← 데이터 변환 함수
 └── config/
@@ -76,10 +77,10 @@ projects/<name>/output/<name>_cleaned.xlsx
     ├─ Cleaned 시트 → JSON 직렬화
     ├─ 컬럼 타입 자동 감지 (category / numeric / text)
     ├─ 집계값 계산
-    └─ web/data/projects.json 갱신  ← 이 시점에 웹 대시보드에 등록
+    └─ web/public/data/projects.json 갱신  ← 이 시점에 웹 대시보드에 등록
     │
     ▼
-web/data/<name>_data.json  +  web/data/projects.json
+web/public/data/<name>_data.json  +  web/public/data/projects.json
     │
     ▼  npm run dev  (start_web.bat)
 통합 웹 대시보드  (모든 프로젝트 표시)
@@ -151,7 +152,7 @@ python main.py run    →  cleaned.xlsx 생성  (로컬에만 존재, 대시보�
 python main.py export →  JSON 생성 + projects.json 갱신  ← 이때 등록
 ```
 
-`export` 실행 후 `web/data/projects.json`:
+`export` 실행 후 `web/public/data/projects.json`:
 
 ```json
 [
@@ -318,8 +319,8 @@ python main.py export projects/my_survey_2026/config.yaml
 ```
 
 ```
-내보내기 완료: web/data/my_survey_2026_data.json (81행, 10컬럼)
-프로젝트 목록 갱신: web/data/projects.json
+내보내기 완료: web/public/data/my_survey_2026_data.json (81행, 10컬럼)
+프로젝트 목록 갱신: web/public/data/projects.json
 ```
 
 ---
@@ -487,10 +488,10 @@ GPU 설문 데이터는 포함되지 않으며, 다른 프로젝트로 전환하
 Excel에서 해당 파일을 닫고 재실행하세요. 자동으로 타임스탬프가 붙은 임시 파일로 저장됩니다.
 
 ### Q. export 후 대시보드에 새 프로젝트가 안 보입니다
-브라우저 강력 새로고침(`Ctrl+Shift+R`)을 시도하거나 `web/data/projects.json`을 확인하세요.
+브라우저 강력 새로고침(`Ctrl+Shift+R`)을 시도하거나 `web/public/data/projects.json`을 확인하세요.
 
 ### Q. 프로젝트를 대시보드에서 제거하려면?
-`web/data/projects.json`에서 해당 항목 삭제 + `web/data/<name>_data.json` 파일 삭제.
+`web/public/data/projects.json`에서 해당 항목 삭제 + `web/public/data/<name>_data.json` 파일 삭제.
 
 ### Q. 실제 데이터와 더미 데이터는 어떻게 구분합니까?
 파이프라인 입장에서 차이 없습니다. `--input` 파라미터에 실제 파일 경로만 지정하면 됩니다.

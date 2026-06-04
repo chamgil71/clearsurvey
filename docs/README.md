@@ -24,6 +24,8 @@
 | [log/worklog.md](log/worklog.md) | 개발 작업 로그 (마일스톤 이력) |
 | [log/qna.md](log/qna.md) | 운영 Q&A 및 설계 결정 내역 |
 | [log/system_analysis_2026-05-27.md](log/system_analysis_2026-05-27.md) | 시스템 분석 보고서 (2026-05-27) |
+| [improvements.md](improvements.md) | 시스템 분석 및 개선사항 도출 보고서 (2026-06-04) |
+
 
 ## 계획 문서 (plan/)
 

@@ -4,7 +4,7 @@
 # export 시 자동으로 JSON에 포함되어 웹 대시보드의 기본값으로 사용됩니다.
 #
 # 우선순위:
-#   localStorage(개인) > projects/{project}/dashboard.json(프로젝트) >
+#   projects/{project}/dashboard.json(프로젝트) > localStorage(개인) >
 #   config/dashboard_defaults.yaml(조직 공통) > buildDefaultConfig(자동 감지)
 #
 # 이 파일을 편집하면 dashboard.json이 없는 모든 프로젝트에 적용됩니다.

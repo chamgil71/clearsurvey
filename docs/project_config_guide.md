@@ -37,7 +37,7 @@
 각 문항(컬럼)별 10열 정밀 정제 맵입니다:
 * **`output_col`**: 결과 시트에 쓰여질 최종 한글/영문 문항명.
 * **`source_col`**: 원본 엑셀에서의 1-based 열 번호. (예: `3`열)
-* **`transform`**: 적용할 정합성 변환 룰명 (예: `mask_phone`, `to_numeric`, `addr_split`).
+* **`transform`**: 적용할 정합성 변환 룰명 (예: `norm_phone`, `norm_num`, `addr_split`).
 * **`include_in_slicer`**: 대시보드 및 엑셀 슬라이서 연동 여부 (`true / false`).
 
 ### ⑤ 요약 시트 빌더 (`summary`)
@@ -57,21 +57,18 @@
 columns:
   - output_col: "응답ID"
     source_col: 1
-    transform: "to_numeric"
+    transform: "norm_num"
   - output_col: "고객성명"
     source_col: 2
     transform: "mask_name" # 개인정보 마스킹 (홍*동)
   - output_col: "연락처"
     source_col: 3
-    transform: "mask_phone" # 010-****-1234
+    transform: "norm_phone" # 010-XXXX-XXXX 전화번호 정규화
   - output_col: "거주지역"
     source_col: 4
     transform: "addr_split" # 시도/시군구로 자동 3개 분할컬럼 파생 생성
     include_in_slicer: true
   - output_col: "종합만족도"
     source_col: 5
-    transform: "val_range"
-    transform_kwargs:
-      min: 1
-      max: 5
+    transform: "norm_num"
 ```

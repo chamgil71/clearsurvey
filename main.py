@@ -574,17 +574,23 @@ def deploy_project(
     data_dir = dest / "data"
     data_dir.mkdir(exist_ok=True)
 
-    # copy web assets (js, css, html — not node_modules)
-    web_dir = Path(__file__).parent / "web"
-    for item in ["index.html", "js", "css"]:
-        src = web_dir / item
-        dst = dest / item
-        if src.is_dir():
+    # resolve compiled web assets (dist/)
+    web_dist_dir = Path(__file__).parent / "web" / "dist"
+    if not web_dist_dir.exists():
+        typer.echo("[오류] web/dist/ 폴더가 존재하지 않습니다. 먼저 'npm run build' (또는 bun run build)를 수행하여 프론트엔드를 빌드하세요.", err=True)
+        raise typer.Exit(1)
+
+    # copy all assets from web/dist/ to dest/ (excluding data directory)
+    for item in web_dist_dir.iterdir():
+        if item.name == "data":
+            continue
+        dst = dest / item.name
+        if item.is_dir():
             if dst.exists():
                 _shutil.rmtree(dst)
-            _shutil.copytree(src, dst)
-        elif src.is_file():
-            _shutil.copy2(src, dst)
+            _shutil.copytree(item, dst)
+        elif item.is_file():
+            _shutil.copy2(item, dst)
 
     # export project data JSON
     proj_dir = config.parent if config.suffix.lower() in (".yaml", ".yml") else None

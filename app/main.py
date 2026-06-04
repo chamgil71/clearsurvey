@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import re
+import io
 import sys
 import json
 import shutil
+import contextlib
 import threading
 from pathlib import Path
 from typing import Any, Optional
@@ -43,6 +45,55 @@ _SAFE_NAME_RE = re.compile(r"^[a-zA-Z0-9_\-가-힣]{1,64}$")
 _pipeline_jobs: dict[str, dict] = {}
 _pipeline_jobs_lock = threading.Lock()
 
+_project_logs: dict[str, list[str]] = {}
+_project_logs_lock = threading.Lock()
+
+
+class LogStream(io.TextIOBase):
+    def __init__(self, name: str):
+        self.name = name
+
+    def write(self, s: str) -> int:
+        if s.strip():
+            with _project_logs_lock:
+                if self.name not in _project_logs:
+                    _project_logs[self.name] = []
+                for line in s.splitlines():
+                    if line.strip():
+                        _project_logs[self.name].append(line.strip())
+        return len(s)
+
+
+def _update_projects_manifest(project_name: str, file_name: str) -> None:
+    """web/public/data/projects.json 매니페스트 파일을 동기화 및 자동 갱신합니다."""
+    manifest_path = PROJECT_ROOT / "web" / "public" / "data" / "projects.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    projects = []
+    if manifest_path.exists():
+        try:
+            with open(manifest_path, encoding="utf-8") as f:
+                projects = json.load(f)
+        except Exception:
+            projects = []
+            
+    # 기존 항목이 있으면 제거 (업데이트 대상)
+    projects = [p for p in projects if p.get("id") != project_name]
+    
+    # 새 항목 추가
+    projects.append({
+        "id": project_name,
+        "name": project_name,
+        "file": file_name,
+        "updated": datetime.now().strftime("%Y-%m-%d %H:%M")
+    })
+    
+    try:
+        with open(manifest_path, "w", encoding="utf-8") as f:
+            json.dump(projects, f, ensure_ascii=False, indent=2)
+    except Exception as exc:
+        print(f"[경고] projects.json 업데이트 실패: {exc}")
+
 
 def _job_set(name: str, data: dict) -> None:
     with _pipeline_jobs_lock:
@@ -56,25 +107,37 @@ def _job_get(name: str) -> dict:
 
 def _run_pipeline_background(name: str, cfg: "SurveyConfig", config_yaml: Path) -> None:
     """BackgroundTask: 파이프라인을 실행하고 상태를 갱신합니다."""
+    with _project_logs_lock:
+        _project_logs[name] = []
+        _project_logs[name].append(f"[SYSTEM] 파이프라인 정제 가동 시작 (프로젝트: {name})")
+
     _job_set(name, {
         "status": "running",
         "started_at": datetime.now().isoformat(),
     })
+    
+    log_stream = LogStream(name)
     try:
-        pipeline = SurveyPipeline(cfg, config_path=config_yaml)
-        save_path = pipeline.run()
+        with contextlib.redirect_stdout(log_stream):
+            pipeline = SurveyPipeline(cfg, config_path=config_yaml)
+            save_path = pipeline.run()
+            
         _job_set(name, {
             "status": "done",
             "cleaned_file": save_path.name,
             "output_dir": str(save_path.parent.relative_to(PROJECT_ROOT)),
             "finished_at": datetime.now().isoformat(),
         })
+        with _project_logs_lock:
+            _project_logs[name].append("[SUCCESS] 정제 프로세스 완료!")
     except Exception as exc:
         _job_set(name, {
             "status": "error",
             "detail": str(exc),
             "finished_at": datetime.now().isoformat(),
         })
+        with _project_logs_lock:
+            _project_logs[name].append(f"[ERROR] 파이프라인 실패: {exc}")
 
 
 def _validate_project_name(name: str) -> None:
@@ -201,6 +264,8 @@ async def create_project(
             shutil.copy2(default_style, dest_style)
         else:
             dest_style.write_text("# style.yaml — 스타일 설정\n", encoding="utf-8")
+            
+        _update_projects_manifest(name, f"{name}_data.json")
             
         return {
             "status": "success",
@@ -375,6 +440,8 @@ def export_project_json(name: str):
         json_path = PROJECT_ROOT / "web" / "public" / "data" / f"{cfg.project}_data.json"
         export_to_json(xlsx_path, cfg, output_path=json_path, project_dir=proj_dir)
         
+        _update_projects_manifest(cfg.project, json_path.name)
+        
         return {
             "status": "success",
             "json_file": json_path.name
@@ -421,4 +488,33 @@ def download_cleaned_xlsx(name: str):
 def health_check():
     """백엔드 생존 상태를 확인합니다."""
     return {"status": "ok", "time": datetime.now().isoformat()}
+
+
+@app.get("/api/projects/{name}/logs/stream")
+async def stream_project_logs(name: str):
+    """실시간으로 파이프라인 실행 로그를 EventSource(SSE) 형태로 스트리밍합니다."""
+    _validate_project_name(name)
+    from fastapi.responses import StreamingResponse
+    import asyncio
+    
+    async def log_generator():
+        last_idx = 0
+        while True:
+            job = _job_get(name)
+            
+            with _project_logs_lock:
+                logs = _project_logs.get(name, [])
+                
+            if last_idx < len(logs):
+                for i in range(last_idx, len(logs)):
+                    yield f"data: {logs[i]}\n\n"
+                last_idx = len(logs)
+                
+            if job.get("status") in ("done", "error") and last_idx >= len(logs):
+                yield "data: [SYSTEM] 프로세스가 종료되었습니다.\n\n"
+                break
+                
+            await asyncio.sleep(0.5)
+            
+    return StreamingResponse(log_generator(), media_type="text/event-stream")
 

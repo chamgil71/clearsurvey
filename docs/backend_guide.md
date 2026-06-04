@@ -39,7 +39,7 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 | **`POST`** | `/api/projects/{name}/config` | 프로젝트 설정 및 빌더 저장 | 화면에서 수정한 10열 매핑 정보 및 대시보드 비주얼 레이아웃 저장 |
 | **`POST`** | `/api/projects/{name}/run` | 정제 파이프라인 비동기 실행 | BackgroundTask로 실행 후 즉시 반환. 진행 상태는 `/status`로 폴링 |
 | **`GET`** | `/api/projects/{name}/status` | 파이프라인 실행 상태 조회 | `idle` / `running` / `done` / `error` 상태 반환 |
-| **`POST`** | `/api/projects/{name}/export` | 웹 대시보드용 JSON 배포 | `web/data/{project}_data.json`으로 가시화 데이터 추출 및 즉시 갱신 |
+| **`POST`** | `/api/projects/{name}/export` | 웹 대시보드용 JSON 배포 | `web/public/data/{project}_data.json`으로 가시화 데이터 추출 및 즉시 갱신 |
 | **`GET`** | `/api/projects/{name}/download` | 정제 완료 결과물 다운로드 | 완성된 고품질의 엑셀 결과 파일을 원격으로 즉시 다운로드 제공 |
 
 ---

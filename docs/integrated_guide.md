@@ -27,7 +27,7 @@
         │                                       │                                     │
         ├─────── 9. 대시보드 데이터 내보내기 ──▶│                                     │
         │        (Export Trigger)               ├─────── 10. Dashboard JSON 추출 ────▶│
-        │                                       │        (web/data/project_data.json) │
+        │                                       │        (web/public/data/project_data.json) │
         │                                       │                                     │
         ▼                                       ▼                                     ▼
 [100% 최신 정제 대시보드 렌더링 완료]    [최종 결과물.xlsx & 데이터 공급]      [백엔드-정적 하이브리드 대시보드 배포]
@@ -56,5 +56,5 @@
 2. **백엔드 & 파이썬 엔진**:
    - 파이썬 엔진의 `SurveyPipeline`을 생성해 구동합니다.
    - 전처리(Preprocess) 필터를 타며, 20여 종의 Transform 레지스트리 규칙을 통해 결측치 치환, 마스킹, 주소 분할을 단번에 클렌징하고 `projects/<project_name>/output/` 폴더 하위에 고품질 엑셀 결과를 생성합니다.
-   - 완료 후 백엔드의 `export` API를 자동으로 연계 가동하여 `web/data/<project_name>_data.json` 파일을 최종 빌드 배포합니다.
+   - 완료 후 백엔드의 `export` API를 자동으로 연계 가동하여 `web/public/data/<project_name>_data.json` 파일을 최종 빌드 배포합니다.
 3. **프론트엔드**: 갱신된 JSON 경로를 파라미터로 안고 메인 대시보드로 원클릭 랜딩하며 100% 최신의 정밀 정제 대시보드 화면을 화면에 렌더링합니다.

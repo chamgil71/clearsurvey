@@ -3,6 +3,7 @@ import type { DashboardConfig, DataMeta } from "@/types/dashboard";
 export const configKey = (project: string) => `survey-dash-config-${project}`;
 
 export function loadConfig(project: string, base: DashboardConfig | null = null): DashboardConfig | null {
+  if (base && Object.keys(base).length > 0) return base;
   if (typeof window === "undefined") return base;
   try {
     const raw = window.localStorage.getItem(configKey(project));

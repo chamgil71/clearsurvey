@@ -38,9 +38,9 @@
 ### 3-1. 실행
 
 ```bash
-survey analyze ./storage/raw_data.xlsx
-survey analyze ./storage/raw_data.xlsx --sheet "all responses"  # 시트 지정
-survey analyze ./storage/raw_data.xlsx --out ./projects/gpu_2026/source.yaml
+python main.py analyze ./storage/raw_data.xlsx
+python main.py analyze ./storage/raw_data.xlsx --sheet "all responses"  # 시트 지정
+python main.py analyze ./storage/raw_data.xlsx --project gpu_2026 --save-project  # 프로젝트 폴더 생성 및 draft 저장
 ```
 
 ### 3-2. 자동 탐지 로직 (`engine/analyzer.py`)
@@ -145,9 +145,7 @@ detected_columns:
 ### 4-1. 실행
 
 ```bash
-survey init gpu_2026 ./storage/raw_data.xlsx
-# 또는 기존 source.yaml 활용
-survey init gpu_2026 --from-source ./projects/gpu_2026/source.yaml
+python main.py init ./storage/raw_data.xlsx --project gpu_2026
 ```
 
 ### 4-2. 처리
@@ -222,14 +220,8 @@ summary:
 ### 5-1. 실행
 
 ```bash
-# 폴더 내 모든 xlsx 합치기
-survey merge gpu_2026
-
-# 특정 파일 목록
-survey merge gpu_2026 --files a.xlsx b.xlsx c.xlsx
-
-# 결과 미리보기 (저장 안 함)
-survey merge gpu_2026 --dry-run
+# merge 섹션이 포함된 config.yaml을 사용하여 병합 실행
+python main.py merge projects/gpu_2026/config.yaml --output storage/merged.xlsx
 ```
 
 ### 5-2. merge 설정 (`config.yaml`의 `merge` 섹션)
@@ -416,26 +408,25 @@ class DataMerger:
 
 ```bash
 # ── 분석 단계 ────────────────────────────────────────────────
-survey analyze ./data.xlsx                          # 구조 분석 + 확인
-survey analyze ./data.xlsx --sheet "응답"           # 시트 직접 지정
-survey analyze ./data.xlsx --out source.yaml        # 결과 저장
+python main.py analyze ./data.xlsx                          # 구조 분석 및 draft 엑셀 자동 생성
+python main.py analyze ./data.xlsx --sheet "응답"           # 시트 직접 지정
+python main.py analyze ./data.xlsx --project test_proj --save-project  # 프로젝트 폴더 내 draft 생성
 
 # ── 프로젝트 초기화 ──────────────────────────────────────────
-survey init gpu_2026 ./data.xlsx                    # 분석 + config 초안 생성
-survey init gpu_2026 --from-source source.yaml      # 기존 분석 결과 활용
+python main.py init ./data.xlsx --project gpu_2026          # 분석 + config.yaml 초안 생성
+python main.py init ./data.xlsx --auto                      # 대화 없이 파일명으로 프로젝트 자동 생성
 
 # ── 데이터 통합 ──────────────────────────────────────────────
-survey merge gpu_2026                               # config의 merge 설정 실행
-survey merge gpu_2026 --dry-run                     # 실제 저장 없이 결과 확인
+python main.py merge projects/gpu_2026/config.yaml --output merged_result.xlsx  # config의 merge 설정 실행
 
 # ── 메인 처리 ────────────────────────────────────────────────
-survey validate gpu_2026                            # 설정 검증
-survey run gpu_2026                                 # 처리 실행
-survey run gpu_2026 --input ./data.xlsx             # 입력 파일 override
+python main.py validate projects/gpu_2026/config.yaml --input ./data.xlsx  # 설정 검증
+python main.py run projects/gpu_2026/config.yaml --input ./data.xlsx       # 처리 실행
 
-# ── 관리 ────────────────────────────────────────────────────
-survey list                                         # 프로젝트 목록
-survey new gpu_2027                                 # 빈 프로젝트 스캐폴딩
+# ── 관리 및 기타 ─────────────────────────────────────────────
+python main.py new-project gpu_2027                         # 빈 프로젝트 폴더 및 config 템플릿 생성
+python main.py export projects/gpu_2026/config.yaml         # 웹 대시보드 데이터 JSON 내보내기
+python main.py deploy projects/gpu_2026/config.yaml --dest dist/gpu_2026  # 단독 웹서비스 배포
 ```
 
 ---

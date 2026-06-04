@@ -104,6 +104,9 @@ function AdminPage() {
       pollingRef.current = null;
     }
 
+    // 0. 로그 초기화
+    api.clearLogs();
+
     // 1. 파이프라인 시작 요청
     let startResult: { status: string } | undefined;
     try {
@@ -113,23 +116,36 @@ function AdminPage() {
     }
     if (startResult?.status !== "started") return;
 
-    // 2. 폴링 시작
+    // 2. SSE 연동 (실시간 로그 수신)
+    const streamUrl = api.getLogsStreamUrl(selectedProject);
+    const eventSource = new EventSource(streamUrl);
+
+    eventSource.onmessage = (event) => {
+      const data = event.data;
+      if (data) {
+        api.addLog(data);
+        if (data.includes("프로세스가 종료되었습니다")) {
+          eventSource.close();
+        }
+      }
+    };
+
+    eventSource.onerror = () => {
+      eventSource.close();
+    };
+
+    // 3. 상태 폴링 시작 (완료 감지 및 대시보드 내보내기용)
     setPipelineRunning(true);
-    let pollTick = 0;
 
     pollingRef.current = setInterval(async () => {
-      pollTick++;
       const status = await api.getPipelineStatus(selectedProject);
 
       if (status.status === "done") {
         clearInterval(pollingRef.current!);
         pollingRef.current = null;
+        eventSource.close();
 
-        api.addLog(`[SUCCESS] 정제 프로세스 완료!`);
-        if (status.cleaned_file) api.addLog(` - 정제 완료 파일: ${status.cleaned_file}`);
-        if (status.output_dir)   api.addLog(` - 저장 디렉토리: ${status.output_dir}`);
-
-        // 3. 대시보드 JSON 자동 내보내기
+        // 대시보드 JSON 자동 내보내기
         try {
           await api.exportDashboard(selectedProject);
         } catch {
@@ -140,16 +156,12 @@ function AdminPage() {
       } else if (status.status === "error") {
         clearInterval(pollingRef.current!);
         pollingRef.current = null;
+        eventSource.close();
         api.addLog(`[ERROR] 파이프라인 실패: ${status.detail ?? "알 수 없는 오류"}`);
         toast.error(`정제 실패: ${status.detail ?? "알 수 없는 오류"}`);
         setPipelineRunning(false);
-
-      } else if (pollTick % 4 === 0) {
-        // ~10초마다 진행 상황 표시
-        const elapsed = Math.round(pollTick * 2.5);
-        api.addLog(`[RUNNING] 처리 중... (경과 ${elapsed}초)`);
       }
-    }, 2500);
+    }, 2000);
   };
 
   return (

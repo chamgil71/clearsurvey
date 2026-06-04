@@ -248,7 +248,7 @@ export function useManagerApi() {
       setLogs((prev) => [
         ...prev,
         `[SUCCESS] 대시보드 JSON 파일 저장 완료!`,
-        ` - 대상 데이터: web/data/${data.json_file}`,
+        ` - 대상 데이터: web/public/data/${data.json_file}`,
       ]);
       return data;
     } catch (err: unknown) {
@@ -263,6 +263,10 @@ export function useManagerApi() {
 
   const getDownloadUrl = (name: string) => {
     return `${API_BASE}/api/projects/${name}/download`;
+  };
+
+  const getLogsStreamUrl = (name: string) => {
+    return `${API_BASE}/api/projects/${name}/logs/stream`;
   };
 
   const clearLogs = () => setLogs([]);
@@ -282,5 +286,7 @@ export function useManagerApi() {
     getPipelineStatus,
     exportDashboard,
     getDownloadUrl,
+    getLogsStreamUrl,
+    API_BASE,
   };
 }

@@ -686,6 +686,45 @@ def group_sum(val, **kw) -> int | float | None:
     return int(total) if total == int(total) else total
 
 
+def validate_range(val, *, min_val=None, max_val=None, **kw):
+    """수치 데이터의 범위를 검증. 범위를 벗어날 경우 None 반환"""
+    if val is None or val == "":
+        return None
+    num = normalize_number(val)
+    if num is None:
+        return None
+    if min_val is not None and num < min_val:
+        return None
+    if max_val is not None and num > max_val:
+        return None
+    return val
+
+
+def validate_in(val, *, allowed_values=None, **kw):
+    """허용된 항목 목록에 존재하는지 검증"""
+    if val is None or val == "":
+        return None
+    if not allowed_values:
+        return val
+    s = str(val).strip()
+    if isinstance(allowed_values, str):
+        allowed = [x.strip() for x in allowed_values.split(",")]
+    else:
+        allowed = [str(x).strip() for x in allowed_values]
+    return val if s in allowed else None
+
+
+def validate_regex(val, *, pattern=None, **kw):
+    """정규표현식 패턴 매칭 검증"""
+    if val is None or val == "":
+        return None
+    if not pattern:
+        return val
+    s = str(val).strip()
+    import re
+    return val if re.search(pattern, s) else None
+
+
 # ---------------------------------------------------------------------------
 # 레지스트리 등록
 # ---------------------------------------------------------------------------
@@ -708,6 +747,9 @@ _TRANSFORMS: dict = {
     "val_email":         validate_email,
     "val_url":           validate_url,
     "val_brn":           validate_brn,
+    "val_range":         validate_range,
+    "val_in":            validate_in,
+    "val_regex":         validate_regex,
     # ── 마스킹 (새 이름 mask_*) ──────────────────────────────────────────────
     "mask_name":         name_blind,
     "mask_rrn":          mask_rrn,

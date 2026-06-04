@@ -170,3 +170,40 @@ projects/*/output/*.xlsx  →  ❌  (신규 추가)
   - 기존 핵심 파일 백업(`.bak`) 조치 후 `docs/`에 3대 영역 가이드 및 통합 연계본 신설.
   - `docs/plan/` 하위에 기초 구현계획 및 재현성이 담긴 단위별 상세설계서 재정렬 완료.
   - 가칭 `survey2`에서 정밀 정제 데이터 솔루션의 고품격 가치를 드러내는 **`ClearSurvey`** 프로젝트 브랜딩 및 갱신 완료.
+
+### 2026-06-04: 웹 설정 매니저 정합성 개선 및 백엔드/엔진 4대 개선계획 실질 구현 완료
+
+#### ① 웹 설정 매니저 버그 수정 및 연동 개선
+- **대시보드 비주얼 레이아웃 설정 정책 충돌 수정**:
+  - `web/src/lib/dashboardConfig.ts`의 `loadConfig` 함수를 수정하여, 백엔드 서버로부터 전달받은 설정 스키마(`base`)가 존재하는 경우 브라우저 `localStorage` 캐시보다 최우선시하여 대시보드 렌더링에 반영하도록 정책을 일원화했습니다. 이로써 팀원 간에 서로 다른 차트 화면이 렌더링되는 정합성 문제를 완벽히 해결했습니다.
+- **성공 로그 경로 표기 정정**:
+  - `web/src/hooks/useManagerApi.ts`의 대시보드 JSON 저장 성공 시 출력되는 예전 static 자산 경로(`web/data/...`)를 마이그레이션된 최신 물리 경로인 `web/public/data/...`로 출력되도록 수정하여 정확한 경로 인지를 도왔습니다.
+- **문서 및 리소스 현행화**:
+  - `config/dashboard_defaults.yaml` 주석 템플릿 내 대시보드 레이아웃 설정 로드 우선순위 설명 주석을 변경된 서버 우선 순위(`projects/{project}/dashboard.json > localStorage`)에 맞게 현행화하였습니다.
+  - `web/docs/MIGRATION_AND_USAGE.md` 가이드 내 대시보드 설정 저장 메커니즘을 `localStorage` 단독 영속화에서 서버 `dashboard.json` 우선 저장 및 모든 사용자 동기화 흐름으로 갱신하였습니다.
+- **웹 빌드 검증**:
+  - `web/` 경로에서 TypeScript 타입 체커(`npx tsc --noEmit`)를 통과하여 프론트엔드 코드의 안정성을 재확인하였습니다.
+
+#### ② 백엔드 API & 엔진 핵심 개선계획 실질 구현 (코드 수정 완료)
+- **미구현 검증 룰 실질 추가**:
+  - `transforms/domain/cleansing.py`에 누락되었던 세 가지 검증 룰인 `validate_range` (`val_range`), `validate_in` (`val_in`), `validate_regex` (`val_regex`)를 실질적으로 구현하고 `_TRANSFORMS` 레지스트리 사전에 매핑하여 등록을 완료했습니다.
+- **`projects.json` 목록 매니페스트 동기화 및 자동 갱신**:
+  - `app/main.py`에 `_update_projects_manifest` 헬퍼 함수를 신설하고, 프로젝트 드래프트 생성(`create_project`) 및 JSON 내보내기(`export_project_json`) 성공 시점에 자동으로 호출하여 `web/public/data/projects.json` 파일에 추가 및 갱신해 주도록 연동을 완료했습니다. (신규 프로젝트가 목록에서 누락되던 결함 제거)
+- **FastAPI SSE(Server-Sent Events) 실시간 로깅 스트리밍 구현**:
+  - 표준 출력 리다이렉트 객체(`LogStream`)를 구현하여 백그라운드 스레드 가동 시 발생하는 파이프라인 엔진 가공 로그들을 전역 버퍼 `_project_logs[name]`에 적재하고, `/api/projects/{name}/logs/stream` 엔드포인트를 개설하여 실시간 SSE 스트리밍을 제공합니다.
+  - 프론트엔드 `useManagerApi.ts`에 `getLogsStreamUrl` API 메소드를 추가하고, `admin.tsx` 내에서 파이프라인 실행 시 즉시 `EventSource` 커넥션을 맺어 엔진 가공 로그를 실시간으로 터미널 UI 화면에 전송 및 렌더링되도록 연동하였습니다. (단방향 단순 상태 폴링의 UX 한계 해결)
+- **CLI `deploy` 명령어의 React/Vite 빌드 자산 복사 개편**:
+  - 루트 `main.py` 내의 `deploy` CLI 커맨드에서 복사하는 정적 소스를 Vanilla HTML/JS 자산에서 React/Vite 컴파일 산출물(`web/dist/`) 전체 자산으로 개편하여 단독 서비스 패키징 기능을 활성화하였습니다.
+
+#### ③ 전체 흐름 Mermaid 다이어그램 문서 현행화 완료
+- **[README.md](file:///C:/ai/clearsurvey/README.md)** 및 **[GUIDE.md](file:///C:/ai/clearsurvey/GUIDE.md)** 상에 전체 시스템의 3단계 데이터 라이프사이클 흐름을 도식화하는 플로우차트와 웹 마법사 ↔ 백엔드 간 SSE 실시간 정제 시퀀스를 묘사하는 Mermaid 순서 흐름도 다이어그램을 신규 추가하여 설명서의 가독성과 현행화 수준을 높였습니다.
+
+#### ④ docs/plan/ 하위 계획 문서 미완료 사항 점검 결과
+- **웹 서비스 구축 계획 (`web_plan.md`, `react_migration_plan.md`)**:
+  - **FastAPI 백엔드 및 React/Vite 마이그레이션**: 완료되어 웹 설정 매니저와 대시보드 연계 기능이 완수되었습니다.
+  - **구조 최적화**: 단일 뷰 통합 마법사(`/admin`) 및 백엔드 단일 라우트(`app/main.py`)로 아키텍처가 최적화되었습니다.
+  - **Phase 3 배포 단계 (Docker, Nginx, HTTPS 등)**: 현재 로컬 서버 가동 상태로 프로젝트가 정상 운영 중이며, 실서비스 클라우드 배포 필요성 발생 전까지는 **보류/대기(Pending)** 상태로 분류됩니다.
+- **데스크탑 GUI 앱 개발 계획 (`gui_plan.md`)**:
+  - Gradio/CustomTkinter/PyQt6 기반 데스크탑 앱 구축은 문서의 상태(미구현 선택 계획)대로 **"옵션 사항(Optional/Pending)"**으로, 현재는 웹 대시보드 우선 정책에 따라 착수하지 않은 예비 로드맵 상태입니다.
+
+
