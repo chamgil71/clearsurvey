@@ -357,3 +357,57 @@ class TestProjectNameSecurity:
         resp = client.get("/api/projects/테스트프로젝트/status")
         # 200 idle 또는 404 (프로젝트 없음)가 모두 허용됨; 400이면 안 됨
         assert resp.status_code != 400
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SSE 로그 스트림 엔드포인트
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestStreamProjectLogs:
+    """GET /api/projects/{name}/logs/stream — SSE 실시간 로그 스트리밍."""
+
+    def test_invalid_name_returns_400(self, client):
+        # Names with illegal characters must be rejected before streaming
+        resp = client.get("/api/projects/hello%20world/logs/stream")
+        assert resp.status_code == 400
+
+    def test_returns_event_stream_content_type(self, client, tmp_path, monkeypatch):
+        """SSE 엔드포인트는 text/event-stream 미디어 타입을 반환한다."""
+        import app.main as main_module
+        monkeypatch.setattr(main_module, "PROJECT_ROOT", tmp_path)
+        _pipeline_jobs.clear()
+        _job_set("demo", {"status": "done"})
+
+        with client.stream("GET", "/api/projects/demo/logs/stream") as resp:
+            assert resp.status_code == 200
+            assert "text/event-stream" in resp.headers.get("content-type", "")
+
+    def test_done_job_terminates_stream(self, client, tmp_path, monkeypatch):
+        """완료된 잡은 스트림에 종료 메시지를 보내고 종료된다."""
+        import app.main as main_module
+        monkeypatch.setattr(main_module, "PROJECT_ROOT", tmp_path)
+        _pipeline_jobs.clear()
+        _job_set("demo", {"status": "done"})
+
+        with client.stream("GET", "/api/projects/demo/logs/stream") as resp:
+            lines = []
+            for line in resp.iter_lines():
+                lines.append(line)
+                if "[SYSTEM]" in line:
+                    break
+        assert any("[SYSTEM]" in line for line in lines)
+
+    def test_buffered_logs_are_streamed(self, client, tmp_path, monkeypatch):
+        """파이프라인 실행 중 쌓인 로그가 스트림에 포함된다."""
+        import app.main as main_module
+        monkeypatch.setattr(main_module, "PROJECT_ROOT", tmp_path)
+        _pipeline_jobs.clear()
+        _job_set("demo", {"status": "done"})
+        main_module._project_logs["demo"] = ["line1", "line2"]
+
+        with client.stream("GET", "/api/projects/demo/logs/stream") as resp:
+            content = b"".join(resp.iter_bytes()).decode()
+
+        assert "line1" in content
+        assert "line2" in content
+        main_module._project_logs.pop("demo", None)
