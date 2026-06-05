@@ -3,7 +3,7 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![Vite Client](https://img.shields.io/badge/Frontend-Vite_&_React-blue.svg?logo=vite&logoColor=white)](https://vite.dev/)
 [![FastAPI API](https://img.shields.io/badge/Backend-FastAPI-green.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![GitHub Pages](https://img.shields.io/badge/Hosting-GitHub_Pages-blue.svg?logo=github&logoColor=white)](https://pages.github.com/)
+[![CI](https://github.com/chamgil71/clearsurvey/actions/workflows/ci.yml/badge.svg)](https://github.com/chamgil71/clearsurvey/actions/workflows/ci.yml)
 [![Fully Hybrid](https://img.shields.io/badge/Architecture-Hybrid_Web-orange.svg?logo=serverless&logoColor=white)](#2-백엔드-서버-분리-운영-설계의-타당성)
 
 > **1-Click 데이터 정밀 정제 · 엑셀 자동 요약 보고서 발행 · 하이브리드 인터랙티브 웹 대시보드**  
@@ -134,12 +134,52 @@ ClearSurvey/
 
 ---
 
+## 🔐 인증 및 어드민 대시보드
+
+### 접근 제어
+- **공개 대시보드** (`/`): 인증 없이 누구나 접근 가능. `published: true` 설정된 프로젝트만 표시.
+- **어드민** (`/admin`): Supabase 인증 필요. 미인증 시 `/login` 페이지로 자동 리다이렉트.
+- **로그인** (`/login`): 이메일/비밀번호 또는 GitHub OAuth 로그인 지원.
+
+### 로컬 환경 설정
+`web/.env.local` 파일을 생성하고 Supabase 프로젝트 정보를 입력합니다 (gitignore 처리됨):
+```env
+VITE_SUPABASE_URL=https://<your-project>.supabase.co
+VITE_SUPABASE_ANON_KEY=<your-anon-key>
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+---
+
+## 🧪 테스트
+
+### Python 단위 테스트 (211개)
+```bash
+pip install -e ".[dev]"
+pytest tests/ -v
+```
+
+### TypeScript 타입 체크
+```bash
+cd web && npx tsc --noEmit
+```
+
+### Playwright E2E 테스트 (20개)
+```bash
+cd web
+npx playwright install --with-deps chromium
+npx playwright test
+# 결과는 docs/logs/ 에 저장됨
+```
+
+---
+
 ## ⚡ 빠른 시작 (Getting Started)
 
 ### 1. 로컬 백엔드 API 서버 가동
 파이썬 환경에 필수 의존성을 설치하고 FastAPI 서버를 가동합니다:
 ```bash
-# uvicorn 실행 (기본 8000 포트)
+pip install -e ".[dev]"
 python -m uvicorn app.main:app --reload
 ```
 * 서버 가동이 성공하면 `http://localhost:8000/api/health` 핑을 통해 백엔드가 활성화되어 설정 매니저와 동기화됩니다.
@@ -151,7 +191,7 @@ cd web
 npm install
 npm run dev
 ```
-* 브라우저에서 `http://localhost:5173/` 경로로 즉시 마법사 설정 매니저에 접속할 수 있습니다.
+* 브라우저에서 `http://localhost:5173/` 경로로 즉시 공개 대시보드에 접속하고, `/admin` 으로 어드민에 접근합니다.
 
 ---
 

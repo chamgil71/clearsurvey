@@ -31,9 +31,13 @@ export function useDashboardData(initialUrl?: string) {
           projList = [];
         }
         if (cancelled) return;
-        setProjects(projList);
+        // 공개 대시보드는 published: true 인 프로젝트만 표시
+        // published 필드가 없는 레거시 항목은 모두 표시
+        const published = projList.filter((p) => p.published !== false);
+        setProjects(published);
 
         let target = initialUrl || null;
+        if (!target && published.length) target = normalizeUrl(published[0].file);
         if (!target && projList.length) target = normalizeUrl(projList[0].file);
         if (!target) target = "/data/survey_data.json";
 

@@ -271,6 +271,27 @@ export function useManagerApi() {
 
   const clearLogs = () => setLogs([]);
 
+  const togglePublish = async (name: string, published: boolean) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/projects/${name}/publish`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ published }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "게시 상태 변경 실패" }));
+        throw new Error(err.detail);
+      }
+      setProjects((prev) =>
+        prev.map((p) => (p.id === name ? { ...p, published } : p))
+      );
+      return await res.json();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(msg);
+    }
+  };
+
   return {
     isBackendAlive,
     projects,
@@ -285,6 +306,7 @@ export function useManagerApi() {
     runPipeline,
     getPipelineStatus,
     exportDashboard,
+    togglePublish,
     getDownloadUrl,
     getLogsStreamUrl,
     API_BASE,

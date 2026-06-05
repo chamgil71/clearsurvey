@@ -88,8 +88,6 @@ function DashboardPage() {
 
   if (!data || !cfg) return null;
 
-  const adminHref = `/admin?project=${encodeURIComponent(data.meta.project)}${url ? `&data=${encodeURIComponent(url)}` : ""}`;
-
   return (
     <div className="app-wrap">
       <header className="header">
@@ -120,10 +118,6 @@ function DashboardPage() {
         <button className="btn-ghost btn-sm" onClick={() => setGuideOpen(true)} title="설문 정제 가이드 보기">
           📖 가이드
         </button>
-        <Link to="/admin" search={{ project: data.meta.project }} className="btn-ghost btn-sm">
-          ⚙ 설정 매니저
-        </Link>
-        <a href={adminHref} style={{ display: "none" }}>compat</a>
       </header>
 
       <KpiRow rows={filtered} cfg={cfg} />

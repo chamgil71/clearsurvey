@@ -28,6 +28,7 @@ export interface ProjectListItem {
   name: string;
   file: string;
   updated?: string;
+  published?: boolean;
 }
 
 export type KpiItem =

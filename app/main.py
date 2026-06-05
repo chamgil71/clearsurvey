@@ -80,12 +80,14 @@ def _update_projects_manifest(project_name: str, file_name: str) -> None:
     # 기존 항목이 있으면 제거 (업데이트 대상)
     projects = [p for p in projects if p.get("id") != project_name]
     
-    # 새 항목 추가
+    # 새 항목 추가 (기존 published 값 유지)
+    existing = next((p for p in projects if p.get("id") == project_name), {})
     projects.append({
         "id": project_name,
         "name": project_name,
         "file": file_name,
-        "updated": datetime.now().strftime("%Y-%m-%d %H:%M")
+        "updated": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "published": existing.get("published", False),
     })
     
     try:
@@ -517,4 +519,33 @@ async def stream_project_logs(name: str):
             await asyncio.sleep(0.5)
             
     return StreamingResponse(log_generator(), media_type="text/event-stream")
+
+
+@app.patch("/api/projects/{name}/publish")
+async def set_publish_status(name: str, body: dict):
+    """프로젝트 웹 게시 상태를 업데이트합니다."""
+    _validate_project_name(name)
+    published = bool(body.get("published", False))
+
+    manifest_path = PROJECT_ROOT / "web" / "public" / "data" / "projects.json"
+    if not manifest_path.exists():
+        raise HTTPException(status_code=404, detail="projects.json 파일이 없습니다.")
+
+    with open(manifest_path, encoding="utf-8") as f:
+        projects = json.load(f)
+
+    updated = False
+    for p in projects:
+        if p.get("id") == name:
+            p["published"] = published
+            updated = True
+            break
+
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"프로젝트 '{name}'을 찾을 수 없습니다.")
+
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump(projects, f, ensure_ascii=False, indent=2)
+
+    return {"status": "ok", "project": name, "published": published}
 
