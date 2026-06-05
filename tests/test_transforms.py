@@ -15,6 +15,9 @@ import pytest
 from transforms.domain.cleansing import (
     validate_email,
     validate_url,
+    validate_range,
+    validate_in,
+    validate_regex,
     split_url_domain,
     split_url_path,
     norm_position as normalize_title,  # alias: normalize_title → norm_position
@@ -398,3 +401,115 @@ class TestCase14_PctFormat:
 
     def test_invalid(self):
         assert pct_format("N/A") is None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Set 3 — Case 15: validate_range  —  수치 범위 검증
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestCase15_ValidateRange:
+    """수치 데이터 범위 검증 — min/max 초과 시 None."""
+
+    def test_within_range(self):
+        assert validate_range(50, min_val=0, max_val=100) == 50
+
+    def test_below_min_returns_none(self):
+        assert validate_range(-1, min_val=0) is None
+
+    def test_above_max_returns_none(self):
+        assert validate_range(101, max_val=100) is None
+
+    def test_exact_min_boundary(self):
+        assert validate_range(0, min_val=0, max_val=100) == 0
+
+    def test_exact_max_boundary(self):
+        assert validate_range(100, min_val=0, max_val=100) == 100
+
+    def test_no_bounds_passes_through(self):
+        assert validate_range(9999) == 9999
+
+    def test_none_returns_none(self):
+        assert validate_range(None) is None
+
+    def test_empty_string_returns_none(self):
+        assert validate_range("") is None
+
+    def test_string_number_within_range(self):
+        assert validate_range("50", min_val=0, max_val=100) == "50"
+
+    def test_non_numeric_returns_none(self):
+        assert validate_range("abc", min_val=0, max_val=100) is None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Set 3 — Case 16: validate_in  —  허용 목록 검증
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestCase16_ValidateIn:
+    """허용 항목 목록 검증 — 없으면 None."""
+
+    def test_value_in_list(self):
+        assert validate_in("A", allowed_values=["A", "B", "C"]) == "A"
+
+    def test_value_not_in_list_returns_none(self):
+        assert validate_in("D", allowed_values=["A", "B", "C"]) is None
+
+    def test_comma_string_allowed_values(self):
+        assert validate_in("B", allowed_values="A, B, C") == "B"
+
+    def test_comma_string_not_in_returns_none(self):
+        assert validate_in("D", allowed_values="A, B, C") is None
+
+    def test_no_allowed_values_passes_through(self):
+        assert validate_in("anything") == "anything"
+
+    def test_none_returns_none(self):
+        assert validate_in(None, allowed_values=["A", "B"]) is None
+
+    def test_empty_string_returns_none(self):
+        assert validate_in("", allowed_values=["A", "B"]) is None
+
+    def test_strips_whitespace_from_value(self):
+        # validate_in strips the value before comparison, so " A " matches "A"
+        assert validate_in(" A ", allowed_values=["A", "B"]) == " A "
+
+    def test_korean_values(self):
+        assert validate_in("남성", allowed_values=["남성", "여성"]) == "남성"
+
+    def test_korean_value_not_in_list(self):
+        assert validate_in("기타", allowed_values=["남성", "여성"]) is None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Set 3 — Case 17: validate_regex  —  정규식 패턴 검증
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestCase17_ValidateRegex:
+    """정규표현식 패턴 매칭 검증 — 불일치 시 None."""
+
+    def test_matching_pattern(self):
+        assert validate_regex("010-1234-5678", pattern=r"^\d{3}-\d{4}-\d{4}$") == "010-1234-5678"
+
+    def test_non_matching_returns_none(self):
+        assert validate_regex("01012345678", pattern=r"^\d{3}-\d{4}-\d{4}$") is None
+
+    def test_no_pattern_passes_through(self):
+        assert validate_regex("anything") == "anything"
+
+    def test_none_returns_none(self):
+        assert validate_regex(None, pattern=r"\d+") is None
+
+    def test_empty_string_returns_none(self):
+        assert validate_regex("", pattern=r"\d+") is None
+
+    def test_partial_match_succeeds(self):
+        assert validate_regex("abc123def", pattern=r"\d+") == "abc123def"
+
+    def test_korean_pattern(self):
+        assert validate_regex("홍길동", pattern=r"^[가-힣]+$") == "홍길동"
+
+    def test_korean_pattern_fail(self):
+        assert validate_regex("Hong", pattern=r"^[가-힣]+$") is None
+
+    def test_email_pattern(self):
+        assert validate_regex("user@example.com", pattern=r"^[\w.+-]+@[\w-]+\.[a-z]{2,}$") == "user@example.com"
