@@ -206,4 +206,49 @@ projects/*/output/*.xlsx  →  ❌  (신규 추가)
 - **데스크탑 GUI 앱 개발 계획 (`gui_plan.md`)**:
   - Gradio/CustomTkinter/PyQt6 기반 데스크탑 앱 구축은 문서의 상태(미구현 선택 계획)대로 **"옵션 사항(Optional/Pending)"**으로, 현재는 웹 대시보드 우선 정책에 따라 착수하지 않은 예비 로드맵 상태입니다.
 
+---
+
+### 2026-06-05: [Phase 6] Supabase 인증·어드민 대시보드 재설계·CI/CD·E2E 테스트
+
+#### ① 현재완료(Present Perfect) 검증 — 신규 transform 단위 테스트 (test_transforms.py)
+- `validate_range` (`val_range`): min/max 경계 10개 케이스
+- `validate_in` (`val_in`): 리스트/CSV 허용값, 한글 값 10개 케이스
+- `validate_regex` (`val_regex`): 전화번호·한글·이메일 패턴 9개 케이스
+- SSE 로그 스트리밍 API (`/api/projects/{name}/logs/stream`) 4개 케이스
+- **테스트 총계**: 178 → 211개 (33개 추가), 전체 통과
+
+#### ② GitHub Actions CI 설정 (`.github/workflows/ci.yml`)
+- `python-tests` 잡: Python 3.11 + pytest, pyproject.toml dev extras 활용
+- `typescript-check` 잡: Node 20 + `npx tsc --noEmit`
+- pyproject.toml dev extras에 fastapi/uvicorn/httpx 추가 (API 테스트 의존성 누락 수정)
+
+#### ③ Supabase 인증 + /admin 어드민 대시보드 재설계
+- **`web/src/lib/supabase.ts`**: `createClient()` 초기화 (환경변수 `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`)
+- **`web/src/routes/login.tsx`**: 이메일/비밀번호 로그인 + GitHub OAuth 로그인 페이지 신설
+- **`web/src/routes/admin.tsx`** 전면 재설계:
+  - Supabase `getSession()` + `onAuthStateChange`로 클라이언트 인증 게이트 구현
+  - 미인증 시 `/login?redirect=/admin` 으로 즉시 리다이렉트
+  - `AdminDashboard`: 좌측 사이드바 + 프로젝트 목록 테이블 (발행 토글 스위치 포함)
+- **`app/main.py`**: `PATCH /api/projects/{name}/publish` 엔드포인트 추가 (발행 상태 토글)
+- **공개 대시보드**: `published !== false` 필터 적용, 어드민 링크 제거
+- **`web/.env.local`** (gitignored): Supabase URL/Key 로컬 환경변수 파일
+
+#### ④ Playwright E2E 테스트 (20개 케이스, 전체 통과)
+| 파일 | 케이스 수 | 내용 |
+|------|-----------|------|
+| `web/tests/e2e/dashboard.spec.ts` | 9 | 공개 대시보드 — 헤더·드롭다운·탭·차트·다크모드·가이드·어드민링크없음 |
+| `web/tests/e2e/login.spec.ts` | 8 | 로그인 페이지 — 타이틀·폼 요소·OAuth 버튼·리다이렉트 링크 |
+| `web/tests/e2e/admin.spec.ts` | 3 | 미인증 /admin → /login 리다이렉트, redirect 파라미터 포함 여부 |
+
+- `web/playwright.config.ts` 신설: `docs/logs/` 에 HTML/JSON/test-results 출력
+- CI (`playwright-e2e` 잡) 추가: `npx playwright install --with-deps chromium` + artifact 업로드
+
+#### 오늘 주요 커밋
+| 내용 |
+|------|
+| 현재완료 검증 — transform·SSE 단위 테스트 33개 추가 |
+| GitHub Actions CI 설정 (Python pytest + TypeScript tsc) |
+| Supabase 인증 + /admin 재설계 + /login 신설 + 발행 토글 API |
+| Playwright E2E 20개 케이스 신설 + CI 연동 |
+
 
