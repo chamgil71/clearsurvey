@@ -75,26 +75,42 @@ sequenceDiagram
     actor User as 사용자 (브라우저)
     participant Client as React 프론트엔드 (web/)
     participant API as FastAPI 백엔드 (app/main.py)
+    participant Auth as Supabase Auth 서버
     participant Engine as Python 정제 엔진 (engine/)
 
     User->>Client: 1단계: 엑셀 파일 업로드
-    Client->>API: POST /api/projects/create
+    Client->>API: POST /api/projects/create (JWT Bearer 헤더 포함)
+    rect rgb(240, 248, 255)
+        note right of API: JWT 토큰 실시간 검증
+        API->>Auth: GET /auth/v1/user (Token 전달)
+        Auth-->>API: 200 OK (사용자 정보 반환)
+    end
     API->>Engine: ExcelAnalyzer.analyze()
     API-->>Client: 감지된 헤더 및 draft 경로 반환
     Client-->>User: 문항 스냅샷 UI 제공
 
     User->>Client: 2단계: 컬럼 매핑 및 레이아웃 수정
-    Client->>API: POST /api/projects/{name}/config
+    Client->>API: POST /api/projects/{name}/config (JWT Bearer 헤더 포함)
+    rect rgb(240, 248, 255)
+        API->>Auth: GET /auth/v1/user
+        Auth-->>API: 200 OK
+    end
     API->>API: Pydantic Validation (SurveyConfig)
     API-->>Client: 영구 저장 완료 (config.yaml, dashboard.json)
 
     User->>Client: 3단계: 정제 엔진 1-Click 실행
-    Client->>API: POST /api/projects/{name}/run (비동기)
+    Client->>API: POST /api/projects/{name}/run (JWT Bearer 헤더 포함, 비동기)
+    rect rgb(240, 248, 255)
+        API->>Auth: GET /auth/v1/user
+        Auth-->>API: 200 OK
+    end
     API-->>Client: started 반환 (백그라운드 가동)
     
     rect rgb(230, 245, 255)
         note right of Client: 실시간 로그 스트리밍 (SSE)
-        Client->>API: GET /api/projects/{name}/logs/stream
+        Client->>API: GET /api/projects/{name}/logs/stream?token=JWT
+        API->>Auth: GET /auth/v1/user (Query Token 검증)
+        Auth-->>API: 200 OK
         API->>Engine: stdout/print 로그 리다이렉트 캡처
         API-->>Client: SSE 로그 스트림 (1줄씩 실시간 전송)
         Client-->>User: 검은색 터미널 UI에 실시간 출력
@@ -102,7 +118,11 @@ sequenceDiagram
 
     API->>Engine: SurveyPipeline.run() 실행 완료
     API-->>Client: 상태 완료 (status = "done")
-    Client->>API: POST /api/projects/{name}/export
+    Client->>API: POST /api/projects/{name}/export (JWT Bearer 헤더 포함)
+    rect rgb(240, 248, 255)
+        API->>Auth: GET /auth/v1/user
+        Auth-->>API: 200 OK
+    end
     API->>Engine: export_to_json()
     API-->>Client: web/public/data/{project}_data.json 배포 완료
     Client-->>User: 결과 다운로드 및 대시보드 이동 활성화
@@ -155,6 +175,30 @@ start_web.bat       # → http://localhost:5173
 # 브라우저에서 http://localhost:5173/admin 접속
 # → Step 1 파일 업로드 → Step 2 설정 편집 → Step 3 실행 및 내보내기
 ```
+
+### 3단계: Docker Compose 프로덕션 배포 (컨테이너화)
+
+프로덕션 배포 시 backend (FastAPI) 및 frontend (Nginx + React SPA) 컨테이너 구성을 활용하여 자립 실행이 가능합니다.
+
+1. 루트 경로에 `.env` 파일을 작성하여 Supabase URL과 Anon Key를 기입합니다.
+   ```env
+   SUPABASE_URL=https://<your-project>.supabase.co
+   SUPABASE_ANON_KEY=<your-anon-key>
+   ```
+2. Docker Compose 빌드 및 가동:
+   ```bash
+   docker compose up --build -d
+   ```
+   * Nginx(80 포트)가 서빙하며, `/api` 경로의 백엔드 통신 및 SSE 로그 스트림 통신 프록싱을 완전 조율합니다.
+   * `projects/`, `storage/`, `web/public/data/` 데이터 폴더가 볼륨 마운트되어 컨테이너가 내려가도 데이터 유실을 방지합니다.
+
+---
+
+## 🔐 백엔드 API 보안 가이드
+
+- **JWT 토큰 검증**: 백엔드의 `/api/projects/...` 하위 모든 어드민용 API는 외부 비인증 호출을 방지하기 위해 요청 헤더의 `Authorization: Bearer <token>`을 Supabase Auth 서버에 전송하여 실시간 검증합니다.
+- **인증 헤더 우회(Bypass) 환경**: 로컬 개발 서버 구동 시 `SUPABASE_URL` 환경변수가 플레이스홀더(`placeholder.supabase.co`)이거나 빈 값으로 잡혀있을 때는, 인증 필터가 자동으로 로컬 개발 모드로 분기하여 바이패스함으로써 CI 및 오프라인 테스트가 끊김 없이 작동하게 지원합니다.
+- **SSE/다운로드용 쿼리 토큰**: 헤더를 전송하기 어려운 EventSource(로그 스트림) 및 다운로드 요청의 경우 `?token=...` 쿼리 파라미터를 파싱해 검증을 완수합니다.
 
 ---
 
@@ -600,4 +644,4 @@ columns:
 |------|------|
 | [docs/log/worklog.md](docs/log/worklog.md) | 개발 작업 로그 (마일스톤 이력) |
 | [docs/log/qna.md](docs/log/qna.md) | 운영 Q&A 및 설계 결정 내역 |
-| [docs/log/system_analysis_2026-05-27.md](docs/log/system_analysis_2026-05-27.md) | 시스템 분석 보고서 |
+| [docs/archive/system_analysis_2026-05-27.md](docs/archive/system_analysis_2026-05-27.md) | 시스템 분석 보고서 (아카이브) |

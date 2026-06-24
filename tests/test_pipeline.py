@@ -250,3 +250,36 @@ class TestSurveyPipelineRun:
         pipeline = SurveyPipeline(cfg, config_path=config_yaml)
         with pytest.raises(FileNotFoundError):
             pipeline.run(input_path=tmp_path / "nonexistent.xlsx")
+
+    def test_slicer_injection(self, tmp_path):
+        from engine.config import SlicerDef
+        cfg, data_path, config_yaml = _make_simple_cfg(tmp_path)
+        # '부서' 컬럼을 슬라이서로 지정
+        cfg.slicers = [SlicerDef(col="부서", caption="부서필터")]
+        pipeline = SurveyPipeline(cfg, config_path=config_yaml)
+        out = pipeline.run(input_path=data_path)
+        
+        # zip 내부의 파일들 검증
+        import zipfile
+        from xml.etree import ElementTree as ET
+        assert out.exists()
+        with zipfile.ZipFile(out, "r") as zin:
+            namelist = zin.namelist()
+            # 1. 파일 생성 검증
+            assert "xl/slicers/slicer1.xml" in namelist
+            assert "xl/slicers/_rels/slicer1.xml.rels" in namelist
+            assert "xl/slicerCaches/slicerCache1.xml" in namelist
+            assert "xl/drawings/drawing1.xml" in namelist
+            assert "xl/drawings/_rels/drawing1.xml.rels" in namelist
+            
+            # 2. slicerCache의 column attribute가 0-based index인지 검증
+            cache_content = zin.read("xl/slicerCaches/slicerCache1.xml")
+            root = ET.fromstring(cache_content)
+            ns = {
+                "x14": "http://schemas.microsoft.com/office/spreadsheetml/2009/9/main",
+                "x15": "http://schemas.microsoft.com/office/spreadsheetml/2010/11/main"
+            }
+            tsc = root.find(".//x15:tableSlicerCache", ns)
+            assert tsc is not None
+            # '부서' 컬럼은 0-based index로 1이어야 함 (이름=0, 부서=1, 점수=2)
+            assert tsc.get("column") == "1"

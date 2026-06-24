@@ -252,3 +252,46 @@ projects/*/output/*.xlsx  →  ❌  (신규 추가)
 | Playwright E2E 20개 케이스 신설 + CI 연동 |
 
 
+### 2026-06-24: [Phase 7] 백엔드 API 보안 강화 (JWT 인증) & Docker/Nginx 배포 파이프라인 구축 및 문서 현행화
+
+#### ① 백엔드 API 보안 강화 (FastAPI Supabase JWT 필터)
+- **`verify_supabase_token` 디펜던시 주입**: `/api/projects` 하위의 모든 프로젝트 관리 및 설정 어드민 API 엔드포인트에 토큰 검증 필터를 적용하여 외부 비인증 호출을 원천 차단했습니다.
+- **로컬/CI 바이패스 분기**: 로컬 및 GitHub Actions CI 테스트 시 런타임 오류가 없도록, 플레이스홀더 Supabase URL 설정 감지 시 강제 우회(Bypass) 처리하도록 설계했습니다.
+- **SSE/다운로드 백업 인증**: 헤더 전송이 제한되는 EventSource 및 파일 다운로드용으로 `token` 쿼리 파라미터 기반의 백업 인증 방식을 탑재했습니다.
+
+#### ② 프론트엔드 API 인증 헤더 연동
+- **`fetchWithAuth` 구현**: `web/src/hooks/useManagerApi.ts` 내에 로컬 캐시 토큰을 읽어 `Authorization: Bearer <token>` 헤더를 주입하는 공통 fetch 래퍼 함수를 구현하고 모든 API fetch를 이 래퍼로 전환했습니다.
+- **EventSource 및 다운로드 연동**: 동기식 토큰 기입으로 EventSource logs/stream 및 다운로드 URL 뒤에 자동으로 `?token=...` 이 동반되도록 연동했습니다.
+
+#### ③ Phase 3 Docker & Nginx 배포 관련 자산 구성
+- **backend `Dockerfile`**: Python 3.11-slim 기반으로 `uv`로 의존성을 패키징하여 구동되는 백엔드 컨테이너 스펙을 정의했습니다.
+- **frontend `web/Dockerfile`**: Node 20 환경에서 React/Vite를 빌드하고 `dist/`를 nginx:alpine의 웹루트로 이식하는 멀티스테이지 컨테이너를 작성했습니다.
+- **`web/nginx.conf`**: SPA 라우팅 폴백 및 SSE logs/stream이 Nginx 버퍼링으로 중단되지 않도록 `proxy_buffering off` 최적화 설정을 추가했습니다.
+- **루트 `docker-compose.yml`**: backend 및 frontend 서비스를 하나로 묶고, 프로젝트 설정 및 output 디렉토리와 web/public/data를 영속 공유하는 볼륨 바인딩을 매핑했습니다.
+
+#### ④ 보류 기획 문서 이관, 구버전 문서 아카이브 및 최종 문서화
+- **보류 문서 이관**: 현재 구축하지 않는 데스크탑 GUI 앱 계획(`gui_plan.md`) 및 지도 탭 확장 계획(`map_plan.md`)을 영문 폴더인 `docs/plan/pending/` 폴더로 이관 격리하였습니다.
+- **구버전 문서 아카이브**: 구현 완료 및 현행화되어 구버전이 된 과거 기획 문서 및 분석서(basic_implementation_plan.md, web_plan.md, react_migration_plan.md, unit_detailed_design.md, implementation_plan.md, system_analysis_2026-05-27.md)를 `docs/archive/` 폴더로 이관하여 아카이브했습니다.
+- **통합 문서화 현행화**: 
+  - `README.md` 및 `GUIDE.md`에 Docker Compose 배포 방법 및 API JWT 보안 가이드를 완비했습니다.
+  - `GUIDE.md` 내의 Mermaid 시퀀스 다이어그램에 Supabase Auth 서버와의 토큰 실시간 검증 흐름을 반영하여 갱신했습니다.
+  - `docs/improvements.md` 최종 개선 보고서에 해당 내용들을 통합 반영하여 현행화했습니다.
+
+#### ⑤ 대시보드 기획 연동 동적 Excel 차트 삽입
+- **`dashboard.json` 연동**: 사용자가 웹 상에서 구성하여 프로젝트 폴더 내에 저장된 시각화 정보(`dashboard.json`)를 정제 실행 시점에 동적 로드하도록 구현했습니다.
+- **오픈파이엑셀(openpyxl) 차트 바인딩**: `unique_count`, `totals` 등 요약 시트 테이블 데이터의 `Reference` 주소 범위를 역산해 차트 데이터 소스로 바인딩하고, 막대/원형/꺾은선 등 기획된 타입에 맞게 생성했습니다.
+- **우측 누적 정렬 배치**: 시트 가로 레이아웃 간섭을 방지하도록 요약 테이블 우측인 `G열` 영역에 15행 간격 오프셋으로 차트 객체를 오버레이 삽입했습니다.
+
+#### 오늘 주요 작업 내역 (2026-06-24)
+| 내용 |
+|------|
+| 보류 기획서 2건 `docs/plan/pending/`로 격리 이관 |
+| 구버전 완료 문서 6건 `docs/archive/`로 백업 아카이브 |
+| FastAPI 백엔드 API Supabase JWT 토큰 검증 필터 구현 및 Depends 주입 |
+| React 프론트엔드 useManagerApi.ts 내 fetchWithAuth 래퍼 주입 및 API 일괄 연동 |
+| backend/frontend용 Dockerfile, nginx.conf, docker-compose.yml 배포 자산 완비 |
+| dashboard.json 기획 정보 동적 연동 요약 시트 내 Excel 차트 삽입 로직 구현 |
+| README, GUIDE, improvements.md, worklog.md 배포 및 보안 내용 현행화 |
+
+
+

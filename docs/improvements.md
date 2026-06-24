@@ -71,6 +71,16 @@ Vite 마이그레이션 과정에서 데이터 생성 폴더가 `web/data`에서
 * **projects.json 목록 갱신 누락**: 백엔드 내보내기 및 생성 성공 시 매니페스트 JSON을 자동 업데이트하여 메인 대시보드 프로젝트 목록에 100% 동기화되도록 수정 완료하였습니다.
 * **실시간 런타임 로그의 허구적 UX**: 단순 상태 폴링에서 탈피하여, `stdout` 리다이렉트 캡처 스트림 및 FastAPI SSE 스트리밍 라우트를 통해 실제 파이프라인 엔진 가공 로그들을 브라우저 터미널 화면에 실시간으로 전송 및 바인딩 완료하였습니다.
 * **CLI `deploy` 명령어와 React/Vite 구조의 충돌**: 구형 Vanilla html/js 복사 경로에서 React/Vite 빌드 폴더(`web/dist/`) 번들 산출물을 통째로 복사하도록 명령어를 전면 보완하여 단독 서비스 패키징 기능을 정상화하였습니다.
+* **백엔드 어드민 API 보안 취약성 해결**:
+  - FastAPI의 모든 어드민 API 엔드포인트에 `Depends(verify_supabase_token)`를 필수 주입하여 Supabase JWT 검증 기반 보안 장벽을 완비하였습니다.
+  - 로컬 개발 및 CI 테스트(Playwright 등) 환경에서는 가짜 Supabase 설정을 감지하고 자동으로 인증 검증을 바이패스(Bypass)하도록 유연하게 분기 처리하여 런타임 크래시를 방지했습니다.
+  - EventSource SSE 및 파일 다운로드처럼 헤더 주입이 제한되는 통로는 쿼리 스트링 인증(`?token=...`)을 지원하도록 보완했습니다.
+* **프론트엔드 API 인증 헤더 연동**:
+  - `web/src/hooks/useManagerApi.ts` 내에 공통 `fetchWithAuth` 래퍼와 토큰 로컬 캐시를 추출하는 `getLocalAccessToken`을 구현하여, 모든 어드민 API 요청에 Bearer 토큰이 안정적으로 실려가도록 통합 연동을 완수했습니다.
+* **Phase 3 Docker & Nginx 배포 자산 완비**:
+  - `Dockerfile` (FastAPI), `web/Dockerfile` (React 빌드 + Nginx 서빙), `web/nginx.conf` (API Reverse Proxy 및 SSE 최적화), `docker-compose.yml` (backend/frontend 볼륨 매핑)을 완비하여, 단 한 번의 Compose 가동으로 무상태 웹서버와 엔진 컨테이너가 원스톱으로 빌드 및 연동되도록 조율을 완수했습니다.
+* **보류 중인 선택 계획 이관**:
+  - 현재 시점에는 불필요한 데스크탑 GUI 앱 기획 및 지도 시각화 확장 계획을 하위 경로인 `docs/plan/pending/`로 격리 이관하여 프로젝트의 실질적 영역을 정돈했습니다.
 
 ---
 
@@ -82,3 +92,5 @@ Vite 마이그레이션 과정에서 데이터 생성 폴더가 `web/data`에서
 ### ② 단위 테스트 및 리그레션 방지
 * **단위 테스트 커버리지 보강**:
   - `tests/` 폴더 내에 `pytest` 테스트 모듈을 실행해 이번에 추가한 `validate_range`, `validate_in`, `validate_regex` 등의 핵심 정제 변환 함수가 다양한 엣지 케이스(None값 입력, 오포맷, 한국어 억/만 단위 등)에 대해 기대한 대로 완벽하게 작동하는지 검증하는 테스트 커버리지를 보강합니다.
+  - 백엔드 `verify_supabase_token`의 실제 토큰 유효성 검증 mock 테스트 및 프론트엔드 `fetchWithAuth`의 토큰 주입 테스트를 강화하여 보안 필터의 안정성을 강화합니다.
+

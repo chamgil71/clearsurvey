@@ -125,29 +125,53 @@ ClearSurvey/
 │   ├── integrated_guide.md     # 전체 시스템 연계 데이터 플로우
 │   ├── log/                    # 작업 로그 및 분석 보고서
 │   │   ├── worklog.md          # 개발 작업 로그 (마일스톤 이력)
-│   │   ├── qna.md              # 운영 Q&A 및 설계 결정 내역
-│   │   └── system_analysis_2026-05-27.md  # 시스템 분석 보고서
+│   │   └── qna.md              # 운영 Q&A 및 설계 결정 내역
 │   ├── plan/                   # 구현 계획 및 상세 설계서
+│   │   └── pending/            # 보류 중인 선택적 기획 문서 (GUI 앱, 지도 탭)
+│   ├── archive/                # 완료된 과거 기획 계획서 및 분석 보고서 아카이브
 │   └── project/                # 프로젝트별 참고 문서
 └── web/                        # React / Vite 웹 대시보드 및 3단계 마법사
 ```
 
 ---
 
-## 🔐 인증 및 어드민 대시보드
+## 🔐 인증 및 보안 (Authentication & Security)
 
-### 접근 제어
-- **공개 대시보드** (`/`): 인증 없이 누구나 접근 가능. `published: true` 설정된 프로젝트만 표시.
-- **어드민** (`/admin`): Supabase 인증 필요. 미인증 시 `/login` 페이지로 자동 리다이렉트.
-- **로그인** (`/login`): 이메일/비밀번호 또는 GitHub OAuth 로그인 지원.
+### 1) 접근 제어 (Access Control)
+- **공개 대시보드** (`/`): 인증 없이 누구나 접근 가능하며, `published: true`로 설정된 프로젝트 정보만 노출됩니다.
+- **관리자 UI** (`/admin`): Supabase Session 기반 인증 게이트가 적용되어 있으며 미인증 상태 접근 시 `/login`으로 자동 리다이렉트됩니다.
+- **백엔드 API 보호**: `/api/projects` 하위 모든 어드민 API는 요청 헤더의 `Authorization: Bearer <JWT>` 토큰을 Supabase Auth 서비스에 실시간 조회·검증하는 필터가 적용되어 있습니다. 
+  - EventSource SSE 및 파일 다운로드처럼 헤더 주입이 제한되는 인터페이스는 `?token=...` 쿼리 파라미터를 통해 인증을 수행합니다.
+  - 로컬 개발 및 CI 테스트 환경에서는 가짜 Supabase URL 설정을 감지하여 자동으로 바이패스하도록 설계되어 있습니다.
 
-### 로컬 환경 설정
-`web/.env.local` 파일을 생성하고 Supabase 프로젝트 정보를 입력합니다 (gitignore 처리됨):
+### 2) 로컬 환경 설정
+`web/.env.local` 파일(프론트엔드용)을 생성하고 Supabase 프로젝트 정보를 기입합니다 (git 무시 처리됨).
 ```env
 VITE_SUPABASE_URL=https://<your-project>.supabase.co
 VITE_SUPABASE_ANON_KEY=<your-anon-key>
 VITE_API_BASE_URL=http://localhost:8000
 ```
+
+---
+
+## 📦 Docker Compose 프로덕션 배포 (Production Deployment)
+
+프로덕션 환경(Hetzner VPS, AWS 등)에 서비스를 단 한 번에 컨테이너화하여 안전하게 배포할 수 있는 Docker Compose 설정을 지원합니다.
+
+### 1) 환경 변수 기입 (.env)
+루트 경로에 `.env` 파일을 생성하고 프로덕션 Supabase API 정보를 입력합니다:
+```env
+SUPABASE_URL=https://<your-project>.supabase.co
+SUPABASE_ANON_KEY=<your-anon-key>
+```
+
+### 2) 서비스 실행
+```bash
+# 컨테이너 빌드 및 백그라운드 구동
+docker compose up --build -d
+```
+* **backend (포트 8000)**: FastAPI 서버가 가동되며 Supabase 원격 서버를 통해 JWT를 실시간 검증합니다. `projects/`, `storage/`, `web/public/data/` 디렉토리를 마운트하여 영속 데이터를 유지하고 프론트엔드와 공유합니다.
+* **frontend (포트 80)**: React/Vite 빌드 자산이 Nginx를 통해 서빙되며, Nginx가 `/api`를 백엔드로 투명하게 프록싱합니다. SSE logs stream 전송용 버퍼링 제거 설정이 내장되어 있습니다.
 
 ---
 

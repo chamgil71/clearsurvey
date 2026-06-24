@@ -258,3 +258,106 @@ class SummarySheetWriter:
             ws.column_dimensions[col_letter].width = w
 
         ws.freeze_panes = s["freeze_pane"]
+
+        # 동적 차트 삽입 프로세스 연동
+        self._add_dynamic_charts(ws, sections)
+
+    def _add_dynamic_charts(self, ws, sections) -> None:
+        import json
+        from pathlib import Path
+        from openpyxl.chart import BarChart, PieChart, LineChart, Reference
+
+        # 1. dashboard.json 로드 시도
+        project_root = Path(__file__).parent.parent
+        dashboard_path = project_root / "projects" / self._cfg.project / "dashboard.json"
+        
+        if not dashboard_path.exists():
+            return
+            
+        try:
+            with open(dashboard_path, encoding="utf-8") as f:
+                dashboard_data = json.load(f)
+        except Exception as e:
+            print(f"[경고] dashboard.json 로드 실패: {e}")
+            return
+            
+        charts_config = dashboard_data.get("charts", [])
+        if not charts_config:
+            return
+
+        # 2. 각 차트 설정 순회
+        chart_idx = 0
+        for chart_cfg in charts_config:
+            chart_type = chart_cfg.get("type")
+            col_ref = chart_cfg.get("colRef")
+            title = chart_cfg.get("title", f"{col_ref} 집계")
+            
+            # 해당하는 요약 섹션 찾기
+            target_sec = None
+            n_rows = 0
+            
+            for sec in sections:
+                if sec.type == "unique_count" and sec.col_ref == col_ref:
+                    target_sec = sec
+                    break
+                elif sec.type == "totals" and any(item.col_ref == col_ref for item in sec.items):
+                    target_sec = sec
+                    n_rows = len(sec.items)
+                    break
+                elif sec.type == "binary_sum" and any(item.col_ref == col_ref for item in sec.columns):
+                    target_sec = sec
+                    n_rows = len(sec.columns)
+                    break
+                elif sec.type == "countif_contains" and sec.col_ref == col_ref:
+                    target_sec = sec
+                    n_rows = len(sec.keywords)
+                    break
+                    
+            if not target_sec or target_sec.start_row is None or target_sec.start_col is None:
+                continue
+
+            srow = target_sec.start_row
+            scol = target_sec.start_col
+
+            # unique_count 타입의 데이터 행수 계산
+            if n_rows == 0 and target_sec.type == "unique_count":
+                r = srow + 2
+                while True:
+                    cell_val = ws.cell(r, scol).value
+                    if cell_val is None or str(cell_val).strip() == "":
+                        break
+                    n_rows += 1
+                    r += 1
+
+            if n_rows == 0:
+                continue
+
+            # 3. openpyxl 차트 매핑 생성
+            if chart_type in ("bar", "hbar", "multibar", "histogram"):
+                chart = BarChart()
+                chart.type = "col"
+                chart.legend = None
+            elif chart_type in ("pie", "donut"):
+                chart = PieChart()
+            elif chart_type == "line":
+                chart = LineChart()
+                chart.legend = None
+            else:
+                continue
+
+            chart.title = title
+            chart.width = 16
+            chart.height = 10
+
+            # 4. Reference 설정 (값과 항목 범위 바인딩)
+            data_ref = Reference(ws, min_col=scol + 1, min_row=srow + 1, max_row=srow + 2 + n_rows - 1)
+            cat_ref = Reference(ws, min_col=scol, min_row=srow + 2, max_row=srow + 2 + n_rows - 1)
+
+            chart.add_data(data_ref, titles_from_data=True)
+            chart.set_categories(cat_ref)
+
+            # 5. G열에 15행 오프셋을 두어 세로 정렬 배치
+            insert_cell = f"G{2 + chart_idx * 15}"
+            ws.add_chart(chart, insert_cell)
+            chart_idx += 1
+

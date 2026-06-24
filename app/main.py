@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 import io
 import sys
@@ -11,10 +12,59 @@ from pathlib import Path
 from typing import Any, Optional
 from datetime import datetime
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import BackgroundTasks, FastAPI, HTTPException, UploadFile, File, Form, Depends, Security, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import httpx
 import yaml
+
+security = HTTPBearer(auto_error=False)
+
+async def verify_supabase_token(
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(security),
+    token: Optional[str] = Query(None, description="SSE logs stream token fallback")
+) -> dict:
+    """Supabase JWT 토큰을 실시간 검증합니다.
+    
+    로컬 환경(placeholder.supabase.co 등)에서는 검증을 바이패스합니다.
+    """
+    supabase_url = os.environ.get("SUPABASE_URL", "https://placeholder.supabase.co")
+    if not supabase_url or "placeholder" in supabase_url:
+        return {"user": "local_dev_user"}
+        
+    auth_token = None
+    if credentials:
+        auth_token = credentials.credentials
+    elif token:
+        auth_token = token
+        
+    if not auth_token:
+        raise HTTPException(
+            status_code=401,
+            detail="인증 자격 증명(Bearer Token)이 누락되었습니다."
+        )
+        
+    headers = {
+        "Authorization": f"Bearer {auth_token}",
+        "apikey": os.environ.get("SUPABASE_ANON_KEY", "placeholder-anon-key")
+    }
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(f"{supabase_url}/auth/v1/user", headers=headers)
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=401,
+                    detail="유효하지 않거나 만료된 Supabase 토큰입니다."
+                )
+            return response.json()
+        except httpx.RequestError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=f"인증 서버와의 통신에 실패했습니다: {exc}"
+            )
+
 
 # Add project root to path for imports
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -168,7 +218,7 @@ def _get_project_dir(name: str) -> Path:
 # ── API Endpoints ──────────────────────────────────────────────────────────
 
 @app.get("/api/projects")
-def list_projects():
+def list_projects(user: dict = Depends(verify_supabase_token)):
     """웹 대시보드 프로젝트 목록 및 현황을 리턴합니다."""
     manifest_path = PROJECT_ROOT / "web" / "public" / "data" / "projects.json"
     if manifest_path.exists():
@@ -202,7 +252,8 @@ def list_projects():
 @app.post("/api/projects/create")
 async def create_project(
     name: str = Form(...),
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    user: dict = Depends(verify_supabase_token)
 ):
     """신규 설문 엑셀 파일을 업로드하고 설문 분석 및 draft 프로젝트를 생성합니다."""
     name = name.strip()
@@ -282,7 +333,7 @@ async def create_project(
 
 
 @app.get("/api/projects/{name}/config")
-def get_project_config(name: str):
+def get_project_config(name: str, user: dict = Depends(verify_supabase_token)):
     """프로젝트의 SurveyConfig 및 dashboard.json 설정을 로드합니다."""
     _validate_project_name(name)
     proj_dir = _get_project_dir(name)
@@ -327,7 +378,7 @@ def get_project_config(name: str):
 
 
 @app.post("/api/projects/{name}/config")
-async def save_project_config(name: str, payload: dict):
+async def save_project_config(name: str, payload: dict, user: dict = Depends(verify_supabase_token)):
     """프로젝트의 SurveyConfig 및 dashboard.json 설정을 웹에서 편집 후 저장합니다."""
     _validate_project_name(name)
     proj_dir = _get_project_dir(name)
@@ -364,7 +415,7 @@ async def save_project_config(name: str, payload: dict):
 
 
 @app.post("/api/projects/{name}/run")
-async def run_project_pipeline(name: str, background_tasks: BackgroundTasks):
+async def run_project_pipeline(name: str, background_tasks: BackgroundTasks, user: dict = Depends(verify_supabase_token)):
     """파이프라인을 백그라운드로 실행하고 즉시 반환합니다.
 
     대용량 파일도 HTTP 타임아웃 없이 처리합니다.
@@ -399,7 +450,7 @@ async def run_project_pipeline(name: str, background_tasks: BackgroundTasks):
 
 
 @app.get("/api/projects/{name}/status")
-def get_pipeline_status(name: str):
+def get_pipeline_status(name: str, user: dict = Depends(verify_supabase_token)):
     """파이프라인 실행 상태를 반환합니다.
 
     status 값:
@@ -413,7 +464,7 @@ def get_pipeline_status(name: str):
 
 
 @app.post("/api/projects/{name}/export")
-def export_project_json(name: str):
+def export_project_json(name: str, user: dict = Depends(verify_supabase_token)):
     """정제된 엑셀을 웹 대시보드용 JSON 데이터로 내보냅니다."""
     _validate_project_name(name)
     proj_dir = _get_project_dir(name)
@@ -453,7 +504,7 @@ def export_project_json(name: str):
 
 
 @app.get("/api/projects/{name}/download")
-def download_cleaned_xlsx(name: str):
+def download_cleaned_xlsx(name: str, user: dict = Depends(verify_supabase_token)):
     """정제 완료된 결과 엑셀 파일을 다운로드합니다."""
     _validate_project_name(name)
     proj_dir = _get_project_dir(name)
@@ -493,7 +544,7 @@ def health_check():
 
 
 @app.get("/api/projects/{name}/logs/stream")
-async def stream_project_logs(name: str):
+async def stream_project_logs(name: str, user: dict = Depends(verify_supabase_token)):
     """실시간으로 파이프라인 실행 로그를 EventSource(SSE) 형태로 스트리밍합니다."""
     _validate_project_name(name)
     from fastapi.responses import StreamingResponse
@@ -522,7 +573,7 @@ async def stream_project_logs(name: str):
 
 
 @app.patch("/api/projects/{name}/publish")
-async def set_publish_status(name: str, body: dict):
+async def set_publish_status(name: str, body: dict, user: dict = Depends(verify_supabase_token)):
     """프로젝트 웹 게시 상태를 업데이트합니다."""
     _validate_project_name(name)
     published = bool(body.get("published", False))

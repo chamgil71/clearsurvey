@@ -1,5 +1,25 @@
 import { useState, useEffect } from "react";
 import type { DashboardConfig, ProjectListItem } from "@/types/dashboard";
+import { supabase } from "@/lib/supabase";
+
+const getLocalAccessToken = (): string | null => {
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith("sb-") && key.endsWith("-auth-token")) {
+      const val = localStorage.getItem(key);
+      if (val) {
+        try {
+          const parsed = JSON.parse(val);
+          return parsed?.access_token || null;
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }
+  return null;
+};
+
 
 /**
  * FastAPI 백엔드 URL.
@@ -57,6 +77,19 @@ export function useManagerApi() {
   const [error, setError] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
 
+  const fetchWithAuth = (url: string, options: RequestInit = {}) => {
+    const token = getLocalAccessToken();
+    const headers = new Headers(options.headers || {});
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+    return fetch(url, {
+      ...options,
+      headers,
+    });
+  };
+
+
   // Check health on mount
   useEffect(() => {
     const checkHealth = async () => {
@@ -65,7 +98,7 @@ export function useManagerApi() {
         if (res.ok) {
           setIsBackendAlive(true);
           // Backend is alive, load projects
-          const projRes = await fetch(`${API_BASE}/api/projects`);
+          const projRes = await fetchWithAuth(`${API_BASE}/api/projects`);
           if (projRes.ok) {
             const list = await projRes.json();
             setProjects(list);
@@ -85,7 +118,7 @@ export function useManagerApi() {
   const refreshProjects = async () => {
     if (!isBackendAlive) return;
     try {
-      const res = await fetch(`${API_BASE}/api/projects`);
+      const res = await fetchWithAuth(`${API_BASE}/api/projects`);
       if (res.ok) {
         const list = await res.json();
         setProjects(list);
@@ -104,7 +137,7 @@ export function useManagerApi() {
       formData.append("name", name);
       formData.append("file", file);
 
-      const res = await fetch(`${API_BASE}/api/projects/create`, {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/create`, {
         method: "POST",
         body: formData,
       });
@@ -139,7 +172,7 @@ export function useManagerApi() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/projects/${name}/config`);
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${name}/config`);
       if (!res.ok) {
         const errDetail = await res.json().catch(() => ({ detail: "알 수 없는 에러" }));
         throw new Error(errDetail.detail || "프로젝트 설정 로드 실패");
@@ -158,7 +191,7 @@ export function useManagerApi() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/projects/${name}/config`, {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${name}/config`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ config, dashboard }),
@@ -190,7 +223,7 @@ export function useManagerApi() {
       `[SYSTEM] 파이프라인 실행 요청 전송 중...`,
     ]);
     try {
-      const res = await fetch(`${API_BASE}/api/projects/${name}/run`, {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${name}/run`, {
         method: "POST",
       });
       if (!res.ok) {
@@ -221,7 +254,7 @@ export function useManagerApi() {
     finished_at?: string;
   }> => {
     try {
-      const res = await fetch(`${API_BASE}/api/projects/${name}/status`);
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${name}/status`);
       if (!res.ok) return { status: "error", detail: "상태 조회 실패" };
       return await res.json();
     } catch {
@@ -237,7 +270,7 @@ export function useManagerApi() {
     setError(null);
     setLogs((prev) => [...prev, `[SYSTEM] 웹 대시보드 데이터 JSON 내보내기 진행 중...`]);
     try {
-      const res = await fetch(`${API_BASE}/api/projects/${name}/export`, {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${name}/export`, {
         method: "POST",
       });
       if (!res.ok) {
@@ -262,18 +295,22 @@ export function useManagerApi() {
   };
 
   const getDownloadUrl = (name: string) => {
-    return `${API_BASE}/api/projects/${name}/download`;
+    const token = getLocalAccessToken();
+    const tokenParam = token ? `?token=${encodeURIComponent(token)}` : "";
+    return `${API_BASE}/api/projects/${name}/download${tokenParam}`;
   };
 
   const getLogsStreamUrl = (name: string) => {
-    return `${API_BASE}/api/projects/${name}/logs/stream`;
+    const token = getLocalAccessToken();
+    const tokenParam = token ? `?token=${encodeURIComponent(token)}` : "";
+    return `${API_BASE}/api/projects/${name}/logs/stream${tokenParam}`;
   };
 
   const clearLogs = () => setLogs([]);
 
   const togglePublish = async (name: string, published: boolean) => {
     try {
-      const res = await fetch(`${API_BASE}/api/projects/${name}/publish`, {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${name}/publish`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ published }),

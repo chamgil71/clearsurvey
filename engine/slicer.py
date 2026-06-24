@@ -188,7 +188,7 @@ def inject_slicers(output_path: Path, cfg: SurveyConfig, col_index_map: dict[str
         label   = sdef.col
         caption = sdef.caption or label
         cname   = f"Slicer_{label}"
-        col_idx = col_index_map.get(label, 1)
+        col_idx = col_index_map.get(label, 1) - 1
 
         new_files[f"xl/slicers/slicer{i}.xml"]             = _slicer_xml(cname, caption).encode("utf-8")
         new_files[f"xl/slicers/_rels/slicer{i}.xml.rels"]  = _slicer_rels_xml(i).encode("utf-8")
