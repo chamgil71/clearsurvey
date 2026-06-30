@@ -263,13 +263,18 @@ class SummarySheetWriter:
         self._add_dynamic_charts(ws, sections)
 
     def _add_dynamic_charts(self, ws, sections) -> None:
+        # excel_options.include_charts 비활성화 시 즉시 반환
+        if not getattr(self._cfg.excel_options, "include_charts", True):
+            print("[정보] 엑셀 차트 포함 설정이 비활성화되어 차트 삽입을 건너뜁니다.")
+            return
+
         import json
         from pathlib import Path
         from openpyxl.chart import BarChart, PieChart, LineChart, Reference
 
         # 1. dashboard.json 로드 시도
-        project_root = Path(__file__).parent.parent
-        dashboard_path = project_root / "projects" / self._cfg.project / "dashboard.json"
+        backend_root = Path(__file__).parent.parent
+        dashboard_path = backend_root.parent / "storage" / "projects" / self._cfg.project / "dashboard.json"
         
         if not dashboard_path.exists():
             return
@@ -289,7 +294,7 @@ class SummarySheetWriter:
         chart_idx = 0
         for chart_cfg in charts_config:
             chart_type = chart_cfg.get("type")
-            col_ref = chart_cfg.get("colRef")
+            col_ref = chart_cfg.get("col") or chart_cfg.get("colRef")
             title = chart_cfg.get("title", f"{col_ref} 집계")
             
             # 해당하는 요약 섹션 찾기

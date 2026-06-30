@@ -9,3 +9,8 @@ const supabaseAnonKey =
   (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || "placeholder-anon-key";
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// 로컬 개발/오프라인 모드(placeholder) 감지용 플래그 주입
+(supabase as any).isPlaceholder =
+  !import.meta.env.VITE_SUPABASE_URL ||
+  import.meta.env.VITE_SUPABASE_URL.includes("placeholder");

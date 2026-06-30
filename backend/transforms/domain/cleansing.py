@@ -112,6 +112,8 @@ def normalize_number(val, *, as_int: bool = False, **kw) -> int | float | None:
     if val is None:
         return None
     s = str(val).strip().replace(",", "")
+    # 괄호와 대괄호 내의 부가 설명 텍스트 제거 (예: "(대당8)" -> "")
+    s = re.sub(r"\([^)]*\)|\[[^\]]*\]", "", s).strip()
     if not s:
         return None
 
@@ -635,13 +637,45 @@ def mask_rrn(val, **kw) -> str | None:
 # ---------------------------------------------------------------------------
 
 def to_binary(val, *, flag_keyword: str | None = None, **kw) -> int:
-    """flag_keyword가 val에 포함되면 1, 아니면 0.
+    """flag_keyword가 val에 포함되면 1, 아니면 0. (대소문자/공백 무시하고 유연하게 검색)
 
     flag_keyword: Config 시트의 flag_keyword 필드에 입력한 키워드.
     """
     if not flag_keyword or val is None:
         return 0
-    return 1 if flag_keyword in str(val) else 0
+    # 쉼표나 공백으로 키워드 분리하여 스캔
+    keywords = [k.strip() for k in flag_keyword.replace(",", " ").split() if k.strip()]
+    if not keywords:
+        return 0
+    val_clean = str(val).lower().replace(" ", "")
+    for kw_item in keywords:
+        kw_clean = kw_item.lower().replace(" ", "")
+        if kw_clean in val_clean:
+            return 1
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# split_binary — 복수 선택형 항목 다중 이진 플래그 열 분리
+# ---------------------------------------------------------------------------
+
+def split_binary(val, *, flag_keyword: str | None = None, **kw) -> dict[str, Any]:
+    """복수 선택형 텍스트를 각 키워드별 이진 플래그 및 원본 텍스트 딕셔너리로 분리.
+    
+    예: val="AI모델, 데이터", flag_keyword="AI모델, 데이터, 추론"
+    -> { "": "AI모델, 데이터", "_AI모델": 1, "_데이터": 1, "_추론": 0 }
+    """
+    s = str(val).strip() if val is not None else ""
+    res: dict[str, Any] = {"": s if s else None}
+    
+    if not flag_keyword:
+        return res
+        
+    kws = [k.strip() for k in flag_keyword.split(",") if k.strip()]
+    for kw_item in kws:
+        res[f"_{kw_item}"] = 1 if kw_item in s else 0
+        
+    return res
 
 
 # ---------------------------------------------------------------------------
@@ -755,6 +789,7 @@ _TRANSFORMS: dict = {
     "mask_rrn":          mask_rrn,
     # ── 이진/수치 변환 ────────────────────────────────────────────────────────
     "to_binary":         to_binary,
+    "split_binary":      split_binary,
     "to_pct":            to_pct,
     # ── 집계 ─────────────────────────────────────────────────────────────────
     "group_sum":         group_sum,

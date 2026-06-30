@@ -14,7 +14,7 @@ from transforms.registry import TransformRegistry
 MAX_DATA_ROW = 10000
 
 # transforms that should use SUBTOTAL(9,…) = SUM instead of COUNTA
-_NUMERIC_ROLES = {"n_jang", "jang", "o_binary", "to_binary", "norm_num", "normalize_number", "to_numeric"}
+_NUMERIC_ROLES = {"n_jang", "jang", "o_binary", "to_binary", "split_binary", "norm_num", "normalize_number", "to_numeric"}
 
 # transforms that return a dict → multiple derived output columns
 # key: transform name  /  value: ordered list of column suffixes
@@ -78,7 +78,11 @@ class CleanedSheetWriter:
         """
         expanded: list[tuple[ColumnDef, str]] = []
         for cd in col_defs:
-            suffixes = _DERIVED_SUFFIXES.get(cd.transform or "", [""])
+            if cd.transform == "split_binary" and cd.flag_keyword:
+                kws = [k.strip() for k in cd.flag_keyword.split(",") if k.strip()]
+                suffixes = [""] + [f"_{kw}" for kw in kws]
+            else:
+                suffixes = _DERIVED_SUFFIXES.get(cd.transform or "", [""])
             for sfx in suffixes:
                 expanded.append((cd, sfx))
         return expanded
@@ -139,7 +143,11 @@ class CleanedSheetWriter:
             ci = 1
             for cd in base_defs:
                 val = _apply_transform(cd, row, self._registry, extra_kw)
-                suffixes = _DERIVED_SUFFIXES.get(cd.transform or "", [""])
+                if cd.transform == "split_binary" and cd.flag_keyword:
+                    kws = [k.strip() for k in cd.flag_keyword.split(",") if k.strip()]
+                    suffixes = [""] + [f"_{kw}" for kw in kws]
+                else:
+                    suffixes = _DERIVED_SUFFIXES.get(cd.transform or "", [""])
                 for sfx in suffixes:
                     if isinstance(val, dict):
                         cell_val = val.get(sfx)

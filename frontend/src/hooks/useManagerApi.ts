@@ -212,6 +212,28 @@ export function useManagerApi() {
     }
   };
 
+  const previewProjectConfig = async (name: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${name}/preview`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const errDetail = await res.json().catch(() => ({ detail: "알 수 없는 에러" }));
+        throw new Error(errDetail.detail || "미리보기 요청 실패");
+      }
+      const data = await res.json();
+      return data?.preview as { raw: Record<string, string>; cleaned: Record<string, string> }[];
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   /**
    * 파이프라인 실행 요청 — 즉시 반환합니다 (백그라운드 실행).
    * 완료 여부는 getPipelineStatus()로 폴링하세요.
@@ -300,6 +322,12 @@ export function useManagerApi() {
     return `${API_BASE}/api/projects/${name}/download${tokenParam}`;
   };
 
+  const getExportHtmlUrl = (name: string) => {
+    const token = getLocalAccessToken();
+    const tokenParam = token ? `?token=${encodeURIComponent(token)}` : "";
+    return `${API_BASE}/api/projects/${name}/export-html${tokenParam}`;
+  };
+
   const getLogsStreamUrl = (name: string) => {
     const token = getLocalAccessToken();
     const tokenParam = token ? `?token=${encodeURIComponent(token)}` : "";
@@ -340,11 +368,13 @@ export function useManagerApi() {
     createProject,
     loadProjectConfig,
     saveProjectConfig,
+    previewProjectConfig,
     runPipeline,
     getPipelineStatus,
     exportDashboard,
     togglePublish,
     getDownloadUrl,
+    getExportHtmlUrl,
     getLogsStreamUrl,
     API_BASE,
   };

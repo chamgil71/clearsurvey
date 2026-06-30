@@ -98,36 +98,46 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
               백엔드 저장소에 이미 설정이 완료되어 분석된 프로젝트 목록입니다.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 flex flex-col justify-between">
-            <div className="space-y-4">
+          <CardContent className="flex-1 flex flex-col justify-between min-h-[300px]">
+            <div className="space-y-3 flex-1">
               <label className="text-xs font-semibold text-muted-foreground block">
-                프로젝트 선택
+                등록된 프로젝트 목록 ({projects.length}개)
               </label>
-              <select
-                disabled={!isBackendAlive || projects.length === 0}
-                className="w-full p-2.5 rounded-md border border-input bg-background text-sm text-foreground focus:ring-2 focus:ring-primary disabled:opacity-50 cursor-pointer"
-                title="기존 프로젝트 불러오기"
-                defaultValue=""
-                onChange={(e) => e.target.value && onSelectProject(e.target.value)}
-              >
-                <option value="" disabled>
-                  {projects.length === 0 ? "프로젝트 없음" : "로드할 프로젝트를 선택하세요..."}
-                </option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} {p.updated ? `(${p.updated})` : ""}
-                  </option>
-                ))}
-              </select>
+              
+              {projects.length === 0 ? (
+                <div className="p-8 text-center text-xs text-muted-foreground bg-muted/10 border border-dashed rounded-md h-[180px] flex flex-col items-center justify-center">
+                  <FolderOpen className="h-8 w-8 text-muted-foreground/40 mb-2" />
+                  등록된 프로젝트가 없습니다.<br />우측에서 신규 파일을 분석하여 시작해보세요.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
+                  {projects.map((p) => (
+                    <div
+                      key={p.id}
+                      onClick={() => isBackendAlive && onSelectProject(p.id)}
+                      className="group p-3 border rounded-lg bg-background hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer flex items-center justify-between shadow-sm"
+                    >
+                      <div className="space-y-1">
+                        <div className="font-bold text-xs text-foreground group-hover:text-primary transition-colors truncate max-w-[200px]" title={p.name}>
+                          {p.name}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground font-mono">
+                          {p.updated ? `최종 업데이트: ${p.updated}` : "수정 이력 없음"}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-[10px] px-2.5 font-bold border group-hover:bg-primary group-hover:text-white transition-colors"
+                        disabled={!isBackendAlive}
+                      >
+                        설정 편집
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            {projects.length > 0 && isBackendAlive && (
-              <div className="mt-6 p-3 bg-muted/30 rounded-md border border-border flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                <span className="text-xs text-muted-foreground">
-                  선택 시 2단계에서 즉시 컬럼 매핑 정보를 로드하여 편집할 수 있습니다.
-                </span>
-              </div>
-            )}
           </CardContent>
         </Card>
 

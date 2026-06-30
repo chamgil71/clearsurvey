@@ -213,18 +213,25 @@ def inject_slicers(output_path: Path, cfg: SurveyConfig, col_index_map: dict[str
     )
     drawing_el = f'<drawing xmlns:r="{_NS_R}" r:id="{ws_drw_rid}"/>'
 
-    ws_end          = ws_xml.rfind("</worksheet>")
+    # 1. extLst 패치
     last_extlst_end = ws_xml.rfind("</extLst>")
-
-    if last_extlst_end != -1 and last_extlst_end > ws_end - 2000:
-        # inject slicer ext into existing extLst, and drawing before extLst
+    if last_extlst_end != -1 and last_extlst_end > ws_xml.rfind("</worksheet>") - 2000:
         ws_xml = ws_xml[:last_extlst_end] + slicer_ext + ws_xml[last_extlst_end:]
-        extlst_start = ws_xml.rfind("<extLst", 0, ws_xml.rfind("</extLst>"))
-        if extlst_start == -1:
-            extlst_start = ws_xml.rfind("<extLst")
-        ws_xml = ws_xml[:extlst_start] + drawing_el + ws_xml[extlst_start:]
     else:
-        ws_xml = ws_xml[:ws_end] + drawing_el + f"<extLst>{slicer_ext}</extLst>" + ws_xml[ws_end:]
+        ws_end = ws_xml.rfind("</worksheet>")
+        ws_xml = ws_xml[:ws_end] + f"<extLst>{slicer_ext}</extLst>" + ws_xml[ws_end:]
+
+    # 2. drawing 주입 (반드시 tableParts 나 extLst 앞에 위치해야 함)
+    tableparts_start = ws_xml.rfind("<tableParts")
+    if tableparts_start != -1:
+        ws_xml = ws_xml[:tableparts_start] + drawing_el + ws_xml[tableparts_start:]
+    else:
+        extlst_start = ws_xml.rfind("<extLst")
+        if extlst_start != -1:
+            ws_xml = ws_xml[:extlst_start] + drawing_el + ws_xml[extlst_start:]
+        else:
+            ws_end = ws_xml.rfind("</worksheet>")
+            ws_xml = ws_xml[:ws_end] + drawing_el + ws_xml[ws_end:]
 
     new_files[ws_file] = ws_xml.encode("utf-8")
 

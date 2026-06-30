@@ -202,6 +202,11 @@ class OutputSheetsConfig(BaseModel):
     summary: str = "Summary"
 
 
+class ExcelOptionsConfig(BaseModel):
+    include_slicers: bool = True
+    include_charts: bool = True
+
+
 # ---------------------------------------------------------------------------
 # Top-level survey config
 # ---------------------------------------------------------------------------
@@ -235,6 +240,7 @@ class SurveyConfig(BaseModel):
     slicers: list[SlicerDef] = Field(default_factory=list)
     paths: PathsConfig = Field(default_factory=PathsConfig)
     sheets: OutputSheetsConfig = Field(default_factory=OutputSheetsConfig)
+    excel_options: ExcelOptionsConfig = Field(default_factory=ExcelOptionsConfig)
     merge: MergeConfig | None = None
 
     # optional domain-specific helpers

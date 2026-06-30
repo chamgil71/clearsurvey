@@ -160,7 +160,14 @@ def export_to_json(
     # ── aggregates (category counts) ──────────────────────────────────────────
     aggregates: dict[str, dict[str, int]] = {}
     for col in columns:
-        if col["type"] == "category":
+        vals = [r[col["key"]] for r in rows if r.get(col["key"]) is not None]
+        unique_vals = {str(v).strip() for v in vals if str(v).strip()}
+        
+        # Check if the column is configured to be in slicer in config.yaml
+        cfg_col = next((c for c in cfg.columns if c.output_col == col["key"]), None)
+        in_slicer = getattr(cfg_col, "include_in_slicer", False) if cfg_col else False
+        
+        if col["type"] == "category" or in_slicer:
             counts: dict[str, int] = {}
             for row in rows:
                 v = str(row.get(col["key"]) or "").strip()
@@ -170,11 +177,31 @@ def export_to_json(
 
     # ── serialize rows (convert non-JSON types) ───────────────────────────────
     def _clean(v: Any) -> Any:
+        import math
+        import numpy as np
         if v is None:
             return None
-        if isinstance(v, (int, float, bool)):
-            return v
-        return str(v)
+        # NaN 값 검사 및 방어
+        if isinstance(v, float) and math.isnan(v):
+            return None
+        if isinstance(v, (np.integer, np.floating)) and np.isnan(v):
+            return None
+            
+        if isinstance(v, (int, float, bool, np.integer, np.floating)):
+            return float(v) if isinstance(v, (float, np.floating)) else int(v)
+        val_str = str(v).strip()
+        if val_str == "NaN" or val_str == "nan":
+            return None
+        if val_str.isdigit():
+            return int(val_str)
+        try:
+            val_float = float(val_str)
+            if math.isnan(val_float):
+                return None
+            return val_float
+        except ValueError:
+            pass
+        return val_str
 
     clean_rows = [{h: _clean(row.get(h)) for h in headers if h} for row in rows]
 
@@ -231,7 +258,7 @@ def export_to_json(
 
 
 def _update_manifest(data_json: Path, cfg: SurveyConfig) -> None:
-    """Update web/data/projects.json manifest."""
+    """Update frontend/public/data/projects.json manifest."""
     manifest_path = data_json.parent / "projects.json"
     existing: list[dict] = []
     if manifest_path.exists():

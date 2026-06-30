@@ -10,7 +10,12 @@ export function aggCategory(rows: Row[], col: string): Record<string, number> {
 }
 
 export function aggNumericSum(rows: Row[], col: string): number {
-  return rows.reduce((s, r) => s + (typeof r[col] === "number" ? (r[col] as number) : 0), 0);
+  return rows.reduce((s, r) => {
+    const val = r[col];
+    if (val === null || val === undefined || val === "") return s;
+    const num = Number(val);
+    return s + (isNaN(num) ? 0 : num);
+  }, 0);
 }
 
 export function aggMultiValue(rows: Row[], col: string, sep = ","): Record<string, number> {

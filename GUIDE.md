@@ -62,7 +62,7 @@ flowchart TD
 
     subgraph Dashboard_Deploy [4단계: 결과 다운로드 및 대시보드 배포]
         H -->|download API| I[cleaned_result.xlsx 다운로드 결과물 제공]
-        H -->|export API| J[web/public/data/project_data.json 최신화 배포]
+        H -->|export API| J[frontend/public/data/project_data.json 최신화 배포]
         J -->|Vite/React Client| K[📈 100% 최신 정밀 대시보드 즉시 확인]
     end
 ```
@@ -73,7 +73,7 @@ flowchart TD
 sequenceDiagram
     autonumber
     actor User as 사용자 (브라우저)
-    participant Client as React 프론트엔드 (web/)
+    participant Client as React 프론트엔드 (frontend/)
     participant API as FastAPI 백엔드 (app/main.py)
     participant Auth as Supabase Auth 서버
     participant Engine as Python 정제 엔진 (engine/)
@@ -124,7 +124,7 @@ sequenceDiagram
         Auth-->>API: 200 OK
     end
     API->>Engine: export_to_json()
-    API-->>Client: web/public/data/{project}_data.json 배포 완료
+    API-->>Client: frontend/public/data/{project}_data.json 배포 완료
     Client-->>User: 결과 다운로드 및 대시보드 이동 활성화
 ```
 
@@ -139,28 +139,35 @@ sequenceDiagram
 pip install -r requirements.txt
 
 # 웹 의존성 (start_web.bat 또는 직접 설치)
-cd web && npm install && cd ..
+cd frontend && npm install && cd ..
 ```
 
 ### 1단계: CLI 모드 (백엔드 없이)
 
+> [!NOTE]
+> CLI 가동 시에는 먼저 `backend/` 디렉토리로 진입한 후 실행을 권장합니다.
+> ```bash
+> cd backend
+> ```
+
 ```bash
 # 1. 엑셀 파일 분석 + Draft 설정 생성
-python main.py analyze storage/my_data.xlsx
-# → storage/draft_my_data.xlsx 자동 생성
+uv run main.py analyze ../storage/raw/gpu_raw_data_3.xlsx
+# → ../storage/raw/draft_gpu_raw_data_3.xlsx 자동 생성
 
 # 2. Draft xlsx에서 Config 시트 수정 (transform, output_col 등)
 
-# 3. 파이프라인 실행
-python main.py run storage/draft_my_data.xlsx --input storage/my_data.xlsx
-# → projects/my_survey/output/my_survey_cleaned.xlsx
+# 3. 파이프라인 실행 (프로젝트 설정으로 저장 구동 가능)
+uv run main.py run ../storage/raw/draft_gpu_raw_data_3.xlsx --input ../storage/raw/gpu_raw_data_3.xlsx
+# → ../storage/projects/gpu_raw_data_3/output/gpu_raw_data_3_cleaned.xlsx
 
-# 4. 웹 대시보드용 JSON 내보내기
-python main.py export projects/my_survey/config.yaml
+# 4. 웹 대시보드용 JSON 내보내기 및 프론트엔드 배포
+uv run main.py export ../storage/projects/gpu_raw_data_3/config.yaml
 
-# 5. 웹 대시보드 확인
+# 5. 웹 대시보드 확인 (프로젝트 최상위 루트로 복귀 후)
+cd ..
 start_web.bat       # Windows
-# 또는: cd web && npm run dev → http://localhost:5173
+# 또는: cd frontend && npm run dev → http://localhost:5173
 ```
 
 ### 2단계: 웹 마법사 모드
@@ -190,7 +197,7 @@ start_web.bat       # → http://localhost:5173
    docker compose up --build -d
    ```
    * Nginx(80 포트)가 서빙하며, `/api` 경로의 백엔드 통신 및 SSE 로그 스트림 통신 프록싱을 완전 조율합니다.
-   * `projects/`, `storage/`, `web/public/data/` 데이터 폴더가 볼륨 마운트되어 컨테이너가 내려가도 데이터 유실을 방지합니다.
+   * `storage/` 및 `frontend/public/data/` 데이터 폴더가 볼륨 마운트되어 컨테이너가 내려가도 데이터 유실을 방지합니다.
 
 ---
 
@@ -276,38 +283,44 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
 ### CLI 명령어 레퍼런스
 
+> [!NOTE]
+> CLI 실행은 모든 파이썬 환경과 의존성이 세팅된 `backend/` 디렉토리로 이동하여 `uv run main.py`를 사용해 구동해야 오동작이 없습니다.
+> ```bash
+> cd backend
+> ```
+
 ```bash
 # ── 분석 ──────────────────────────────────────────────────────────────
 # 기본: 원본 파일과 같은 폴더에 draft_*.xlsx 자동 생성
-python main.py analyze storage/data.xlsx
+uv run main.py analyze ../storage/raw/gpu_raw_data_3.xlsx
 
 # 화면 출력(JSON)만, 파일 생성 없음
-python main.py analyze storage/data.xlsx --dry-run
+uv run main.py analyze ../storage/raw/gpu_raw_data_3.xlsx --dry-run
 
-# 프로젝트 폴더 구조로 저장
-python main.py analyze storage/data.xlsx --project my_survey --save-project
+# 프로젝트 폴더 구조로 저장 (storage/projects/ 에 자동 보관)
+uv run main.py analyze ../storage/raw/gpu_raw_data_3.xlsx --project my_survey --save-project
 
 # ── 실행 ──────────────────────────────────────────────────────────────
 # draft xlsx로 실행 (빠른 검증)
-python main.py run storage/draft_data.xlsx --input storage/data.xlsx
+uv run main.py run ../storage/raw/draft_gpu_raw_data_3.xlsx --input ../storage/raw/gpu_raw_data_3.xlsx
 
 # yaml로 실행 (전처리 fill_down/row_filter 포함)
-python main.py run projects/my_survey/config.yaml --input storage/data.xlsx
+uv run main.py run ../storage/projects/my_survey/config.yaml --input ../storage/raw/gpu_raw_data_3.xlsx
 
 # 결과물 Config 시트 수정 후 재실행 (라운드트립)
-python main.py run projects/my_survey/output/my_survey_cleaned.xlsx --input storage/data.xlsx
+uv run main.py run ../storage/projects/my_survey/output/my_survey_cleaned.xlsx --input ../storage/raw/gpu_raw_data_3.xlsx
 
 # ── 내보내기 ──────────────────────────────────────────────────────────
-# 웹 대시보드용 JSON 생성
-python main.py export projects/my_survey/config.yaml
+# 웹 대시보드용 JSON 생성 (storage/projects/ 내부 및 frontend/public/data/ 로 이중 자동복사 배포)
+uv run main.py export ../storage/projects/my_survey/config.yaml
 
 # ── 배포 ──────────────────────────────────────────────────────────────
 # 단일 프로젝트 독립 웹 패키지 생성
-python main.py deploy projects/my_survey/config.yaml --dest dist/my_survey
+uv run main.py deploy ../storage/projects/my_survey/config.yaml --dest dist/my_survey
 
 # ── 유틸리티 ──────────────────────────────────────────────────────────
-python main.py new-project <name>         # 빈 프로젝트 폴더 생성
-python scripts/gen_dummy.py               # 더미 데이터 재생성
+uv run main.py new-project <name>         # 빈 프로젝트 폴더 생성
+uv run scripts/gen_dummy.py               # 더미 데이터 재생성
 ```
 
 ### Phase별 상세 설명
@@ -386,11 +399,12 @@ summary:
 
 ```bash
 # JSON 내보내기
-python main.py export projects/my_survey/config.yaml
-# → web/public/data/my_survey_data.json
-# → web/public/data/projects.json 갱신
+uv run main.py export ../storage/projects/my_survey/config.yaml
+# → ../storage/projects/my_survey/my_survey_data.json
+# → ../frontend/public/data/my_survey_data.json 배포 복사 및 projects.json 갱신
 
-# 대시보드 확인
+# 대시보드 확인 (루트 경로 복귀 후)
+cd ..
 start_web.bat   # → http://localhost:5173
 ```
 
@@ -592,8 +606,8 @@ merge:
 ```
 
 ```bash
-python main.py merge projects/multi/config.yaml --output merged.xlsx
-python main.py run projects/multi/config.yaml   # merge 후 pipeline 자동 실행
+uv run main.py merge ../storage/projects/multi/config.yaml --output merged.xlsx
+uv run main.py run ../storage/projects/multi/config.yaml   # merge 후 pipeline 자동 실행
 ```
 
 ---

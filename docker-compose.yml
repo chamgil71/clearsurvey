@@ -3,7 +3,7 @@ version: '3.8'
 services:
   backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     container_name: clearsurvey-backend
     ports:
@@ -12,14 +12,13 @@ services:
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
     volumes:
-      - ./projects:/app/projects
       - ./storage:/app/storage
-      - ./web/public/data:/app/web/public/data
+      - ./frontend/public/data:/app/frontend/public/data
     restart: unless-stopped
 
   frontend:
     build:
-      context: ./web
+      context: ./frontend
       dockerfile: Dockerfile
     container_name: clearsurvey-frontend
     ports:

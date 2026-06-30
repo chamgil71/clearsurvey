@@ -188,6 +188,18 @@ class SurveyPipeline:
                 else (proj_dir / cfg.source.file if cfg.source.file and proj_dir else None)
             )
             if not src_path or not src_path.exists():
+                if cfg.source.file:
+                    fname = Path(cfg.source.file).name
+                    if proj_dir:
+                        fallback_1 = proj_dir.parent.parent / "raw" / fname
+                        if fallback_1.exists():
+                            src_path = fallback_1
+                    if not src_path or not src_path.exists():
+                        fallback_2 = Path("c:/ai/clearsurvey/storage/raw") / fname
+                        if fallback_2.exists():
+                            src_path = fallback_2
+
+            if not src_path or not src_path.exists():
                 raise FileNotFoundError(f"입력 파일을 찾을 수 없습니다: {src_path}")
             print(f"읽는 중: {src_path.name}")
             wb = openpyxl.load_workbook(src_path, data_only=True)
@@ -233,7 +245,7 @@ class SurveyPipeline:
             else:
                 # config_path가 없는 경우 (CLI Excel 다이렉트 호출 등)
                 # 서브프로젝트 폴더가 존재하면 그 하위 output으로 똑똑하게 스마트 폴백
-                proj_folder = Path("projects") / cfg.project
+                proj_folder = Path("storage/projects") / cfg.project
                 if proj_folder.exists():
                     out_dir = proj_folder / out_dir
                 else:
@@ -259,8 +271,16 @@ class SurveyPipeline:
         print(f"저장: {save_path}")
 
         # ── slicers ───────────────────────────────────────────────────────────
-        if cfg.slicers:
-            inject_slicers(save_path, cfg, col_index_map)
+        include_slicers = getattr(cfg.excel_options, "include_slicers", True)
+        if include_slicers:
+            if not cfg.slicers:
+                from engine.config import SlicerDef
+                cfg.slicers = [SlicerDef(col=cd.output_col) for cd in cfg.columns if cd.include_in_slicer]
+
+            if cfg.slicers:
+                inject_slicers(save_path, cfg, col_index_map)
+        else:
+            print("[정보] 엑셀 슬라이서 포함 설정이 비활성화되어 슬라이서 주입을 건너뜁니다.")
 
         # ── config.json 저장 (프로젝트 폴더) ─────────────────────────────────
         if self._config_path:

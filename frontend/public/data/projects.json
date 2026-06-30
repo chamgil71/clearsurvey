@@ -10,5 +10,19 @@
     "name": "수의계약정보",
     "file": "수의계약정보_data.json",
     "updated": "2026-05-28 15:36"
+  },
+  {
+    "id": "gpu_3",
+    "name": "gpu_3",
+    "file": "gpu_3_data.json",
+    "updated": "2026-06-30 16:20",
+    "published": false
+  },
+  {
+    "id": "gpu_test",
+    "name": "gpu_test",
+    "file": "gpu_test_data.json",
+    "updated": "2026-06-30 17:21",
+    "published": false
   }
 ]

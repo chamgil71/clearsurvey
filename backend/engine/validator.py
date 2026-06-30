@@ -47,7 +47,16 @@ def _resolve_source_path(
     proj_dir = _resolve_project_dir(config_path)
     if cfg.source.file and proj_dir:
         src = Path(cfg.source.file)
-        return src if src.is_absolute() else proj_dir / src
+        resolved = src if src.is_absolute() else proj_dir / src
+        if not resolved.exists():
+            fname = src.name
+            fallback_1 = proj_dir.parent.parent / "raw" / fname
+            if fallback_1.exists():
+                return fallback_1
+            fallback_2 = Path("c:/ai/clearsurvey/storage/raw") / fname
+            if fallback_2.exists():
+                return fallback_2
+        return resolved
     return None
 
 

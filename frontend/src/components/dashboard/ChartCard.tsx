@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ResponsiveContainer,
   PieChart,
@@ -22,11 +22,26 @@ const PALETTE = [
 ];
 
 export function ChartCard({ chart, rows, data }: { chart: ChartItem; rows: Row[]; data: ProjectData }) {
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const items = useMemo(() => {
+    const sortBy = chart.sort_by || "value_desc";
+    const limit = chart.max_items !== undefined ? chart.max_items : 20;
+
     if (chart.type === "multibar") {
-      return [...chart.cols]
-        .map((c) => ({ name: c.label || c.col, value: aggNumericSum(rows, c.col) }))
-        .sort((a, b) => b.value - a.value);
+      const list = [...chart.cols].map((c) => ({ name: c.label || c.col, value: aggNumericSum(rows, c.col) }));
+      if (sortBy === "value_desc") {
+        list.sort((a, b) => b.value - a.value);
+      } else if (sortBy === "value_asc") {
+        list.sort((a, b) => a.value - b.value);
+      } else if (sortBy === "name_asc") {
+        list.sort((a, b) => a.name.localeCompare(b.name, "ko"));
+      }
+      return limit > 0 ? list.slice(0, limit) : list;
     }
     const colMeta = data.meta.columns.find((c) => c.key === chart.col);
     let counts: Record<string, number>;
@@ -36,54 +51,87 @@ export function ChartCard({ chart, rows, data }: { chart: ChartItem; rows: Row[]
     } else if ((chart as { type: string }).type === "multivalue") {
       counts = aggMultiValue(rows, chart.col, (chart as { sep?: string }).sep || ",");
     } else {
-      counts = aggCategory(rows, chart.col);
+      const valCol = (chart as any).value_col;
+      if (valCol) {
+        const sums: Record<string, number> = {};
+        rows.forEach((r) => {
+          const groupVal = String(r[chart.col] ?? "").trim();
+          if (groupVal) {
+            const numVal = Number(r[valCol]) || 0;
+            sums[groupVal] = (sums[groupVal] || 0) + numVal;
+          }
+        });
+        counts = sums;
+      } else {
+        counts = aggCategory(rows, chart.col);
+      }
     }
-    return Object.entries(counts).slice(0, 20).map(([name, value]) => ({ name, value }));
+
+    const result = Object.entries(counts).map(([name, value]) => ({ name, value }));
+    if (sortBy === "value_desc") {
+      result.sort((a, b) => b.value - a.value);
+    } else if (sortBy === "value_asc") {
+      result.sort((a, b) => a.value - b.value);
+    } else if (sortBy === "name_asc") {
+      result.sort((a, b) => a.name.localeCompare(b.name, "ko"));
+    }
+    return limit > 0 ? result.slice(0, limit) : result;
   }, [chart, rows, data]);
 
+  const hasData = items.length > 0 && items.some((item) => item.value > 0);
   const title = chart.title || (chart.type === "multibar" ? "" : chart.col);
+  const unit = (chart as any).value_col ? "" : "건";
 
   return (
     <div className="chart-card">
       <div className="chart-title">{title}</div>
-      <div className="chart-wrap">
-        <ResponsiveContainer width="100%" height={240}>
-          {chart.type === "donut" ? (
-            <PieChart>
-              <Pie data={items} dataKey="value" nameKey="name" innerRadius={50} outerRadius={85}>
-                {items.map((_, i) => (
-                  <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(v: number) => `${v}건`} />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-            </PieChart>
-          ) : chart.type === "hbar" || chart.type === "multibar" ? (
-            <BarChart data={items} layout="vertical" margin={{ left: 20, right: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)" />
-              <XAxis type="number" tick={{ fontSize: 11 }} />
-              <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v: number) => `${v}건`} />
-              <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                {items.map((_, i) => (
-                  <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
-                ))}
-              </Bar>
-            </BarChart>
-          ) : (
-            <BarChart data={items}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)" />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v: number) => `${v}건`} />
-              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                {items.map((_, i) => (
-                  <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
-                ))}
-              </Bar>
-            </BarChart>
-          )}
-        </ResponsiveContainer>
+      <div className="chart-wrap" style={{ minHeight: 240, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {!mounted ? (
+          <div className="text-xs text-muted-foreground/40">차트 로딩 중...</div>
+        ) : !hasData ? (
+          <div className="text-xs text-muted-foreground/50 text-center px-4 leading-relaxed">
+            ⚠️ 표시할 데이터가 없습니다.<br />
+            <span className="text-[10px] opacity-75 font-medium">(설정 탭에서 대상 컬럼 매핑을 확인하세요)</span>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={240}>
+            {chart.type === "donut" ? (
+              <PieChart>
+                <Pie data={items} dataKey="value" nameKey="name" innerRadius={50} outerRadius={85}>
+                  {items.map((_, i) => (
+                    <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(v: number) => `${v}${unit}`} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+              </PieChart>
+            ) : chart.type === "hbar" || chart.type === "multibar" ? (
+              <BarChart data={items} layout="vertical" margin={{ left: 20, right: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)" />
+                <XAxis type="number" tick={{ fontSize: 11 }} />
+                <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(v: number) => `${v}${unit}`} />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                  {items.map((_, i) => (
+                    <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            ) : (
+              <BarChart data={items}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)" />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(v: number) => `${v}${unit}`} />
+                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                  {items.map((_, i) => (
+                    <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            )}
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   );

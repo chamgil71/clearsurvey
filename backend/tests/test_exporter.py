@@ -245,8 +245,17 @@ class TestExportToJson:
         assert agg.get("개발팀") == 2
         assert agg.get("영업팀") == 2
 
-    def test_numeric_column_not_in_aggregates(self, cleaned_xlsx, minimal_cfg):
-        result = export_to_json(cleaned_xlsx, minimal_cfg)
+    def test_numeric_column_not_in_aggregates(self, tmp_path, minimal_cfg):
+        path = tmp_path / "result_many_vals.xlsx"
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Cleaned"
+        ws.cell(1, 1, "섹션")
+        ws.cell(2, 1, "점수")
+        for i in range(1, 35):
+            ws.cell(i + 2, 1, i)
+        wb.save(path)
+        result = export_to_json(path, minimal_cfg)
         assert "점수" not in result["aggregates"]
 
     def test_rows_are_dicts_with_header_keys(self, cleaned_xlsx, minimal_cfg):

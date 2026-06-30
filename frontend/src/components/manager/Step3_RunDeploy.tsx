@@ -1,7 +1,8 @@
-import React, { useRef, useEffect } from "react";
-import { Terminal as TerminalIcon, Play, Download, ExternalLink, RefreshCw, CheckCircle2 } from "lucide-react";
+import React, { useRef, useEffect, useState } from "react";
+import { Terminal as TerminalIcon, Play, Download, ExternalLink, RefreshCw, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useManagerApi } from "@/hooks/useManagerApi";
 
 interface Step3Props {
   projectName: string;
@@ -13,6 +14,7 @@ interface Step3Props {
   downloadUrl: string;
   loading: boolean;
   clearLogs: () => void;
+  onBack: () => void;
 }
 
 export const Step3_RunDeploy: React.FC<Step3Props> = ({
@@ -22,8 +24,16 @@ export const Step3_RunDeploy: React.FC<Step3Props> = ({
   downloadUrl,
   loading,
   clearLogs,
+  onBack,
 }) => {
   const terminalEndRef = useRef<HTMLDivElement>(null);
+
+  const [previewRows, setPreviewRows] = useState<{ raw: Record<string, string>; cleaned: Record<string, string> }[] | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [activeSampleIdx, setActiveSampleIdx] = useState(0);
+  const [showPreview, setShowPreview] = useState(false);
+
+  const api = useManagerApi();
 
   // Auto-scroll logs to bottom
   useEffect(() => {
@@ -36,6 +46,20 @@ export const Step3_RunDeploy: React.FC<Step3Props> = ({
       await onRunPipeline();
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleLoadPreview = async () => {
+    setPreviewLoading(true);
+    try {
+      const data = await api.previewProjectConfig(projectName);
+      setPreviewRows(data || []);
+      setActiveSampleIdx(0);
+      setShowPreview(true);
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setPreviewLoading(false);
     }
   };
 
@@ -58,8 +82,18 @@ export const Step3_RunDeploy: React.FC<Step3Props> = ({
             </CardHeader>
             <CardContent className="space-y-3">
               <Button
+                variant="outline"
+                onClick={handleLoadPreview}
+                disabled={loading || previewLoading}
+                className="w-full text-xs font-semibold h-9 flex items-center justify-center gap-2 border-primary/30 text-primary hover:bg-primary/5"
+              >
+                <Eye className="h-4 w-4" />
+                {previewLoading ? "미리보기 분석 중..." : "정제 규칙 테스트 (미리보기)"}
+              </Button>
+
+              <Button
                 onClick={handleRun}
-                disabled={loading}
+                disabled={loading || previewLoading}
                 className="w-full text-xs font-semibold h-10 flex items-center justify-center gap-2"
               >
                 <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
@@ -99,7 +133,11 @@ export const Step3_RunDeploy: React.FC<Step3Props> = ({
                     클렌징 엑셀 다운로드
                   </Button>
                 </a>
-                <a href={`/?data=/data/${projectName}_data.json`}>
+                <a
+                  href={`/?data=/data/${projectName}_data.json`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   <Button className="w-full text-xs font-semibold gap-1.5 h-9 bg-green-600 hover:bg-green-700 text-white">
                     📈 대시보드 즉시 확인
                     <ExternalLink className="h-3.5 w-3.5" />
@@ -111,8 +149,8 @@ export const Step3_RunDeploy: React.FC<Step3Props> = ({
         </div>
 
         {/* Live Terminal Log */}
-        <div className="md:col-span-2">
-          <Card className="border-border bg-card h-full flex flex-col min-h-[350px]">
+        <div className="md:col-span-2 space-y-4">
+          <Card className="border-border bg-card flex flex-col min-h-[350px]">
             <CardHeader className="py-4 border-b">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
                 <TerminalIcon className="h-4 w-4 text-primary" />
@@ -147,7 +185,93 @@ export const Step3_RunDeploy: React.FC<Step3Props> = ({
               )}
             </CardContent>
           </Card>
+
+          {/* Preview Table Card */}
+          {showPreview && previewRows && previewRows.length > 0 && (
+            <Card className="border-border bg-card">
+              <CardHeader className="py-3 border-b flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Eye className="h-4 w-4 text-primary" />
+                    정제 결과 미리보기 (상위 5개 샘플)
+                  </CardTitle>
+                  <CardDescription className="text-[11px] mt-0.5">
+                    설정된 규칙(Transforms)이 실제 원본 데이터에 어떻게 적용되는지 확인합니다.
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowPreview(false)}
+                  className="h-7 text-xs font-semibold hover:bg-muted"
+                >
+                  닫기
+                </Button>
+              </CardHeader>
+              <CardContent className="p-3 space-y-3">
+                {/* 샘플 라디오 탭 */}
+                <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-lg">
+                  {previewRows.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setActiveSampleIdx(idx)}
+                      className={`flex-1 py-1 text-[11px] font-bold rounded-md transition-all ${
+                        activeSampleIdx === idx
+                          ? "bg-background text-primary shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      샘플 행 {idx + 1}
+                    </button>
+                  ))}
+                </div>
+                
+                {/* 컬럼 리스트 스크롤 영역 */}
+                <div className="border rounded-lg overflow-hidden max-h-[300px] overflow-y-auto">
+                  <table className="w-full text-[11px] font-mono leading-normal">
+                    <thead className="bg-muted/50 border-b">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-bold w-[40%]">문항 (출력 컬럼명)</th>
+                        <th className="px-3 py-2 text-left font-bold w-[30%]">원본 값 (Raw)</th>
+                        <th className="px-3 py-2 text-left font-bold w-[30%] text-primary">정제 결과 (Cleaned)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {Object.keys(previewRows[activeSampleIdx].raw).map((colName) => {
+                        const rawVal = previewRows[activeSampleIdx].raw[colName];
+                        const cleanedVal = previewRows[activeSampleIdx].cleaned[colName];
+                        const isChanged = rawVal !== cleanedVal;
+                        
+                        return (
+                          <tr key={colName} className={`hover:bg-muted/10 ${isChanged ? "bg-amber-500/5" : ""}`}>
+                            <td className="px-3 py-2 font-bold font-sans text-foreground truncate max-w-[130px]" title={colName}>{colName}</td>
+                            <td className="px-3 py-2 text-muted-foreground truncate max-w-[90px]" title={rawVal}>{rawVal || "—"}</td>
+                            <td className={`px-3 py-2 truncate max-w-[90px] font-bold ${isChanged ? "text-amber-600" : "text-muted-foreground"}`} title={cleanedVal}>
+                              {cleanedVal}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
+      </div>
+
+      {/* ── 하단 액션 버튼 바 ── */}
+      <div className="flex items-center justify-between border-t pt-5 mt-4">
+        <Button
+          variant="outline"
+          size="default"
+          onClick={onBack}
+          className="font-semibold text-xs gap-1.5"
+          disabled={loading}
+        >
+          ← 이전 단계 (설정 편집)
+        </Button>
       </div>
     </div>
   );

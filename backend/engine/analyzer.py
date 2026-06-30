@@ -186,10 +186,11 @@ class ExcelAnalyzer:
         if source_override:
             src_path = source_override
         else:
-            try:
-                src_path = str(self._path.resolve().relative_to(out.parent.resolve()))
-            except ValueError:
-                src_path = str(self._path.resolve())
+            import os
+            src_path = os.path.relpath(
+                self._path.resolve(),
+                out.parent.resolve()
+            ).replace("\\", "/")
 
         columns = []
         seen: dict[str, int] = {}

@@ -120,7 +120,21 @@ function DashboardPage() {
         </button>
       </header>
 
-      <KpiRow rows={filtered} cfg={cfg} />
+      <KpiRow
+        rows={filtered}
+        cfg={cfg}
+        onKpiClick={(k) => {
+          if (k.type === "count_value") {
+            setFilters((prev) => ({
+              ...prev,
+              [k.col]: k.value,
+            }));
+          } else {
+            setFilters({});
+            setSearch("");
+          }
+        }}
+      />
 
       <FilterBar
         data={data}

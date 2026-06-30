@@ -67,8 +67,12 @@ async def verify_supabase_token(
 
 
 # Add project root to path for imports
-PROJECT_ROOT = Path(__file__).parent.parent
-sys.path.append(str(PROJECT_ROOT))
+BACKEND_ROOT = Path(__file__).parent.parent
+sys.path.append(str(BACKEND_ROOT))
+
+# 스토리지(데이터) 루트 및 프론트엔드 자산 루트 정의
+STORAGE_ROOT = BACKEND_ROOT.parent / "storage"
+FRONTEND_ROOT = BACKEND_ROOT.parent / "frontend"
 
 from engine.config import SurveyConfig
 from engine.pipeline import SurveyPipeline
@@ -116,7 +120,7 @@ class LogStream(io.TextIOBase):
 
 def _update_projects_manifest(project_name: str, file_name: str) -> None:
     """web/public/data/projects.json 매니페스트 파일을 동기화 및 자동 갱신합니다."""
-    manifest_path = PROJECT_ROOT / "web" / "public" / "data" / "projects.json"
+    manifest_path = FRONTEND_ROOT / "public" / "data" / "projects.json"
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     
     projects = []
@@ -177,9 +181,25 @@ def _run_pipeline_background(name: str, cfg: "SurveyConfig", config_yaml: Path) 
         _job_set(name, {
             "status": "done",
             "cleaned_file": save_path.name,
-            "output_dir": str(save_path.parent.relative_to(PROJECT_ROOT)),
+            "output_dir": str(save_path.parent.relative_to(BACKEND_ROOT.parent)),
             "finished_at": datetime.now().isoformat(),
         })
+        # 자동 퍼블리시 및 매니페스트 갱신 연동
+        _update_projects_manifest(name, f"{name}_data.json")
+        try:
+            manifest_path = FRONTEND_ROOT / "public" / "data" / "projects.json"
+            if manifest_path.exists():
+                with open(manifest_path, encoding="utf-8") as f:
+                    projects = json.load(f)
+                for p in projects:
+                    if p.get("id") == name:
+                        p["published"] = True
+                        break
+                with open(manifest_path, "w", encoding="utf-8") as f:
+                    json.dump(projects, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
         with _project_logs_lock:
             _project_logs[name].append("[SUCCESS] 정제 프로세스 완료!")
     except Exception as exc:
@@ -212,7 +232,7 @@ def _safe_filename(filename: str) -> str:
 
 
 def _get_project_dir(name: str) -> Path:
-    proj_dir = PROJECT_ROOT / "projects" / name
+    proj_dir = STORAGE_ROOT / "projects" / name
     return proj_dir
 
 # ── API Endpoints ──────────────────────────────────────────────────────────
@@ -220,7 +240,7 @@ def _get_project_dir(name: str) -> Path:
 @app.get("/api/projects")
 def list_projects(user: dict = Depends(verify_supabase_token)):
     """웹 대시보드 프로젝트 목록 및 현황을 리턴합니다."""
-    manifest_path = PROJECT_ROOT / "web" / "public" / "data" / "projects.json"
+    manifest_path = FRONTEND_ROOT / "public" / "data" / "projects.json"
     if manifest_path.exists():
         try:
             with open(manifest_path, encoding="utf-8") as f:
@@ -229,7 +249,7 @@ def list_projects(user: dict = Depends(verify_supabase_token)):
             pass
             
     # Fallback: projects 폴더 스캔
-    proj_root = PROJECT_ROOT / "projects"
+    proj_root = STORAGE_ROOT / "projects"
     if not proj_root.exists():
         return []
     
@@ -268,7 +288,7 @@ async def create_project(
     if not safe_fname.lower().endswith((".xlsx", ".xls")):
         raise HTTPException(status_code=400, detail="xlsx 또는 xls 파일만 업로드할 수 있습니다.")
 
-    storage_dir = PROJECT_ROOT / "storage" / "raw"
+    storage_dir = STORAGE_ROOT / "raw"
     storage_dir.mkdir(parents=True, exist_ok=True)
 
     # Save uploaded raw file (sanitized filename)
@@ -297,10 +317,11 @@ async def create_project(
         # Save config.yaml
         config_path = proj_dir / "config.yaml"
         # Relative path from config.yaml to raw source file
-        try:
-            rel_src = str(raw_file_path.resolve().relative_to(config_path.parent.resolve()))
-        except ValueError:
-            rel_src = str(raw_file_path.resolve())
+        import os
+        rel_src = os.path.relpath(
+            raw_file_path.resolve(),
+            config_path.parent.resolve()
+        ).replace("\\", "/")
             
         analyzer.generate_config_yaml(
             config_path,
@@ -311,7 +332,7 @@ async def create_project(
         # style.yaml 복사 — 우선순위:
         #   1) config/default_style.yaml  (공통 기본값)
         #   2) 빈 파일 생성
-        default_style = PROJECT_ROOT / "config" / "default_style.yaml"
+        default_style = BACKEND_ROOT / "config" / "default_style.yaml"
         dest_style = proj_dir / "style.yaml"
         if default_style.exists():
             shutil.copy2(default_style, dest_style)
@@ -326,7 +347,7 @@ async def create_project(
             "header_row": detection["header_row"],
             "data_start_row": detection["data_start_row"],
             "column_count": detection["column_count"],
-            "draft_path": str(draft_path.relative_to(PROJECT_ROOT))
+            "draft_path": str(draft_path.relative_to(BACKEND_ROOT.parent))
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"설문 분석 및 프로젝트 생성 실패: {exc}")
@@ -414,6 +435,101 @@ async def save_project_config(name: str, payload: dict, user: dict = Depends(ver
     return {"status": "success"}
 
 
+@app.post("/api/projects/{name}/preview")
+async def preview_project_config(name: str, user: dict = Depends(verify_supabase_token)):
+    """설정한 규칙을 원본 상위 5개 행에 테스트 적용하여 변환 결과를 미리보기합니다."""
+    _validate_project_name(name)
+    proj_dir = _get_project_dir(name)
+    if not proj_dir.exists():
+        raise HTTPException(status_code=404, detail="프로젝트를 찾을 수 없습니다.")
+        
+    config_path = proj_dir / "config.yaml"
+    if not config_path.exists():
+        raise HTTPException(status_code=404, detail="정제 설정 파일(config.yaml)이 존재하지 않습니다.")
+        
+    try:
+        with open(config_path, encoding="utf-8") as f:
+            raw_data = yaml.safe_load(f)
+        cfg = SurveyConfig.model_validate(raw_data)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"설정 파일 파싱 실패: {exc}")
+        
+    src_file_val = cfg.source.file or ""
+    fname = Path(src_file_val).name
+    
+    input_file = STORAGE_ROOT / "raw" / fname
+    if not input_file.exists() and proj_dir:
+        input_file = proj_dir / src_file_val
+    if not input_file.exists() and proj_dir:
+        input_file = proj_dir.parent.parent / "raw" / fname
+        
+    if not input_file.exists():
+        raise HTTPException(status_code=400, detail=f"원본 엑셀 파일을 찾을 수 없습니다: {src_file_val}")
+        
+    try:
+        import pandas as pd
+        from engine.pipeline import SurveyPipeline, _build_registry
+        
+        # header_row (1-based to 0-based)
+        header_row = cfg.source.header_row - 1
+        if header_row < 0:
+            header_row = 0
+            
+        sheet_to_read = cfg.source.sheet if cfg.source.sheet is not None else 0
+        df_raw = pd.read_excel(
+            input_file, 
+            sheet_name=sheet_to_read,
+            header=header_row
+        ).head(5)
+        df_raw = df_raw.fillna("")
+        
+        pipeline = SurveyPipeline(cfg, config_path=config_path)
+        registry = _build_registry(cfg)
+        preview_rows = []
+        
+        for _, row in df_raw.iterrows():
+            raw_vals = {}
+            cleaned_vals = {}
+            for col_def in cfg.columns:
+                out_col = col_def.output_col
+                
+                source_val = ""
+                if col_def.source_col is not None:
+                    s_idx = col_def.source_col - 1
+                    if 0 <= s_idx < len(row):
+                        source_val = row.iloc[s_idx]
+                
+                raw_vals[out_col] = str(source_val)
+                
+                if col_def.transform == "exclude":
+                    cleaned_vals[out_col] = "(출력 제외됨)"
+                    continue
+                    
+                cleaned_val = source_val
+                if col_def.transform:
+                    tf_fn = registry.get(col_def.transform)
+                    if tf_fn:
+                        kwargs = {}
+                        if col_def.flag_keyword:
+                            kwargs["flag_keyword"] = col_def.flag_keyword
+                        if col_def.backup_col is not None:
+                            b_idx = col_def.backup_col - 1
+                            if 0 <= b_idx < len(row):
+                                kwargs["backup_val"] = row.iloc[b_idx]
+                        cleaned_val = tf_fn(source_val, **kwargs)
+                
+                cleaned_vals[out_col] = str(cleaned_val) if cleaned_val is not None else ""
+                
+            preview_rows.append({
+                "raw": raw_vals,
+                "cleaned": cleaned_vals
+            })
+            
+        return {"status": "success", "preview": preview_rows}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"미리보기 가공 실패: {exc}")
+
+
 @app.post("/api/projects/{name}/run")
 async def run_project_pipeline(name: str, background_tasks: BackgroundTasks, user: dict = Depends(verify_supabase_token)):
     """파이프라인을 백그라운드로 실행하고 즉시 반환합니다.
@@ -489,9 +605,15 @@ def export_project_json(name: str, user: dict = Depends(verify_supabase_token)):
         if not xlsx_path.exists():
             raise HTTPException(status_code=400, detail=f"정제 엑셀 파일이 없습니다. 먼저 '실행(run)'을 수행하세요.")
             
-        # Export
-        json_path = PROJECT_ROOT / "web" / "public" / "data" / f"{cfg.project}_data.json"
-        export_to_json(xlsx_path, cfg, output_path=json_path, project_dir=proj_dir)
+        # Export: 1. 프로젝트 폴더 내부에 원본 JSON 저장
+        proj_json_path = proj_dir / f"{cfg.project}_data.json"
+        export_to_json(xlsx_path, cfg, output_path=proj_json_path, project_dir=proj_dir)
+        
+        # Export: 2. 프론트엔드 서빙 배포 폴더로 복사
+        dest_dir = FRONTEND_ROOT / "public" / "data"
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        json_path = dest_dir / f"{cfg.project}_data.json"
+        shutil.copy2(proj_json_path, json_path)
         
         _update_projects_manifest(cfg.project, json_path.name)
         
@@ -578,7 +700,7 @@ async def set_publish_status(name: str, body: dict, user: dict = Depends(verify_
     _validate_project_name(name)
     published = bool(body.get("published", False))
 
-    manifest_path = PROJECT_ROOT / "web" / "public" / "data" / "projects.json"
+    manifest_path = FRONTEND_ROOT / "public" / "data" / "projects.json"
     if not manifest_path.exists():
         raise HTTPException(status_code=404, detail="projects.json 파일이 없습니다.")
 
@@ -599,4 +721,438 @@ async def set_publish_status(name: str, body: dict, user: dict = Depends(verify_
         json.dump(projects, f, ensure_ascii=False, indent=2)
 
     return {"status": "ok", "project": name, "published": published}
+
+
+@app.get("/api/projects/{name}/export-html")
+def export_project_html(name: str, token: str | None = None, user: dict = Depends(verify_supabase_token)):
+    """프로젝트 데이터를 담은 오프라인 단독 실행형(Self-contained) HTML 보고서를 컴파일하여 다운로드합니다."""
+    _validate_project_name(name)
+    proj_dir = _get_project_dir(name)
+    if not proj_dir.exists():
+        raise HTTPException(status_code=404, detail="프로젝트를 찾을 수 없습니다.")
+
+    # 1. 엑셀 정제 JSON 데이터 긁어오기 (exporter.py 호출)
+    try:
+        from engine.exporter import ProjectExporter
+        exporter = ProjectExporter(name)
+        data = exporter.export_data()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"데이터 익스포트 실패: {e}")
+
+    # 2. 단독 HTML 템플릿 생성
+    html_content = _build_single_html_template(name, data)
+
+    # 3. HTML 파일 다운로드 반환
+    from fastapi.responses import StreamingResponse
+    import io
+    
+    bio = io.BytesIO(html_content.encode("utf-8"))
+    return StreamingResponse(
+        bio,
+        media_type="text/html",
+        headers={
+            "Content-Disposition": f"attachment; filename={name}_report.html",
+            "Content-Type": "text/html; charset=utf-8"
+        }
+    )
+
+
+def _build_single_html_template(project_name: str, data: dict) -> str:
+    import json
+    data_json = json.dumps(data, ensure_ascii=False)
+    
+    html = f"""<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{project_name} - 설문 데이터 정제 보고서</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- SheetJS (XLSX) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@300;400;600;700&display=swap');
+    body {{
+      font-family: 'Inter', 'Outfit', -apple-system, sans-serif;
+      background-color: #f8fafc;
+    }}
+  </style>
+</head>
+<body class="p-6 md:p-8">
+  <div class="max-w-7xl mx-auto space-y-6">
+    <!-- 헤더 -->
+    <header class="flex flex-col md:flex-row md:items-center justify-between bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold bg-primary/10 text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">독립 보고서</span>
+          <span class="text-xs text-slate-400">오프라인 구동 가능</span>
+        </div>
+        <h1 class="text-2xl font-extrabold text-slate-800 mt-1">{project_name} 대시보드 리포트</h1>
+        <p class="text-xs text-slate-500 mt-0.5">정제 일시: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
+      </div>
+      <div>
+        <button onclick="exportToCSV()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm hover:shadow transition-all flex items-center gap-1.5">
+          💾 현재 필터링 목록 다운로드 (CSV)
+        </button>
+      </div>
+    </header>
+
+    <!-- KPI 스탯 영역 -->
+    <div id="kpi-container" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+
+    <!-- 필터 및 검색바 -->
+    <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4">
+      <div class="flex flex-col md:flex-row md:items-center gap-4">
+        <!-- 키워드 전체 검색 -->
+        <div class="flex-1">
+          <label class="block text-xs font-bold text-slate-500 mb-1.5">🔍 키워드 검색 (기관명, GPU종류, 지역 등)</label>
+          <input type="text" id="search-input" oninput="handleFilterChange()" placeholder="검색어를 입력하세요..." class="w-full h-10 px-3 border border-slate-200 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none transition-all">
+        </div>
+        <!-- 동적 필터바 영역 -->
+        <div id="filters-container" class="flex flex-wrap items-center gap-3"></div>
+      </div>
+    </div>
+
+    <!-- 차트 그리드 영역 -->
+    <div id="charts-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+
+    <!-- 데이터 목록 뷰 -->
+    <div class="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-4">
+      <div class="flex items-center justify-between border-b pb-4">
+        <h2 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+          📋 데이터 목록 표 <span id="table-count" class="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full font-medium">0건</span>
+        </h2>
+      </div>
+      <div class="overflow-x-auto border border-slate-100 rounded-xl">
+        <table class="w-full text-xs text-left">
+          <thead class="bg-slate-50 text-slate-500 uppercase font-semibold border-b border-slate-100" id="table-head"></thead>
+          <tbody class="divide-y divide-slate-100 text-slate-700" id="table-body"></tbody>
+        </table>
+      </div>
+      <!-- 페이지네이션 -->
+      <div class="flex items-center justify-between text-xs pt-2">
+        <span id="pagination-info" class="text-slate-400"></span>
+        <div class="flex items-center gap-2">
+          <button onclick="prevPage()" id="prev-btn" class="px-3 py-1.5 border rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent">이전</button>
+          <button onclick="nextPage()" id="next-btn" class="px-3 py-1.5 border rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent">다음</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 데이터 및 자바스크립트 로직 주입 -->
+  <script>
+    const data = {data_json};
+    let currentFilters = {{}};
+    let searchTerm = "";
+    let filteredRows = [...data.rows];
+    let currentPage = 1;
+    const pageSize = 15;
+    let chartInstances = [];
+
+    // 초기화 함수
+    window.onload = function() {{
+      initFilters();
+      updateDashboard();
+    }};
+
+    // 1. 필터바 생성
+    function initFilters() {{
+      const container = document.getElementById("filters-container");
+      container.innerHTML = "";
+      
+      const filterCols = data.dashboard?.list?.filter_cols || [];
+      filterCols.forEach(col => {{
+        const uniqueVals = data.aggregates?.[col] ? Object.keys(data.aggregates[col]) : [];
+        if (uniqueVals.length === 0) return;
+        
+        const div = document.createElement("div");
+        div.className = "flex flex-col min-w-[140px]";
+        
+        const label = document.createElement("label");
+        label.className = "text-[10px] font-bold text-slate-400 mb-1";
+        label.innerText = col;
+        
+        const select = document.createElement("select");
+        select.className = "h-10 px-3 border border-slate-200 rounded-xl text-xs bg-white outline-none cursor-pointer focus:ring-1 focus:ring-blue-500 shadow-sm";
+        select.onchange = (e) => {{
+          if (e.target.value) {{
+            currentFilters[col] = e.target.value;
+          }} else {{
+            delete currentFilters[col];
+          }}
+          handleFilterChange();
+        }};
+        
+        const defOpt = document.createElement("option");
+        defOpt.value = "";
+        defOpt.innerText = `— 전체 —`;
+        select.appendChild(defOpt);
+        
+        uniqueVals.forEach(val => {{
+          const opt = document.createElement("option");
+          opt.value = val;
+          opt.innerText = val;
+          select.appendChild(opt);
+        }});
+        
+        div.appendChild(label);
+        div.appendChild(select);
+        container.appendChild(div);
+      }});
+    }}
+
+    // 2. 필터/검색 변경 이벤트 핸들러
+    function handleFilterChange() {{
+      searchTerm = document.getElementById("search-input").value.trim().toLowerCase();
+      
+      filteredRows = data.rows.filter(row => {{
+        // 전체 텍스트 검색 검증
+        if (searchTerm) {{
+          const matchesSearch = Object.values(row).some(v => 
+            v !== null && String(v).toLowerCase().includes(searchTerm)
+          );
+          if (!matchesSearch) return false;
+        }}
+        
+        // 드롭다운 필터 검증
+        for (const [col, filterVal] of Object.entries(currentFilters)) {{
+          const rowVal = String(row[col] ?? "").trim();
+          if (rowVal !== filterVal) return false;
+        }}
+        
+        return true;
+      }});
+      
+      currentPage = 1;
+      updateDashboard();
+    }}
+
+    // 3. 대시보드 통합 리렌더링
+    function updateDashboard() {{
+      renderKPIs();
+      renderCharts();
+      renderTable();
+    }}
+
+    // 4. KPI 요약 카드 렌더링
+    function renderKPIs() {{
+      const container = document.getElementById("kpi-container");
+      container.innerHTML = "";
+      
+      const kpis = data.dashboard?.kpi || [];
+      kpis.forEach(k => {{
+        let value = 0;
+        let unit = "건";
+        
+        if (k.type === "total_rows") {{
+          value = filteredRows.length;
+        }} else if (k.type === "count_value") {{
+          const valPattern = String(k.value ?? "").trim();
+          value = filteredRows.filter(r => {{
+            const cellStr = String(r[k.col] ?? "").trim();
+            if (valPattern.startsWith("<>") || valPattern.startsWith("!=")) {{
+              const clean = valPattern.replace("<>", "").replace("!=", "").trim();
+              return cellStr !== clean;
+            }}
+            if (valPattern.startsWith("*") && valPattern.endsWith("*")) {{
+              return cellStr.includes(valPattern.slice(1, -1));
+            }}
+            return cellStr === valPattern;
+          }}).length;
+        }} else if (k.type === "sum") {{
+          value = filteredRows.reduce((acc, r) => acc + (Number(r[k.col]) || 0), 0);
+          unit = "";
+        }}
+        
+        const card = document.createElement("div");
+        card.className = "bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm";
+        card.innerHTML = `
+          <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">${{k.label}}</div>
+          <div class="text-xl font-extrabold text-slate-800 mt-2">${{value.toLocaleString()}} <span class="text-xs font-semibold text-slate-500">${{unit}}</span></div>
+        `;
+        container.appendChild(card);
+      }});
+    }}
+
+    // 5. Chart.js 시각화 렌더링
+    function renderCharts() {{
+      const grid = document.getElementById("charts-grid");
+      
+      // 차트가 최초 생성되는 시점에만 Canvas 세팅
+      if (grid.innerHTML === "") {{
+        const charts = data.dashboard?.charts || [];
+        charts.forEach((c, idx) => {{
+          const card = document.createElement("div");
+          card.className = "bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-3";
+          card.innerHTML = `
+            <h3 class="text-xs font-bold text-slate-500">${{c.title || c.col}}</h3>
+            <div class="h-60 flex items-center justify-center">
+              <canvas id="chart-canvas-${{idx}}"></canvas>
+            </div>
+          `;
+          grid.appendChild(card);
+          
+          // Chart.js 인스턴스 생성
+          const ctx = document.getElementById(`chart-canvas-${{idx}}`).getContext("2d");
+          const chartInst = new Chart(ctx, {{
+            type: c.type === "donut" ? "doughnut" : "bar",
+            data: {{ labels: [], datasets: [{{ data: [], backgroundColor: ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"] }}] }},
+            options: {{
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {{ legend: {{ display: c.type === "donut" }} }},
+              indexAxis: c.type === "hbar" ? "y" : "x"
+            }}
+          }});
+          chartInstances.push({{ inst: chartInst, cfg: c }});
+        }});
+      }}
+      
+      // 데이터 업데이트
+      chartInstances.forEach(item => {{
+        const c = item.cfg;
+        const inst = item.inst;
+        const sortBy = c.sort_by || "value_desc";
+        
+        let chartData = [];
+        
+        if (c.type === "multibar") {{
+          const cols = c.cols || [];
+          cols.forEach(colObj => {{
+            const colName = colObj.col;
+            const label = colObj.label || colName;
+            const sumVal = filteredRows.reduce((acc, r) => acc + (Number(r[colName]) || 0), 0);
+            chartData.push([label, sumVal]);
+          }});
+        }} else {{
+          let counts = {{}};
+          const valCol = c.value_col;
+          filteredRows.forEach(r => {{
+            const grp = String(r[c.col] ?? "").trim() || "미입력";
+            const val = valCol ? (Number(r[valCol]) || 0) : 1;
+            counts[grp] = (counts[grp] || 0) + val;
+          }});
+          chartData = Object.entries(counts);
+        }}
+        
+        // 정렬 규칙 적용
+        if (sortBy === "value_desc") {{
+          chartData.sort((a, b) => b[1] - a[1]);
+        }} else if (sortBy === "value_asc") {{
+          chartData.sort((a, b) => a[1] - b[1]);
+        }} else if (sortBy === "name_asc") {{
+          chartData.sort((a, b) => a[0].localeCompare(b[0], "ko"));
+        }}
+        
+        const limit = c.max_items !== undefined ? c.max_items : 20;
+        const sliced = limit > 0 ? chartData.slice(0, limit) : chartData;
+        
+        inst.data.labels = sliced.map(x => x[0]);
+        inst.data.datasets[0].data = sliced.map(x => x[1]);
+        inst.data.datasets[0].label = (c.type === "multibar" || c.value_col) ? "합계" : "건수";
+        inst.update();
+      }});
+    }}
+
+    // 6. 데이터 테이블 렌더링
+    function renderTable() {{
+      const visibleCols = data.dashboard?.list?.visible_cols || [];
+      const thead = document.getElementById("table-head");
+      const tbody = document.getElementById("table-body");
+      const countEl = document.getElementById("table-count");
+      
+      countEl.innerText = `${{filteredRows.length}}건`;
+      
+      // 테이블 헤더
+      thead.innerHTML = "";
+      const trHead = document.createElement("tr");
+      visibleCols.forEach(col => {{
+        const th = document.createElement("th");
+        th.className = "px-4 py-3 text-slate-500";
+        th.innerText = col;
+        trHead.appendChild(th);
+      }});
+      thead.appendChild(trHead);
+      
+      // 테이블 바디 (페이징 적용)
+      tbody.innerHTML = "";
+      const start = (currentPage - 1) * pageSize;
+      const end = start + pageSize;
+      const paged = filteredRows.slice(start, end);
+      
+      if (paged.length === 0) {{
+        tbody.innerHTML = `<tr><td colspan="${{visibleCols.length}}" class="px-4 py-8 text-center text-slate-400">표시할 데이터가 없습니다.</td></tr>`;
+      }} else {{
+        paged.forEach(row => {{
+          const tr = document.createElement("tr");
+          tr.className = "hover:bg-slate-50/50 transition-colors";
+          visibleCols.forEach(col => {{
+            const td = document.createElement("td");
+            td.className = "px-4 py-3 text-slate-700 truncate max-w-[200px]";
+            td.innerText = row[col] ?? "—";
+            tr.appendChild(td);
+          }});
+          tbody.appendChild(tr);
+        }});
+      }}
+      
+      // 페이지네이션 제어
+      const totalPages = Math.ceil(filteredRows.length / pageSize) || 1;
+      document.getElementById("pagination-info").innerText = `${{currentPage}} / ${{totalPages}} 페이지 (총 ${{filteredRows.length}}건)`;
+      document.getElementById("prev-btn").disabled = currentPage === 1;
+      document.getElementById("next-btn").disabled = currentPage === totalPages;
+    }}
+
+    function prevPage() {{
+      if (currentPage > 1) {{
+        currentPage--;
+        renderTable();
+      }}
+    }}
+    
+    function nextPage() {{
+      const totalPages = Math.ceil(filteredRows.length / pageSize) || 1;
+      if (currentPage < totalPages) {{
+        currentPage++;
+        renderTable();
+      }}
+    }}
+
+    // 7. CSV 다운로드 기능
+    function exportToCSV() {{
+      const visibleCols = data.dashboard?.list?.visible_cols || [];
+      if (visibleCols.length === 0) return alert("출력할 컬럼이 없습니다.");
+      
+      // CSV 문자열 조립
+      let csvContent = "\\uFEFF"; // UTF-8 BOM
+      csvContent += visibleCols.join(",") + "\\n";
+      
+      filteredRows.forEach(row => {{
+        const rowData = visibleCols.map(col => {{
+          let val = String(row[col] ?? "").replace(/"/g, '""');
+          if (val.includes(",") || val.includes("\\n") || val.includes('"')) {{
+            val = `"${{val}}"`;
+          }}
+          return val;
+        }});
+        csvContent += rowData.join(",") + "\\n";
+      }});
+      
+      const blob = new Blob([csvContent], {{ type: "text/csv;charset=utf-8;" }});
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.setAttribute("download", `${{data.project}}_filtered_list.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }}
+  </script>
+</body>
+</html>
+"""
+    return html
 

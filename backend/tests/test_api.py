@@ -38,9 +38,11 @@ from app.main import app, _job_set, _pipeline_jobs
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    """TestClient with PROJECT_ROOT monkeypatched to tmp_path."""
+    """TestClient with roots monkeypatched to tmp_path."""
     import app.main as main_module
-    monkeypatch.setattr(main_module, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(main_module, "STORAGE_ROOT", tmp_path / "storage")
+    monkeypatch.setattr(main_module, "FRONTEND_ROOT", tmp_path / "frontend")
+    monkeypatch.setattr(main_module, "BACKEND_ROOT", tmp_path / "backend")
     # 잡 상태 초기화
     _pipeline_jobs.clear()
     with TestClient(app) as c:
@@ -50,9 +52,9 @@ def client(tmp_path, monkeypatch):
 @pytest.fixture
 def project_dir(tmp_path):
     """tmp_path 기반 프로젝트 디렉터리를 반환합니다."""
-    d = tmp_path / "projects" / "demo"
-    d.mkdir(parents=True)
-    (d / "output").mkdir()
+    d = tmp_path / "storage" / "projects" / "demo"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "output").mkdir(exist_ok=True)
     return d
 
 
@@ -124,7 +126,7 @@ class TestGetPipelineStatus:
 
     def test_reflects_set_status(self, client, tmp_path, monkeypatch):
         import app.main as main_module
-        monkeypatch.setattr(main_module, "PROJECT_ROOT", tmp_path)
+        # Deprecated PROJECT_ROOT patch removed
         _job_set("my_proj", {"status": "running", "started_at": "2026-01-01T00:00:00"})
         resp = client.get("/api/projects/my_proj/status")
         assert resp.json()["status"] == "running"
@@ -138,8 +140,8 @@ class TestGetPipelineStatus:
 class TestGetProjectConfig:
     def test_nonexistent_project_returns_404(self, client, tmp_path, monkeypatch):
         import app.main as main_module
-        monkeypatch.setattr(main_module, "PROJECT_ROOT", tmp_path)
-        (tmp_path / "projects").mkdir(exist_ok=True)
+        # Deprecated PROJECT_ROOT patch removed
+        (tmp_path / "storage" / "projects").mkdir(parents=True, exist_ok=True)
         resp = client.get("/api/projects/no_such_proj/config")
         assert resp.status_code == 404
 
@@ -149,8 +151,8 @@ class TestGetProjectConfig:
 
     def test_valid_project_returns_config(self, client, tmp_path, monkeypatch):
         import app.main as main_module
-        monkeypatch.setattr(main_module, "PROJECT_ROOT", tmp_path)
-        proj_dir = tmp_path / "projects" / "demo"
+        # Deprecated PROJECT_ROOT patch removed
+        proj_dir = tmp_path / "storage" / "projects" / "demo"
         proj_dir.mkdir(parents=True)
         _write_valid_config(proj_dir)
         resp = client.get("/api/projects/demo/config")
@@ -161,8 +163,8 @@ class TestGetProjectConfig:
 
     def test_config_contains_project_name(self, client, tmp_path, monkeypatch):
         import app.main as main_module
-        monkeypatch.setattr(main_module, "PROJECT_ROOT", tmp_path)
-        proj_dir = tmp_path / "projects" / "demo"
+        # Deprecated PROJECT_ROOT patch removed
+        proj_dir = tmp_path / "storage" / "projects" / "demo"
         proj_dir.mkdir(parents=True)
         _write_valid_config(proj_dir)
         resp = client.get("/api/projects/demo/config")
@@ -170,8 +172,8 @@ class TestGetProjectConfig:
 
     def test_dashboard_json_included_when_present(self, client, tmp_path, monkeypatch):
         import app.main as main_module
-        monkeypatch.setattr(main_module, "PROJECT_ROOT", tmp_path)
-        proj_dir = tmp_path / "projects" / "demo"
+        # Deprecated PROJECT_ROOT patch removed
+        proj_dir = tmp_path / "storage" / "projects" / "demo"
         proj_dir.mkdir(parents=True)
         _write_valid_config(proj_dir)
         custom_dash = {"version": 99, "kpi": [], "charts": [], "list": {"visible_cols": [], "filter_cols": []}}
@@ -199,8 +201,8 @@ class TestSaveProjectConfig:
 
     def test_nonexistent_project_returns_404(self, client, tmp_path, monkeypatch):
         import app.main as main_module
-        monkeypatch.setattr(main_module, "PROJECT_ROOT", tmp_path)
-        (tmp_path / "projects").mkdir(exist_ok=True)
+        # Deprecated PROJECT_ROOT patch removed
+        (tmp_path / "storage" / "projects").mkdir(parents=True, exist_ok=True)
         resp = client.post("/api/projects/no_such/config", json=self._valid_payload())
         assert resp.status_code == 404
 
@@ -210,8 +212,8 @@ class TestSaveProjectConfig:
 
     def test_valid_save_returns_success(self, client, tmp_path, monkeypatch):
         import app.main as main_module
-        monkeypatch.setattr(main_module, "PROJECT_ROOT", tmp_path)
-        proj_dir = tmp_path / "projects" / "demo"
+        # Deprecated PROJECT_ROOT patch removed
+        proj_dir = tmp_path / "storage" / "projects" / "demo"
         proj_dir.mkdir(parents=True)
         resp = client.post("/api/projects/demo/config", json=self._valid_payload())
         assert resp.status_code == 200
@@ -219,24 +221,24 @@ class TestSaveProjectConfig:
 
     def test_config_yaml_written_on_success(self, client, tmp_path, monkeypatch):
         import app.main as main_module
-        monkeypatch.setattr(main_module, "PROJECT_ROOT", tmp_path)
-        proj_dir = tmp_path / "projects" / "demo"
+        # Deprecated PROJECT_ROOT patch removed
+        proj_dir = tmp_path / "storage" / "projects" / "demo"
         proj_dir.mkdir(parents=True)
         client.post("/api/projects/demo/config", json=self._valid_payload())
         assert (proj_dir / "config.yaml").exists()
 
     def test_empty_config_returns_400(self, client, tmp_path, monkeypatch):
         import app.main as main_module
-        monkeypatch.setattr(main_module, "PROJECT_ROOT", tmp_path)
-        proj_dir = tmp_path / "projects" / "demo"
+        # Deprecated PROJECT_ROOT patch removed
+        proj_dir = tmp_path / "storage" / "projects" / "demo"
         proj_dir.mkdir(parents=True)
         resp = client.post("/api/projects/demo/config", json={"config": None, "dashboard": None})
         assert resp.status_code == 400
 
     def test_dashboard_json_written_when_provided(self, client, tmp_path, monkeypatch):
         import app.main as main_module
-        monkeypatch.setattr(main_module, "PROJECT_ROOT", tmp_path)
-        proj_dir = tmp_path / "projects" / "demo"
+        # Deprecated PROJECT_ROOT patch removed
+        proj_dir = tmp_path / "storage" / "projects" / "demo"
         proj_dir.mkdir(parents=True)
         payload = self._valid_payload()
         payload["dashboard"] = {
@@ -256,8 +258,8 @@ class TestSaveProjectConfig:
 class TestRunProjectPipeline:
     def test_nonexistent_project_returns_404(self, client, tmp_path, monkeypatch):
         import app.main as main_module
-        monkeypatch.setattr(main_module, "PROJECT_ROOT", tmp_path)
-        (tmp_path / "projects").mkdir(exist_ok=True)
+        # Deprecated PROJECT_ROOT patch removed
+        (tmp_path / "storage" / "projects").mkdir(parents=True, exist_ok=True)
         resp = client.post("/api/projects/ghost/run")
         assert resp.status_code == 404
 
@@ -268,8 +270,8 @@ class TestRunProjectPipeline:
     def test_missing_config_yaml_returns_404(self, client, tmp_path, monkeypatch):
         """프로젝트 폴더는 있지만 config.yaml 없으면 404."""
         import app.main as main_module
-        monkeypatch.setattr(main_module, "PROJECT_ROOT", tmp_path)
-        proj_dir = tmp_path / "projects" / "nocfg"
+        # Deprecated PROJECT_ROOT patch removed
+        proj_dir = tmp_path / "storage" / "projects" / "nocfg"
         proj_dir.mkdir(parents=True)
         resp = client.post("/api/projects/nocfg/run")
         assert resp.status_code == 404
@@ -277,8 +279,8 @@ class TestRunProjectPipeline:
     def test_returns_started_status(self, client, tmp_path, monkeypatch):
         """config.yaml 이 있으면 {status: 'started'} 를 즉시 반환한다."""
         import app.main as main_module
-        monkeypatch.setattr(main_module, "PROJECT_ROOT", tmp_path)
-        proj_dir = tmp_path / "projects" / "demo"
+        # Deprecated PROJECT_ROOT patch removed
+        proj_dir = tmp_path / "storage" / "projects" / "demo"
         proj_dir.mkdir(parents=True)
         data_xlsx = tmp_path / "data.xlsx"
         _make_xlsx(data_xlsx)
@@ -290,8 +292,8 @@ class TestRunProjectPipeline:
     def test_conflict_409_when_already_running(self, client, tmp_path, monkeypatch):
         """이미 실행 중이면 409 Conflict 반환."""
         import app.main as main_module
-        monkeypatch.setattr(main_module, "PROJECT_ROOT", tmp_path)
-        proj_dir = tmp_path / "projects" / "demo"
+        # Deprecated PROJECT_ROOT patch removed
+        proj_dir = tmp_path / "storage" / "projects" / "demo"
         proj_dir.mkdir(parents=True)
         data_xlsx = tmp_path / "data.xlsx"
         _make_xlsx(data_xlsx)
@@ -309,8 +311,8 @@ class TestRunProjectPipeline:
         validator가 ValidationError 를 발생시키므로 반드시 400을 반환해야 한다.
         """
         import app.main as main_module
-        monkeypatch.setattr(main_module, "PROJECT_ROOT", tmp_path)
-        proj_dir = tmp_path / "projects" / "broken"
+        # Deprecated PROJECT_ROOT patch removed
+        proj_dir = tmp_path / "storage" / "projects" / "broken"
         proj_dir.mkdir(parents=True)
         # source 정보 없는 컬럼 → ColumnDef._check_source → ValidationError → 400
         broken_yaml = (
@@ -352,8 +354,8 @@ class TestProjectNameSecurity:
     def test_valid_korean_name_passes_validation(self, client, tmp_path, monkeypatch):
         """한글 프로젝트명은 허용된다."""
         import app.main as main_module
-        monkeypatch.setattr(main_module, "PROJECT_ROOT", tmp_path)
-        (tmp_path / "projects").mkdir(exist_ok=True)
+        # Deprecated PROJECT_ROOT patch removed
+        (tmp_path / "storage" / "projects").mkdir(parents=True, exist_ok=True)
         resp = client.get("/api/projects/테스트프로젝트/status")
         # 200 idle 또는 404 (프로젝트 없음)가 모두 허용됨; 400이면 안 됨
         assert resp.status_code != 400
@@ -374,7 +376,7 @@ class TestStreamProjectLogs:
     def test_returns_event_stream_content_type(self, client, tmp_path, monkeypatch):
         """SSE 엔드포인트는 text/event-stream 미디어 타입을 반환한다."""
         import app.main as main_module
-        monkeypatch.setattr(main_module, "PROJECT_ROOT", tmp_path)
+        # Deprecated PROJECT_ROOT patch removed
         _pipeline_jobs.clear()
         _job_set("demo", {"status": "done"})
 
@@ -385,7 +387,7 @@ class TestStreamProjectLogs:
     def test_done_job_terminates_stream(self, client, tmp_path, monkeypatch):
         """완료된 잡은 스트림에 종료 메시지를 보내고 종료된다."""
         import app.main as main_module
-        monkeypatch.setattr(main_module, "PROJECT_ROOT", tmp_path)
+        # Deprecated PROJECT_ROOT patch removed
         _pipeline_jobs.clear()
         _job_set("demo", {"status": "done"})
 
@@ -400,7 +402,7 @@ class TestStreamProjectLogs:
     def test_buffered_logs_are_streamed(self, client, tmp_path, monkeypatch):
         """파이프라인 실행 중 쌓인 로그가 스트림에 포함된다."""
         import app.main as main_module
-        monkeypatch.setattr(main_module, "PROJECT_ROOT", tmp_path)
+        # Deprecated PROJECT_ROOT patch removed
         _pipeline_jobs.clear()
         _job_set("demo", {"status": "done"})
         main_module._project_logs["demo"] = ["line1", "line2"]

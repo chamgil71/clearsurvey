@@ -11,7 +11,10 @@ from pydantic import ValidationError
 from engine.config import SurveyConfig
 from engine.pipeline import SurveyPipeline
 
-app = typer.Typer(help="Survey Engine v2 — 범용 설문 데이터 클렌징 도구")
+app = typer.Typer(help="Survey Engine v2 - 범용 설문 데이터 클렌징 도구")
+
+BACKEND_ROOT = Path(__file__).parent
+STORAGE_ROOT = BACKEND_ROOT.parent / "storage"
 
 
 # ---------------------------------------------------------------------------
@@ -46,7 +49,7 @@ def _config_path_for_run(config: Path, cfg: SurveyConfig) -> Path:
     if (config.parent / "config.yaml").exists():
         return config.parent / "config.yaml"
     # draft가 프로젝트 폴더 밖에 있는 경우 → projects/<name>/ 자동 생성
-    proj_dir = Path("projects") / cfg.project
+    proj_dir = STORAGE_ROOT / "projects" / cfg.project
     proj_dir.mkdir(parents=True, exist_ok=True)
     (proj_dir / "output").mkdir(exist_ok=True)
     typer.echo(f"[프로젝트] projects/{cfg.project}/ 폴더에 결과를 저장합니다.")
@@ -154,7 +157,7 @@ def analyze(
     proj_name = project or file.stem
 
     if save_project:
-        proj_dir = Path("projects") / proj_name
+        proj_dir = STORAGE_ROOT / "projects" / proj_name
         if proj_dir.exists():
             typer.echo(f"[주의] 이미 존재합니다: {proj_dir}  → 덮어씁니다.", err=True)
         proj_dir.mkdir(parents=True, exist_ok=True)
@@ -185,7 +188,7 @@ def init(
     source: Path = typer.Argument(..., help="분석할 xlsx 파일 또는 폴더"),
     project: Optional[str] = typer.Option(None, "--project", "-p", help="프로젝트 이름 (지정 시 대화 생략)"),
     auto: bool = typer.Option(False, "--auto", "-y", help="대화 없이 자동으로 신규 프로젝트 생성"),
-    projects_dir: Path = typer.Option(Path("projects"), "--dir", "-d", help="프로젝트 루트 디렉토리"),
+    projects_dir: Path = typer.Option(STORAGE_ROOT / "projects", "--dir", "-d", help="프로젝트 루트 디렉토리"),
 ) -> None:
     """xlsx 파일/폴더를 분석하고 프로젝트를 생성하거나 기존 프로젝트에 연결합니다.
 
@@ -395,7 +398,7 @@ def merge(
 def new_project(
     name: str = typer.Argument(..., help="프로젝트 이름 (예: budget_2026)"),
     projects_dir: Path = typer.Option(
-        Path("projects"), "--dir", "-d",
+        STORAGE_ROOT / "projects", "--dir", "-d",
         help="프로젝트 루트 디렉토리",
     ),
 ) -> None:
@@ -526,11 +529,19 @@ def export_json(
         typer.echo(f"[오류] cleaned xlsx 없음: {xlsx}\n  먼저 'run' 명령으로 생성하세요.", err=True)
         raise typer.Exit(1)
 
-    # resolve output json path
-    json_path = out or (config.parent.parent.parent / "web" / "public" / "data" / f"{cfg.project}_data.json")
+    # 1. 프로젝트 폴더 내부에 원본 JSON 저장
+    proj_json_path = config.parent / f"{cfg.project}_data.json"
+    export_to_json(xlsx, cfg, output_path=proj_json_path, project_dir=config.parent)
+    typer.echo(f"프로젝트 로컬 데이터 저장: {proj_json_path}")
 
-    export_to_json(xlsx, cfg, output_path=json_path, project_dir=config.parent)
-    typer.echo(f"웹 대시보드 데이터: {json_path}")
+    # 2. 지정된 out 또는 기본 프론트엔드 경로로 복사 배포
+    json_path = out or (BACKEND_ROOT.parent / "frontend" / "public" / "data" / f"{cfg.project}_data.json")
+    try:
+        json_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(proj_json_path, json_path)
+        typer.echo(f"웹 대시보드 데이터 배포: {json_path}")
+    except Exception as exc:
+        typer.echo(f"[경고] 배포 폴더 복사 실패: {exc}", err=True)
 
 
 @app.command("deploy")
@@ -575,9 +586,9 @@ def deploy_project(
     data_dir.mkdir(exist_ok=True)
 
     # resolve compiled web assets (dist/)
-    web_dist_dir = Path(__file__).parent / "web" / "dist"
+    web_dist_dir = BACKEND_ROOT.parent / "frontend" / "dist"
     if not web_dist_dir.exists():
-        typer.echo("[오류] web/dist/ 폴더가 존재하지 않습니다. 먼저 'npm run build' (또는 bun run build)를 수행하여 프론트엔드를 빌드하세요.", err=True)
+        typer.echo("[오류] frontend/dist/ 폴더가 존재하지 않습니다. 먼저 'npm run build'를 수행하여 프론트엔드를 빌드하세요.", err=True)
         raise typer.Exit(1)
 
     # copy all assets from web/dist/ to dest/ (excluding data directory)

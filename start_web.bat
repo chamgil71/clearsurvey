@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 setlocal
-cd /d "%~dp0web"
+cd /d "%~dp0frontend"
 echo ============================================
 echo  Survey Dashboard -- Vite Dev Server
 echo  URL: http://localhost:5173/

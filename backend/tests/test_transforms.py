@@ -513,3 +513,27 @@ class TestCase17_ValidateRegex:
 
     def test_email_pattern(self):
         assert validate_regex("user@example.com", pattern=r"^[\w.+-]+@[\w-]+\.[a-z]{2,}$") == "user@example.com"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Set 4 — Case 18: date_year & split_binary
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestCase18_NewTransforms:
+    """date_year 및 split_binary 신규 정제 규칙 검증."""
+
+    def test_date_year_extracted(self):
+        from transforms.domain.cleansing import date_year
+        assert date_year("2026-05-15") == 2026
+        assert date_year("2026년 06월") == 2026
+        assert date_year(None) is None
+
+    def test_split_binary_extracted(self):
+        from transforms.domain.cleansing import split_binary
+        res = split_binary("AI모델, 데이터", flag_keyword="AI모델, 데이터, 추론")
+        assert res == {
+            "": "AI모델, 데이터",
+            "_AI모델": 1,
+            "_데이터": 1,
+            "_추론": 0
+        }

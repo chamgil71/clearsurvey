@@ -22,10 +22,22 @@ function LoginPage() {
       ? new URLSearchParams(window.location.search).get("redirect") || "/admin"
       : "/admin";
 
+  const isLocalDev = (supabase as any).isPlaceholder;
+
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
+      if (isLocalDev) {
+        // 로컬 개발용 세션 임시 주입
+        const dummyUser = { email: email || "admin@clearsurvey.local" };
+        localStorage.setItem("sb-local-session", JSON.stringify(dummyUser));
+        toast.success("로컬 개발 모드: 로그인 우회 성공");
+        setTimeout(() => {
+          window.location.href = redirectTo;
+        }, 500);
+        return;
+      }
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       window.location.href = redirectTo;
@@ -37,6 +49,16 @@ function LoginPage() {
   };
 
   const handleGitHubLogin = async () => {
+    if (isLocalDev) {
+      // 로컬 개발용 세션 임시 주입
+      const dummyUser = { email: "github-local-dev@clearsurvey.local" };
+      localStorage.setItem("sb-local-session", JSON.stringify(dummyUser));
+      toast.success("로컬 개발 모드: GitHub 로그인 우회 성공");
+      setTimeout(() => {
+        window.location.href = redirectTo;
+      }, 500);
+      return;
+    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "github",
       options: { redirectTo: `${window.location.origin}${redirectTo}` },
@@ -54,6 +76,11 @@ function LoginPage() {
             <span className="text-2xl font-black tracking-tight">ClearSurvey</span>
           </div>
           <p className="text-sm text-muted-foreground">관리자 계정으로 로그인하세요</p>
+          {isLocalDev && (
+            <div className="mt-2 inline-block px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-950/20 dark:border-amber-800 dark:text-amber-300 animate-pulse">
+              ⚠️ 로컬 개발 모드 (임의 계정 우회 로그인 가능)
+            </div>
+          )}
         </div>
 
         {/* Email form */}

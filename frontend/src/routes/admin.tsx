@@ -24,6 +24,7 @@ import {
   Plus,
   Settings,
   BookOpen,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -50,7 +51,25 @@ function AdminPage() {
   const [authLoading, setAuthLoading] = useState(true);
   const navigate = useNavigate();
 
+  const isLocalDev = (supabase as any).isPlaceholder;
+
   useEffect(() => {
+    if (isLocalDev) {
+      const localSession = localStorage.getItem("sb-local-session");
+      if (localSession) {
+        try {
+          const parsed = JSON.parse(localSession);
+          setUser({ email: parsed.email } as any);
+        } catch {
+          setUser(null);
+        }
+      } else {
+        setUser(null);
+      }
+      setAuthLoading(false);
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setAuthLoading(false);
@@ -60,7 +79,7 @@ function AdminPage() {
       setUser(session?.user ?? null);
     });
     return () => subscription.unsubscribe();
-  }, []);
+  }, [isLocalDev]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -104,6 +123,11 @@ function AdminDashboard({ user }: { user: User }) {
   }, [selectedProject, api.isBackendAlive, view]);
 
   const handleSignOut = async () => {
+    if ((supabase as any).isPlaceholder) {
+      localStorage.removeItem("sb-local-session");
+      window.location.href = "/login";
+      return;
+    }
     await supabase.auth.signOut();
   };
 
@@ -140,9 +164,9 @@ function AdminDashboard({ user }: { user: User }) {
       const refreshed = await api.loadProjectConfig(selectedProject);
       setLoadedConfig(refreshed);
       toast.success("프로젝트 설정이 저장되었습니다!");
-      setView("run");
     } catch (err: unknown) {
       toast.error(`설정 저장 실패: ${err instanceof Error ? err.message : String(err)}`);
+      throw err;
     }
   };
 
@@ -303,6 +327,13 @@ function AdminDashboard({ user }: { user: User }) {
                 projectName={selectedProject}
                 config={loadedConfig}
                 onSaveConfig={handleSaveConfig}
+                onBack={() => setView("list")}
+                onNext={() => {
+                  setView("run");
+                  setTimeout(() => {
+                    handleRunWithPolling();
+                  }, 100);
+                }}
                 loading={api.loading}
               />
             </div>
@@ -317,6 +348,7 @@ function AdminDashboard({ user }: { user: User }) {
                 downloadUrl={api.getDownloadUrl(selectedProject)}
                 loading={api.loading || pipelineRunning}
                 clearLogs={api.clearLogs}
+                onBack={() => setView("config")}
               />
             </div>
           )}
@@ -394,6 +426,7 @@ function ProjectListView({
   onNew: () => void;
 }) {
   const [toggling, setToggling] = useState<string | null>(null);
+  const api = useManagerApi();
 
   const handleToggle = async (name: string, current: boolean) => {
     setToggling(name);
@@ -451,9 +484,15 @@ function ProjectListView({
                   <tr key={p.id} className="bg-background hover:bg-muted/20 transition-colors">
                     {/* 프로젝트명 */}
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Settings className="h-4 w-4 text-muted-foreground/50" />
-                        <span className="font-medium font-mono">{p.name}</span>
+                      <div
+                        className="flex items-center gap-2 cursor-pointer group/name"
+                        onClick={() => isBackendAlive && onOpenConfig(p.id)}
+                        title="클릭하여 프로젝트 설정 편집"
+                      >
+                        <Settings className="h-4 w-4 text-muted-foreground/50 group-hover/name:text-primary transition-colors" />
+                        <span className="font-bold font-mono text-foreground group-hover/name:text-primary group-hover/name:underline transition-colors">
+                          {p.name}
+                        </span>
                       </div>
                     </td>
 
@@ -497,6 +536,18 @@ function ProjectListView({
                         >
                           <Play className="h-3.5 w-3.5 mr-1" />
                           실행
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            window.location.href = api.getExportHtmlUrl(p.id);
+                          }}
+                          className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
+                          title="인터넷 연결이 필요 없는 오프라인 단독 실행형 HTML 보고서를 다운로드합니다."
+                        >
+                          <FileText className="h-3.5 w-3.5 mr-1 text-slate-500" />
+                          HTML 다운로드
                         </Button>
                       </div>
                     </td>
