@@ -1,25 +1,26 @@
 @echo off
+chcp 65001 >nul
 setlocal
 cd /d "%~dp0web"
 echo ============================================
-echo  Survey Dashboard -- Vite 개발 서버
+echo  Survey Dashboard -- Vite Dev Server
 echo  URL: http://localhost:5173/
 echo ============================================
 echo.
 
 if not exist "node_modules" (
-    echo [1/2] node_modules 없음 -- npm install 실행 중...
+    echo [1/2] node_modules not found. Running npm install...
     npm install
     if errorlevel 1 (
-        echo [오류] npm install 실패. Node.js 설치 여부를 확인하세요.
+        echo [ERROR] npm install failed. Please check if Node.js is installed.
         pause
         exit /b 1
     )
 ) else (
-    echo [1/2] node_modules 확인 완료
+    echo [1/2] node_modules found.
 )
 
-echo [2/2] Vite 개발 서버 시작...
+echo [2/2] Starting Vite Dev Server...
 echo.
 npm run dev
 pause
