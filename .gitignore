@@ -23,9 +23,11 @@ dist-ssr
 # output/ 임시 출력 디렉토리 전체 무시
 /output/
 
-# web/public/data/ 동적 익스포트 대시보드 데이터 전체 무시 (README.md만 유지)
+# web/public/data/ 동적 익스포트 대시보드 데이터 전체 무시 (데모용 샘플 및 README 유지)
 /web/public/data/*
 !/web/public/data/README.md
+!/web/public/data/projects.json
+!/web/public/data/survey_data.json
 
 
 # Editor directories and files
