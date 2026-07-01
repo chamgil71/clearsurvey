@@ -1,10 +1,12 @@
 import React, { useState, useRef } from "react";
-import { FolderOpen, FileUp, Upload, CheckCircle2, AlertTriangle, Play } from "lucide-react";
+import { FolderOpen, FileUp, Upload, CheckCircle2, AlertTriangle, Play, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import type { ProjectListItem } from "@/types/dashboard";
 
 interface Step1Props {
@@ -12,6 +14,16 @@ interface Step1Props {
   projects: ProjectListItem[];
   onSelectProject: (name: string) => void;
   onCreateProject: (name: string, file: File) => Promise<void>;
+  onCreateMergeProject?: (
+    name: string,
+    files: File[],
+    options: {
+      dedup_strategy: "first" | "last" | "none";
+      key_cols: string[];
+      add_source_col: boolean;
+      source_col_name: string;
+    }
+  ) => Promise<void>;
   loading: boolean;
 }
 
@@ -20,10 +32,22 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
   projects,
   onSelectProject,
   onCreateProject,
+  onCreateMergeProject,
   loading,
 }) => {
   const [newProjectName, setNewProjectName] = useState("");
+  const [uploadMode, setUploadMode] = useState<"single" | "merge">("single");
+  
+  // Single upload
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  
+  // Merge upload
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [dedupStrategy, setDedupStrategy] = useState<"first" | "last" | "none">("none");
+  const [keyCols, setKeyCols] = useState("");
+  const [addSourceCol, setAddSourceCol] = useState(true);
+  const [sourceColName, setSourceColName] = useState("_출처파일");
+
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -43,11 +67,23 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
 
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
-      const file = files[0];
-      if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
-        setSelectedFile(file);
+      if (uploadMode === "single") {
+        const file = files[0];
+        if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
+          setSelectedFile(file);
+        } else {
+          toast.error("Excel 파일(.xlsx, .xls)만 업로드할 수 있습니다.");
+        }
       } else {
-        toast.error("Excel 파일(.xlsx, .xls)만 업로드할 수 있습니다.");
+        const validFiles = Array.from(files).filter(
+          (file) => file.name.endsWith(".xlsx") || file.name.endsWith(".xls")
+        );
+        if (validFiles.length !== files.length) {
+          toast.error("Excel 파일(.xlsx, .xls)만 업로드할 수 있습니다.");
+        }
+        if (validFiles.length > 0) {
+          setSelectedFiles((prev) => [...prev, ...validFiles]);
+        }
       }
     }
   };
@@ -55,17 +91,57 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      setSelectedFile(files[0]);
+      if (uploadMode === "single") {
+        setSelectedFile(files[0]);
+      } else {
+        setSelectedFiles((prev) => [...prev, ...Array.from(files)]);
+      }
     }
+  };
+
+  const removeMergeFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newProjectName.trim() || !selectedFile) return;
+    const name = newProjectName.trim();
+    if (!name) return;
+
     try {
-      await onCreateProject(newProjectName.trim(), selectedFile);
+      if (uploadMode === "single") {
+        if (!selectedFile) return;
+        await onCreateProject(name, selectedFile);
+        setSelectedFile(null);
+      } else {
+        if (selectedFiles.length < 2) {
+          toast.error("병합을 위해 최소 2개 이상의 파일을 업로드하십시오.");
+          return;
+        }
+        if (!onCreateMergeProject) {
+          toast.error("병합 기능 API가 지원되지 않는 백엔드입니다.");
+          return;
+        }
+        const parsedKeyCols = keyCols
+          .split(",")
+          .map((k) => k.trim())
+          .filter(Boolean);
+
+        if (dedupStrategy !== "none" && parsedKeyCols.length === 0) {
+          toast.error("중복 제거 기준 컬럼명을 1개 이상 쉼표로 연결해 입력해 주세요.");
+          return;
+        }
+
+        await onCreateMergeProject(name, selectedFiles, {
+          dedup_strategy: dedupStrategy,
+          key_cols: parsedKeyCols,
+          add_source_col: addSourceCol,
+          source_col_name: sourceColName.trim() || "_출처파일",
+        });
+        setSelectedFiles([]);
+        setKeyCols("");
+      }
       setNewProjectName("");
-      setSelectedFile(null);
     } catch (err) {
       console.error(err);
     }
@@ -110,7 +186,7 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
                   등록된 프로젝트가 없습니다.<br />우측에서 신규 파일을 분석하여 시작해보세요.
                 </div>
               ) : (
-                <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1">
                   {projects.map((p) => (
                     <div
                       key={p.id}
@@ -146,13 +222,39 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
           <CardHeader>
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <FileUp className="h-4 w-4 text-primary" />
-              신규 설문 엑셀 파일 분석
+              신규 설문 데이터 생성
             </CardTitle>
             <CardDescription className="text-xs">
-              새로운 설문 문항 원본 엑셀 파일을 업로드해 문항 구조를 자동 분석하고 Draft 설정을 생성합니다.
+              새로운 단일 파일 분석 또는 여러 엑셀 파일을 병합하여 Draft 설정을 생성합니다.
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Mode selection buttons */}
+            <div className="grid grid-cols-2 gap-2 mb-4 border p-1 rounded-lg bg-muted/20">
+              <button
+                type="button"
+                onClick={() => setUploadMode("single")}
+                className={`py-1.5 text-xs font-bold rounded-md transition-all ${
+                  uploadMode === "single"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                단일 파일 분석
+              </button>
+              <button
+                type="button"
+                onClick={() => setUploadMode("merge")}
+                className={`py-1.5 text-xs font-bold rounded-md transition-all ${
+                  uploadMode === "merge"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                다중 파일 병합 (Merge)
+              </button>
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="projectName" className="text-xs font-semibold text-muted-foreground">
@@ -174,8 +276,9 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
 
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-muted-foreground block">
-                  설문지 엑셀 원본 파일
+                  {uploadMode === "single" ? "설문지 엑셀 원본 파일" : "병합할 복수 엑셀 파일 리스트"}
                 </label>
+                
                 <div
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
@@ -192,39 +295,122 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
                     ref={fileInputRef}
                     onChange={handleFileChange}
                     accept=".xlsx, .xls"
+                    multiple={uploadMode === "merge"}
                     className="hidden"
-                    title="설문지 엑셀 원본 파일 선택"
+                    title="설문지 엑셀 파일 선택"
                     disabled={!isBackendAlive || loading}
                   />
                   <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                  {selectedFile ? (
-                    <div className="text-center space-y-1">
-                      <p className="text-xs font-semibold text-foreground truncate max-w-[280px]">
-                        {selectedFile.name}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        ({(selectedFile.size / 1024).toFixed(1)} KB)
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="text-center space-y-1">
-                      <p className="text-xs font-medium text-foreground">
-                        클릭 또는 파일을 여기에 드래그 앤 드롭
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        Excel 파일 (*.xlsx, *.xls)
-                      </p>
-                    </div>
-                  )}
+                  <div className="text-center space-y-1">
+                    <p className="text-xs font-medium text-foreground">
+                      {uploadMode === "single" ? "클릭 또는 파일을 여기에 드래그 앤 드롭" : "클릭 또는 복수 파일을 여기에 드래그 앤 드롭"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Excel 파일 (*.xlsx, *.xls)
+                    </p>
+                  </div>
                 </div>
               </div>
 
+              {/* Display selected files */}
+              {uploadMode === "single" && selectedFile && (
+                <div className="p-3 border rounded-lg bg-muted/10 flex items-center justify-between text-xs">
+                  <span className="font-semibold truncate max-w-[240px]">{selectedFile.name}</span>
+                  <span className="text-[10px] text-muted-foreground">({(selectedFile.size / 1024).toFixed(1)} KB)</span>
+                </div>
+              )}
+
+              {uploadMode === "merge" && selectedFiles.length > 0 && (
+                <div className="space-y-1.5 max-h-[140px] overflow-y-auto border p-2.5 rounded-lg bg-muted/5">
+                  <p className="text-[10px] font-semibold text-muted-foreground mb-1">업로드할 파일 ({selectedFiles.length}개)</p>
+                  {selectedFiles.map((file, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-xs p-1.5 bg-background border rounded-md">
+                      <span className="truncate max-w-[200px] text-[11px] font-medium">{file.name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] text-muted-foreground">({(file.size / 1024).toFixed(1)} KB)</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeMergeFile(idx);
+                          }}
+                          className="text-destructive hover:text-red-700 transition-colors p-0.5"
+                          title="삭제"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Merge settings form */}
+              {uploadMode === "merge" && (
+                <Card className="border border-border/60 bg-muted/10">
+                  <CardContent className="p-3.5 space-y-3">
+                    <p className="text-xs font-bold text-foreground">🔗 데이터 병합 및 중복 제거 설정</p>
+                    
+                    <div className="grid grid-cols-2 gap-3.5">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-semibold text-muted-foreground block">중복 제거 전략 (Dedup)</label>
+                        <select
+                          value={dedupStrategy}
+                          onChange={(e) => setDedupStrategy(e.target.value as any)}
+                          className="w-full text-xs p-1 border rounded-md bg-background"
+                        >
+                          <option value="none">전체 행 허용 (strategy: none)</option>
+                          <option value="first">첫 행 보존 (strategy: first)</option>
+                          <option value="last">마지막 행 보존 (strategy: last)</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-semibold text-muted-foreground block">중복 기준 컬럼 (Key Columns)</label>
+                        <Input
+                          placeholder="예: 답변ID, 응답자번호"
+                          value={keyCols}
+                          onChange={(e) => setKeyCols(e.target.value)}
+                          disabled={dedupStrategy === "none"}
+                          className="h-7 text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between border-t pt-2.5">
+                      <div className="space-y-0.5">
+                        <label className="text-[10px] font-semibold text-foreground block">출처 파일 컬럼 기록</label>
+                        <span className="text-[9px] text-muted-foreground">가공 행이 어느 엑셀에서 추출되었는지 기록합니다.</span>
+                      </div>
+                      <Switch checked={addSourceCol} onCheckedChange={setAddSourceCol} />
+                    </div>
+
+                    {addSourceCol && (
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-semibold text-muted-foreground block">출처 정보 컬럼명</label>
+                        <Input
+                          placeholder="_출처파일"
+                          value={sourceColName}
+                          onChange={(e) => setSourceColName(e.target.value)}
+                          className="h-7 text-xs"
+                        />
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
               <Button
                 type="submit"
-                disabled={!isBackendAlive || !newProjectName.trim() || !selectedFile || loading}
+                disabled={
+                  !isBackendAlive || 
+                  !newProjectName.trim() || 
+                  (uploadMode === "single" ? !selectedFile : selectedFiles.length < 2) || 
+                  loading
+                }
                 className="w-full text-xs h-9 font-semibold"
               >
-                {loading ? "자동 정밀 분석 중..." : "설문 구조 자동 분석 및 생성"}
+                {loading ? "자동 정밀 병합 및 분석 중..." : (uploadMode === "single" ? "설문 구조 자동 분석 및 생성" : "복수 엑셀 병합 및 자동 분석 생성")}
                 {!loading && <Play className="h-3 w-3 ml-1.5" />}
               </Button>
             </form>

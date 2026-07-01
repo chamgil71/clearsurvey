@@ -19,7 +19,13 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import httpx
 import yaml
 
+import time
+
 security = HTTPBearer(auto_error=False)
+
+# 토큰 검증 캐시: { token_str: (expire_time, user_data) }
+_token_cache: dict[str, tuple[float, dict]] = {}
+TOKEN_CACHE_TTL = 300.0  # 5분 캐시
 
 async def verify_supabase_token(
     credentials: Optional[HTTPAuthorizationCredentials] = Security(security),
@@ -27,23 +33,35 @@ async def verify_supabase_token(
 ) -> dict:
     """Supabase JWT 토큰을 실시간 검증합니다.
     
-    로컬 환경(placeholder.supabase.co 등)에서는 검증을 바이패스합니다.
+    로컬 환경(placeholder.supabase.co 등) 및 로컬 우회 토큰은 검증을 바이패스합니다.
+    최근 검증된 토큰은 5분간 인메모리 캐시를 적용해 원격 API 호출을 최소화합니다.
     """
     supabase_url = os.environ.get("SUPABASE_URL", "https://placeholder.supabase.co")
-    if not supabase_url or "placeholder" in supabase_url:
-        return {"user": "local_dev_user"}
-        
+    
     auth_token = None
     if credentials:
         auth_token = credentials.credentials
     elif token:
         auth_token = token
+
+    # 로컬 개발 모드 및 우회 토큰 바이패스
+    if not supabase_url or "placeholder" in supabase_url or auth_token == "local-dev-bypass-token":
+        return {"user": "local_dev_user"}
         
     if not auth_token:
         raise HTTPException(
             status_code=401,
             detail="인증 자격 증명(Bearer Token)이 누락되었습니다."
         )
+
+    # 1. 인메모리 캐시 조회
+    now = time.time()
+    if auth_token in _token_cache:
+        expire_time, user_data = _token_cache[auth_token]
+        if now < expire_time:
+            return user_data
+        else:
+            _token_cache.pop(auth_token, None)
         
     headers = {
         "Authorization": f"Bearer {auth_token}",
@@ -58,7 +76,10 @@ async def verify_supabase_token(
                     status_code=401,
                     detail="유효하지 않거나 만료된 Supabase 토큰입니다."
                 )
-            return response.json()
+            user_data = response.json()
+            # 2. 캐시 등록 (5분간 유효)
+            _token_cache[auth_token] = (now + TOKEN_CACHE_TTL, user_data)
+            return user_data
         except httpx.RequestError as exc:
             raise HTTPException(
                 status_code=503,
@@ -351,6 +372,166 @@ async def create_project(
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"설문 분석 및 프로젝트 생성 실패: {exc}")
+
+
+@app.post("/api/projects/create-merge")
+async def create_merge_project(
+    name: str = Form(...),
+    files: list[UploadFile] = File(...),
+    options: str = Form(...),  # JSON string
+    user: dict = Depends(verify_supabase_token)
+):
+    """복수의 설문 엑셀 파일을 업로드 및 병합하고, draft 프로젝트를 생성합니다."""
+    name = name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="프로젝트 이름이 필요합니다.")
+
+    # 1. 보안 검증
+    _validate_project_name(name)
+
+    if not files or len(files) < 2:
+        raise HTTPException(status_code=400, detail="병합을 위해 최소 2개 이상의 파일이 필요합니다.")
+
+    # options JSON 파싱
+    try:
+        opts = json.loads(options)
+    except Exception:
+        raise HTTPException(status_code=400, detail="올바르지 않은 병합 설정(options) 포맷입니다.")
+
+    # 파일 저장용 디렉토리 생성
+    storage_dir = STORAGE_ROOT / "raw"
+    storage_dir.mkdir(parents=True, exist_ok=True)
+
+    saved_paths: list[Path] = []
+    for f in files:
+        safe_fname = _safe_filename(f.filename or "upload.xlsx")
+        if not safe_fname.lower().endswith((".xlsx", ".xls")):
+            raise HTTPException(status_code=400, detail="xlsx 또는 xls 파일만 업로드할 수 있습니다.")
+        
+        # 파일 중복 덮어쓰기 방지를 위한 파일별 격리 저장
+        proj_raw_dir = storage_dir / name
+        proj_raw_dir.mkdir(parents=True, exist_ok=True)
+        raw_file_path = proj_raw_dir / safe_fname
+        
+        with open(raw_file_path, "wb") as buffer:
+            shutil.copyfileobj(f.file, buffer)
+        saved_paths.append(raw_file_path)
+
+    # 2. Merger 동작
+    try:
+        from engine.merger import DataMerger
+        from engine.config import MergeConfig, MergeSource, DedupConfig, MergeOutputConfig
+
+        # MergeConfig 빌드
+        sources = [
+            MergeSource(
+                path=str(p.resolve()),
+                sheet=None,
+                header_row=1,
+                column_mapping={}
+            )
+            for p in saved_paths
+        ]
+        
+        dedup_strategy = opts.get("dedup_strategy", "none")
+        key_cols = opts.get("key_cols", [])
+        add_source_col = opts.get("add_source_col", True)
+        source_col_name = opts.get("source_col_name", "_출처파일")
+        
+        merge_cfg = MergeConfig(
+            sources=sources,
+            dedup=DedupConfig(strategy=dedup_strategy, key_cols=key_cols),
+            output=MergeOutputConfig(add_source_col=add_source_col, source_col_name=source_col_name)
+        )
+        
+        merger = DataMerger(merge_cfg)
+        merged_df = merger.run()
+        
+        if merged_df.empty:
+            raise ValueError("병합된 데이터가 비어 있습니다. 파일 구성을 확인하십시오.")
+
+        # 병합 결과 엑셀 저장
+        merged_file_path = storage_dir / f"{name}_merged.xlsx"
+        merged_df.to_excel(merged_file_path, index=False)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"데이터 파일 병합 실패: {exc}")
+
+    # 3. 분석 및 프로젝트 드래프트 생성
+    try:
+        # Prepare project directory
+        proj_dir = _get_project_dir(name)
+        proj_dir.mkdir(parents=True, exist_ok=True)
+        (proj_dir / "output").mkdir(exist_ok=True)
+
+        analyzer = ExcelAnalyzer(merged_file_path)
+        detection = analyzer.analyze()
+        
+        # Save draft excel config
+        draft_path = proj_dir / f"draft_{name}_merged.xlsx"
+        analyzer.generate_draft_xlsx(draft_path, project_name=name)
+        
+        # Save config.yaml
+        config_path = proj_dir / "config.yaml"
+        # Relative path from config.yaml to merged source file
+        import os
+        rel_src = os.path.relpath(
+            merged_file_path.resolve(),
+            config_path.parent.resolve()
+        ).replace("\\", "/")
+        
+        # MergeConfig를 설정 파일에 함께 주입하여 저장
+        # sources 경로를 config.yaml 기준 상대경로로 변환하여 저장
+        rel_sources = []
+        for p in saved_paths:
+            rel_p = os.path.relpath(p.resolve(), config_path.parent.resolve()).replace("\\", "/")
+            rel_sources.append(MergeSource(
+                path=rel_p,
+                sheet=None,
+                header_row=1,
+                column_mapping={}
+            ))
+            
+        rel_merge_cfg = MergeConfig(
+            sources=rel_sources,
+            dedup=DedupConfig(strategy=dedup_strategy, key_cols=key_cols),
+            output=MergeOutputConfig(add_source_col=add_source_col, source_col_name=source_col_name)
+        )
+        
+        analyzer.generate_config_yaml(
+            config_path,
+            project_name=name,
+            source_override=rel_src
+        )
+
+        # config.yaml에 merge 속성 수동 추가 주입 (analyzer.py 수정 방어)
+        if config_path.exists():
+            with open(config_path, "r", encoding="utf-8") as f:
+                cfg_dict = yaml.safe_load(f) or {}
+            cfg_dict["merge"] = rel_merge_cfg.model_dump(exclude_none=True)
+            with open(config_path, "w", encoding="utf-8") as f:
+                yaml.dump(cfg_dict, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        
+        # style.yaml 복사
+        default_style = BACKEND_ROOT / "config" / "default_style.yaml"
+        dest_style = proj_dir / "style.yaml"
+        if default_style.exists():
+            shutil.copy2(default_style, dest_style)
+        else:
+            dest_style.write_text("# style.yaml — 스타일 설정\n", encoding="utf-8")
+            
+        _update_projects_manifest(name, f"{name}_data.json")
+            
+        return {
+            "status": "success",
+            "project": name,
+            "header_row": detection["header_row"],
+            "data_start_row": detection["data_start_row"],
+            "column_count": detection["column_count"],
+            "draft_path": str(draft_path.relative_to(BACKEND_ROOT.parent)),
+            "merged_path": str(merged_file_path.relative_to(BACKEND_ROOT.parent))
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"병합 후 분석 및 프로젝트 생성 실패: {exc}")
 
 
 @app.get("/api/projects/{name}/config")
@@ -733,9 +914,27 @@ def export_project_html(name: str, token: str | None = None, user: dict = Depend
 
     # 1. 엑셀 정제 JSON 데이터 긁어오기 (exporter.py 호출)
     try:
-        from engine.exporter import ProjectExporter
-        exporter = ProjectExporter(name)
-        data = exporter.export_data()
+        from engine.exporter import export_to_json
+        from engine.config import SurveyConfig
+        import yaml
+        
+        config_path = proj_dir / "config.yaml"
+        if not config_path.exists():
+            raise FileNotFoundError("프로젝트 설정 파일(config.yaml)이 존재하지 않습니다.")
+            
+        with open(config_path, encoding="utf-8") as f:
+            cfg_dict = yaml.safe_load(f)
+        cfg = SurveyConfig.model_validate(cfg_dict)
+        
+        cleaned_file_path = proj_dir / "output" / cfg.paths.output_file
+        if not cleaned_file_path.exists():
+            raise FileNotFoundError("정제된 결과 엑셀 파일이 존재하지 않습니다. 파이프라인을 먼저 기동하십시오.")
+            
+        data = export_to_json(
+            cleaned_xlsx=cleaned_file_path,
+            cfg=cfg,
+            project_dir=proj_dir
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"데이터 익스포트 실패: {e}")
 

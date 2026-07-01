@@ -115,11 +115,20 @@ function AdminDashboard({ user }: { user: User }) {
 
   useEffect(() => () => { if (pollingRef.current) clearInterval(pollingRef.current); }, []);
 
-  // 프로젝트 설정 로드
+  // 프로젝트 설정 로드 (컴포넌트 수명 주기 클린업 및 Race Condition 방어)
   useEffect(() => {
+    let active = true;
     if (selectedProject && api.isBackendAlive && (view === "config" || view === "run")) {
-      api.loadProjectConfig(selectedProject).then(setLoadedConfig).catch(console.error);
+      api.loadProjectConfig(selectedProject)
+        .then((data) => {
+          if (active) setLoadedConfig(data);
+        })
+        .catch(console.error);
     }
+    return () => {
+      active = false;
+      setLoadedConfig(null);
+    };
   }, [selectedProject, api.isBackendAlive, view]);
 
   const handleSignOut = async () => {
@@ -213,65 +222,18 @@ function AdminDashboard({ user }: { user: User }) {
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       {/* ── Sidebar ──────────────────────────────────────────────────────────── */}
-      <aside className="w-56 flex flex-col shrink-0 border-r bg-muted/30">
-        {/* Logo */}
-        <div className="flex items-center gap-2 px-4 py-4 border-b">
-          <BarChart3 className="h-5 w-5 text-primary" />
-          <span className="font-black text-sm tracking-tight">ClearSurvey</span>
-          <Badge variant="outline" className="text-[9px] ml-auto">Admin</Badge>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 p-3 space-y-1">
-          <SidebarItem
-            icon={<LayoutDashboard className="h-4 w-4" />}
-            label="프로젝트 목록"
-            active={view === "list"}
-            onClick={() => setView("list")}
-          />
-          <SidebarItem
-            icon={<Plus className="h-4 w-4" />}
-            label="새 프로젝트"
-            active={view === "new"}
-            onClick={() => { setView("new"); setSelectedProject(""); }}
-          />
-
-          <div className="pt-2 pb-1">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground/60 px-2">도구</div>
-          </div>
-
-          <SidebarItem
-            icon={<BookOpen className="h-4 w-4" />}
-            label="도움말 가이드"
-            active={false}
-            onClick={() => setGuideOpen(true)}
-          />
-          <a
-            href="/"
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-2.5 rounded-md px-2 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-          >
-            <ExternalLink className="h-4 w-4" />
-            공개 대시보드
-          </a>
-        </nav>
-
-        {/* User info */}
-        <div className="p-3 border-t space-y-2">
-          <div className="px-2 py-1.5 rounded-md bg-muted text-xs truncate text-muted-foreground">
-            {user.email}
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start gap-2 text-muted-foreground hover:text-destructive"
-            onClick={handleSignOut}
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            로그아웃
-          </Button>
-        </div>
+      <aside className="w-60 flex flex-col shrink-0 border-r bg-muted/50 shadow-sm">
+        <SidebarLogo />
+        <SidebarNavigation
+          view={view}
+          setView={setView}
+          setSelectedProject={setSelectedProject}
+          setGuideOpen={setGuideOpen}
+        />
+        <SidebarUserPanel
+          email={user.email}
+          onSignOut={handleSignOut}
+        />
       </aside>
 
       {/* ── Main content ─────────────────────────────────────────────────────── */}
@@ -323,19 +285,25 @@ function AdminDashboard({ user }: { user: User }) {
 
           {view === "config" && (
             <div className="max-w-5xl mx-auto space-y-4">
-              <Step2_ConfigEditor
-                projectName={selectedProject}
-                config={loadedConfig}
-                onSaveConfig={handleSaveConfig}
-                onBack={() => setView("list")}
-                onNext={() => {
-                  setView("run");
-                  setTimeout(() => {
-                    handleRunWithPolling();
-                  }, 100);
-                }}
-                loading={api.loading}
-              />
+              {loadedConfig ? (
+                <Step2_ConfigEditor
+                  projectName={selectedProject}
+                  config={loadedConfig}
+                  onSaveConfig={handleSaveConfig}
+                  onBack={() => setView("list")}
+                  onNext={() => {
+                    setView("run");
+                    setTimeout(() => {
+                      handleRunWithPolling();
+                    }, 100);
+                  }}
+                  loading={api.loading}
+                />
+              ) : (
+                <div className="p-12 text-center text-muted-foreground bg-muted/5 border rounded-lg animate-pulse">
+                  ⏳ 프로젝트 설정을 안전하게 불러오는 중입니다...
+                </div>
+              )}
             </div>
           )}
 
@@ -362,16 +330,100 @@ function AdminDashboard({ user }: { user: User }) {
 
 // ── 서브 컴포넌트 ─────────────────────────────────────────────────────────────
 
+function SidebarLogo() {
+  return (
+    <div className="flex items-center gap-2.5 px-5 pt-20 pb-8 border-b bg-card/10">
+      <BarChart3 className="h-6 w-6 text-primary animate-pulse" />
+      <span className="font-extrabold text-base tracking-wider text-foreground">ClearSurvey</span>
+      <Badge variant="outline" className="text-[9px] px-1.5 py-0.5 ml-auto border-primary/20 bg-primary/5 text-primary font-bold">Admin</Badge>
+    </div>
+  );
+}
+
+function SidebarNavigation({
+  view,
+  setView,
+  setSelectedProject,
+  setGuideOpen,
+}: {
+  view: AdminView;
+  setView: (v: AdminView) => void;
+  setSelectedProject: (p: string) => void;
+  setGuideOpen: (open: boolean) => void;
+}) {
+  return (
+    <nav className="flex-1 p-5 space-y-6 mt-10">
+      <SidebarItem
+        icon={<LayoutDashboard className="h-4 w-4" />}
+        label="프로젝트 목록"
+        active={view === "list"}
+        onClick={() => setView("list")}
+      />
+      <SidebarItem
+        icon={<Plus className="h-4 w-4" />}
+        label="새 프로젝트"
+        active={view === "new"}
+        onClick={() => { setView("new"); setSelectedProject(""); }}
+      />
+
+      <div className="pt-4 pb-1.5">
+        <div className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground/60 px-3">도구</div>
+      </div>
+
+      <SidebarItem
+        icon={<BookOpen className="h-4 w-4" />}
+        label="도움말 가이드"
+        active={false}
+        onClick={() => setGuideOpen(true)}
+      />
+      <a
+        href="/"
+        target="_blank"
+        rel="noreferrer"
+        className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:pl-3.5 transition-all duration-200"
+      >
+        <ExternalLink className="h-4 w-4" />
+        공개 대시보드
+      </a>
+    </nav>
+  );
+}
+
+function SidebarUserPanel({
+  email,
+  onSignOut,
+}: {
+  email: string;
+  onSignOut: () => void;
+}) {
+  return (
+    <div className="p-4 border-t space-y-3 bg-muted/20">
+      <div className="px-3 py-2 rounded-md bg-background border text-xs truncate text-muted-foreground font-medium" title={email}>
+        {email}
+      </div>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="w-full justify-start gap-2.5 px-3 py-2 text-xs text-muted-foreground hover:text-destructive hover:bg-red-500/5 transition-all"
+        onClick={onSignOut}
+      >
+        <LogOut className="h-4 w-4" />
+        로그아웃
+      </Button>
+    </div>
+  );
+}
+
 function SidebarItem({
   icon, label, active, onClick,
 }: { icon: React.ReactNode; label: string; active: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2.5 w-full rounded-md px-2 py-2 text-sm transition-colors text-left ${
+      className={`flex items-center gap-2.5 w-full rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 text-left ${
         active
-          ? "bg-primary/10 text-primary font-semibold"
-          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          ? "bg-primary text-primary-foreground font-bold shadow-md shadow-primary/20"
+          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:pl-3.5"
       }`}
     >
       {icon}

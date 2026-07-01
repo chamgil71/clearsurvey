@@ -2,25 +2,6 @@ import { useState, useEffect } from "react";
 import type { DashboardConfig, ProjectListItem } from "@/types/dashboard";
 import { supabase } from "@/lib/supabase";
 
-const getLocalAccessToken = (): string | null => {
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key && key.startsWith("sb-") && key.endsWith("-auth-token")) {
-      const val = localStorage.getItem(key);
-      if (val) {
-        try {
-          const parsed = JSON.parse(val);
-          return parsed?.access_token || null;
-        } catch {
-          // ignore
-        }
-      }
-    }
-  }
-  return null;
-};
-
-
 /**
  * FastAPI 백엔드 URL.
  * 개발: http://localhost:8000 (기본값)
@@ -76,17 +57,63 @@ export function useManagerApi() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
 
-  const fetchWithAuth = (url: string, options: RequestInit = {}) => {
-    const token = getLocalAccessToken();
+  const isLocalDev = (supabase as any).isPlaceholder;
+
+  // Supabase 세션 자동 구독 상태 연동
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (isLocalDev) {
+      const checkLocalSession = () => {
+        const localSession = localStorage.getItem("sb-local-session");
+        setSessionToken(localSession ? "local-dev-bypass-token" : null);
+      };
+      checkLocalSession();
+      const interval = setInterval(checkLocalSession, 2000);
+      return () => clearInterval(interval);
+    }
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSessionToken(session?.access_token ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setSessionToken(session?.access_token ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, [isLocalDev]);
+
+  const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
+    const token = sessionToken;
     const headers = new Headers(options.headers || {});
     if (token) {
       headers.set("Authorization", `Bearer ${token}`);
     }
-    return fetch(url, {
+    const res = await fetch(url, {
       ...options,
       headers,
     });
+
+    if (res.status === 401) {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("sb-local-session");
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith("sb-") && key.endsWith("-auth-token")) {
+            localStorage.removeItem(key);
+          }
+        }
+        toast.error("인증 세션이 만료되었습니다. 다시 로그인해주세요.");
+        setTimeout(() => {
+          const currentPath = window.location.pathname + window.location.search;
+          window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
+        }, 1500);
+      }
+    }
+
+    return res;
   };
 
 
@@ -316,20 +343,72 @@ export function useManagerApi() {
     }
   };
 
+  const createMergeProject = async (
+    name: string,
+    files: File[],
+    options: {
+      dedup_strategy: "first" | "last" | "none";
+      key_cols: string[];
+      add_source_col: boolean;
+      source_col_name: string;
+    }
+  ) => {
+    setLoading(true);
+    setError(null);
+    setLogs((prev) => [...prev, `[SYSTEM] 병합 프로젝트 '${name}' 생성 중...`]);
+    try {
+      const formData = new FormData();
+      formData.append("name", name);
+      files.forEach((file) => {
+        formData.append("files", file);
+      });
+      formData.append("options", JSON.stringify(options));
+
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/create-merge`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errDetail = await res.json().catch(() => ({ detail: "알 수 없는 에러" }));
+        throw new Error(errDetail.detail || "병합 프로젝트 생성 실패");
+      }
+
+      const data = await res.json();
+      setLogs((prev) => [
+        ...prev,
+        `[SUCCESS] 병합 프로젝트 '${name}' 분석 완료!`,
+        ` - 헤더 시작 행: ${data.header_row}`,
+        ` - 데이터 시작 행: ${data.data_start_row}`,
+        ` - 총 감지 컬럼 수: ${data.column_count}`,
+        ` - 생성된 드래프트 경로: ${data.draft_path}`,
+      ]);
+      await refreshProjects();
+      return data;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      setLogs((prev) => [...prev, `[ERROR] 병합 생성 실패: ${msg}`]);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getDownloadUrl = (name: string) => {
-    const token = getLocalAccessToken();
+    const token = sessionToken;
     const tokenParam = token ? `?token=${encodeURIComponent(token)}` : "";
     return `${API_BASE}/api/projects/${name}/download${tokenParam}`;
   };
 
   const getExportHtmlUrl = (name: string) => {
-    const token = getLocalAccessToken();
+    const token = sessionToken;
     const tokenParam = token ? `?token=${encodeURIComponent(token)}` : "";
     return `${API_BASE}/api/projects/${name}/export-html${tokenParam}`;
   };
 
   const getLogsStreamUrl = (name: string) => {
-    const token = getLocalAccessToken();
+    const token = sessionToken;
     const tokenParam = token ? `?token=${encodeURIComponent(token)}` : "";
     return `${API_BASE}/api/projects/${name}/logs/stream${tokenParam}`;
   };
@@ -363,9 +442,11 @@ export function useManagerApi() {
     loading,
     error,
     logs,
+    sessionToken,
     clearLogs,
     addLog,
     createProject,
+    createMergeProject,
     loadProjectConfig,
     saveProjectConfig,
     previewProjectConfig,

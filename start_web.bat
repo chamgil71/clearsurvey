@@ -4,7 +4,7 @@ setlocal
 cd /d "%~dp0frontend"
 echo ============================================
 echo  Survey Dashboard -- Vite Dev Server
-echo  URL: http://localhost:5173/
+echo  URL: http://localhost:8080/
 echo ============================================
 echo.
 
@@ -22,5 +22,5 @@ if not exist "node_modules" (
 
 echo [2/2] Starting Vite Dev Server...
 echo.
-npm run dev
+npm run dev -- --force
 pause
