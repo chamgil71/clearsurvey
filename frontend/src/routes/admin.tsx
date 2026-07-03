@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import "@/legacy-dashboard.css";
+import "@/styles.css";
 import { useManagerApi } from "@/hooks/useManagerApi";
 import type { LoadedProjectConfig, ProjectConfig } from "@/hooks/useManagerApi";
 import type { DashboardConfig, ProjectListItem } from "@/types/dashboard";
@@ -220,9 +221,9 @@ function AdminDashboard({ user }: { user: User }) {
 
   // ── 렌더 ────────────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex h-screen bg-background/50 overflow-hidden font-sans">
       {/* ── Sidebar ──────────────────────────────────────────────────────────── */}
-      <aside className="w-60 flex flex-col shrink-0 border-r bg-muted/50 shadow-sm">
+      <aside className="w-64 flex flex-col shrink-0 border-r border-border bg-gradient-to-b from-card via-card/98 to-muted/20 backdrop-blur-md">
         <SidebarLogo />
         <SidebarNavigation
           view={view}
@@ -328,14 +329,24 @@ function AdminDashboard({ user }: { user: User }) {
   );
 }
 
-// ── 서브 컴포넌트 ─────────────────────────────────────────────────────────────
+  // ── 서브 컴포넌트 ─────────────────────────────────────────────────────────────
 
 function SidebarLogo() {
   return (
-    <div className="flex items-center gap-2.5 px-5 pt-20 pb-8 border-b bg-card/10">
-      <BarChart3 className="h-6 w-6 text-primary animate-pulse" />
-      <span className="font-extrabold text-base tracking-wider text-foreground">ClearSurvey</span>
-      <Badge variant="outline" className="text-[9px] px-1.5 py-0.5 ml-auto border-primary/20 bg-primary/5 text-primary font-bold">Admin</Badge>
+    <div className="relative flex items-center gap-3 px-6 pt-11 pb-7 bg-gradient-to-b from-primary/10 via-primary/[0.03] to-transparent shrink-0">
+      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-indigo-600 shadow-md shadow-primary/20 shrink-0">
+        <BarChart3 className="h-4 w-4 text-white animate-pulse" />
+      </div>
+      <div className="flex flex-col min-w-0">
+        <span className="font-black text-sm tracking-wide text-foreground truncate leading-none mb-1.5">
+          ClearSurvey
+        </span>
+        <span className="text-[9px] font-bold text-muted-foreground/60 tracking-widest uppercase leading-none">
+          Data Platform
+        </span>
+      </div>
+      <Badge variant="outline" className="text-[9px] px-1.5 py-0.5 ml-auto border-primary/30 bg-primary/5 text-primary font-extrabold shadow-sm shrink-0">Admin</Badge>
+      <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
     </div>
   );
 }
@@ -352,7 +363,7 @@ function SidebarNavigation({
   setGuideOpen: (open: boolean) => void;
 }) {
   return (
-    <nav className="flex-1 p-5 space-y-6 mt-10">
+    <nav className="flex-1 py-6 space-y-3 overflow-y-auto">
       <SidebarItem
         icon={<LayoutDashboard className="h-4 w-4" />}
         label="프로젝트 목록"
@@ -366,8 +377,9 @@ function SidebarNavigation({
         onClick={() => { setView("new"); setSelectedProject(""); }}
       />
 
-      <div className="pt-4 pb-1.5">
-        <div className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground/60 px-3">도구</div>
+      <div className="pt-6 pb-2 px-6 flex items-center gap-2">
+        <span className="text-[10px] uppercase font-extrabold tracking-widest text-muted-foreground/50 shrink-0">도구</span>
+        <span className="h-px flex-1 bg-border" />
       </div>
 
       <SidebarItem
@@ -376,15 +388,19 @@ function SidebarNavigation({
         active={false}
         onClick={() => setGuideOpen(true)}
       />
-      <a
-        href="/"
-        target="_blank"
-        rel="noreferrer"
-        className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:pl-3.5 transition-all duration-200"
-      >
-        <ExternalLink className="h-4 w-4" />
-        공개 대시보드
-      </a>
+      <div className="px-3 py-1">
+        <a
+          href="/"
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent/60 hover:text-foreground hover:pl-4.5 transition-all duration-300 group"
+        >
+          <span className="text-muted-foreground/80 group-hover:text-primary transition-transform duration-300 group-hover:scale-110 shrink-0">
+            <ExternalLink className="h-4 w-4" />
+          </span>
+          <span className="leading-none">공개 대시보드</span>
+        </a>
+      </div>
     </nav>
   );
 }
@@ -397,38 +413,51 @@ function SidebarUserPanel({
   onSignOut: () => void;
 }) {
   return (
-    <div className="p-4 border-t space-y-3 bg-muted/20">
-      <div className="px-3 py-2 rounded-md bg-background border text-xs truncate text-muted-foreground font-medium" title={email}>
-        {email}
+    <div className="p-4 border-t border-border bg-gradient-to-t from-muted/30 to-transparent space-y-3 shrink-0">
+      <div className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-card/60 border border-border/80 text-xs shadow-sm min-w-0">
+        <div className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-[10px] shrink-0 border border-primary/20">
+          {email.slice(0, 1).toUpperCase()}
+        </div>
+        <span className="truncate text-muted-foreground font-medium min-w-0" title={email}>
+          {email}
+        </span>
       </div>
       <Button
         variant="ghost"
         size="sm"
-        className="w-full justify-start gap-2.5 px-3 py-2 text-xs text-muted-foreground hover:text-destructive hover:bg-red-500/5 transition-all"
+        className="w-full justify-start gap-2 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all duration-200"
         onClick={onSignOut}
       >
         <LogOut className="h-4 w-4" />
-        로그아웃
+        <span className="leading-none">로그아웃</span>
       </Button>
     </div>
   );
 }
 
+// ── SidebarItem ─────────────────────────────────────────────────────────────
 function SidebarItem({
   icon, label, active, onClick,
 }: { icon: React.ReactNode; label: string; active: boolean; onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-2.5 w-full rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 text-left ${
-        active
-          ? "bg-primary text-primary-foreground font-bold shadow-md shadow-primary/20"
-          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:pl-3.5"
-      }`}
-    >
-      {icon}
-      {label}
-    </button>
+    <div className="relative px-3">
+      {active && (
+        <div className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-gradient-to-b from-primary to-indigo-600" />
+      )}
+      <button
+        onClick={onClick}
+        className={`flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-300 text-left group ${
+          active
+            ? "bg-gradient-to-r from-primary to-indigo-600 text-white font-semibold shadow-md shadow-primary/20 scale-[1.02]"
+            : "text-muted-foreground hover:bg-accent/60 hover:text-foreground hover:pl-4.5"
+        }`}
+      >
+        <span className={`transition-transform duration-300 group-hover:scale-110 shrink-0 ${active ? "text-white" : "text-muted-foreground/80 group-hover:text-primary"}`}>
+          {icon}
+        </span>
+        <span className="leading-none">{label}</span>
+      </button>
+    </div>
   );
 }
 
