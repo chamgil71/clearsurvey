@@ -230,7 +230,7 @@ function AdminDashboard({ user }: { user: User }) {
           setGuideOpen={setGuideOpen}
         />
         <SidebarUserPanel
-          email={user.email}
+          email={user.email ?? ""}
           onSignOut={handleSignOut}
         />
       </aside>

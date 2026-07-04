@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 
 /**
  * ColumnDef — Python engine/config.py ColumnDef 와 동일한 구조.
@@ -41,6 +42,7 @@ import { Checkbox } from "@/components/ui/checkbox";
  * - backup_col   : jang 전용 — 주 컬럼이 빈 경우 사용할 보조 열번호
  * - include_in_slicer : 대시보드 슬라이서 필터 등록 여부
  * - type         : UI 표시 전용 힌트 (Python ColumnDef 에는 없음, YAML 에 extra-field 로 저장됨)
+ * - source_cols  : group_sum 전용 — 합산할 원본 엑셀 열번호 목록
  */
 interface ColumnDef {
   output_col: string;
@@ -51,6 +53,7 @@ interface ColumnDef {
   backup_col?: number | null;
   include_in_slicer?: boolean;
   type?: string;                  // UI 표시용 힌트 (auto-detect 시 내보내기에서 자동 결정)
+  source_cols?: number[];
 }
 
 interface Step2Props {

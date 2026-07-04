@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import type { DashboardConfig, ProjectListItem } from "@/types/dashboard";
 import { supabase } from "@/lib/supabase";
 
@@ -43,6 +44,10 @@ export interface ProjectConfig {
     data_start_row?: number | null;
   };
   columns: ColumnDef[];
+  excel_options?: {
+    include_slicers: boolean;
+    include_charts: boolean;
+  };
 }
 
 /** GET /api/projects/{name}/config 응답 구조 */
