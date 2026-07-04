@@ -1,8 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import "@/legacy-dashboard.css";
-import "@/styles.css";
 import { useManagerApi } from "@/hooks/useManagerApi";
 import type { LoadedProjectConfig, ProjectConfig } from "@/hooks/useManagerApi";
 import type { DashboardConfig, ProjectListItem } from "@/types/dashboard";
