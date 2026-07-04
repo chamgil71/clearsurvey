@@ -9,19 +9,7 @@ import {
 } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
 
-import "@/styles.css";
-
-// ── 가상 깡통 스타일시트 강제 소각 가드 (MutationObserver Style Burner) ──
-if (typeof window !== "undefined") {
-  const observer = new MutationObserver(() => {
-    // TanStack Start 가 2차로 자동 인젝션하여 완제품 CSS를 리셋시켜버리는 깡통 가상 CSS 링크 색출
-    const badStyle = document.querySelector('link[href*="@tanstack-start/styles.css"]');
-    if (badStyle) {
-      badStyle.remove(); // 발견 즉시 삭제하여 덮어쓰기 락을 해제
-    }
-  });
-  observer.observe(document.head, { childList: true, subtree: true });
-}
+import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
   return (
@@ -97,7 +85,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       {
         rel: "stylesheet",
-        href: "/styles.css",
+        href: appCss,
       },
       {
         rel: "icon",
