@@ -7,6 +7,10 @@ export default defineConfig({
     tsconfigPaths(),
     tanstackStart({
       server: { entry: "server" },
+      prerender: {
+        enabled: true,
+        crawlLinks: true,
+      },
     }),
   ],
   build: {
