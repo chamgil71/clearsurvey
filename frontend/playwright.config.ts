@@ -19,10 +19,12 @@ export default defineConfig({
     video: "off",
   },
   webServer: {
-    command: "npx vite dev --host 127.0.0.1 --port 5173",
+    command: process.env.CI
+      ? "npm run build && npx vite preview --host 127.0.0.1 --port 5173"
+      : "npx vite dev --host 127.0.0.1 --port 5173",
     url: "http://127.0.0.1:5173",
     reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
+    timeout: process.env.CI ? 180_000 : 60_000,
   },
   projects: [
     {
