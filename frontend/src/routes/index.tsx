@@ -68,25 +68,44 @@ function DashboardPage() {
     return <div id="loading">⏳ 데이터 로드 중...</div>;
   }
 
-  if (error && !data) {
+  if (!data || !cfg) {
     return (
-      <div id="loading">
-        <p className="error" style={{ padding: 40, textAlign: "center" }}>
-          ⚠ {error}
-          <br />
-          <br />
-          <code style={{ fontSize: 12, color: "#888" }}>
-            python main.py export projects/PROJECT/config.yaml
-          </code>
-          <br />
-          <br />
-          <small>를 먼저 실행하거나, 로컬 API 서버 백엔드를 켜서 새로고침하세요.</small>
-        </p>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-primary)", padding: "24px" }}>
+        <div style={{ maxWidth: 480, textAlign: "center" }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>📊</div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--text-primary)", marginBottom: 8 }}>
+            ClearSurvey Dashboard
+          </h1>
+          <p style={{ color: "var(--text-muted)", fontSize: 14, lineHeight: 1.7, marginBottom: 24 }}>
+            표시할 설문 데이터가 없습니다.<br />
+            로컬 환경에서 백엔드를 실행하고 데이터를 내보내면<br />
+            여기에서 대시보드를 확인할 수 있습니다.
+          </p>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+            <Link
+              to="/login"
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", borderRadius: 8, background: "var(--accent)", color: "#fff", fontSize: 14, fontWeight: 500 }}
+            >
+              🔐 관리자 로그인
+            </Link>
+            <a
+              href="https://github.com/chamgil71/clearsurvey"
+              target="_blank"
+              rel="noreferrer"
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", borderRadius: 8, border: "1px solid var(--border)", color: "var(--text-primary)", fontSize: 14, fontWeight: 500 }}
+            >
+              📖 GitHub
+            </a>
+          </div>
+          {error && (
+            <p style={{ marginTop: 20, fontSize: 11, color: "var(--text-muted)", opacity: 0.6 }}>
+              {error}
+            </p>
+          )}
+        </div>
       </div>
     );
   }
-
-  if (!data || !cfg) return null;
 
   return (
     <div className="app-wrap">
