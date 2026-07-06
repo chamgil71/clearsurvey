@@ -25,16 +25,16 @@ ClearSurvey는 백엔드(FastAPI)와 프론트엔드(React/Vite)가 하나의 �
 
 | 설정 항목 (Configuration) | 입력할 설정 값 | 설명 |
 | :--- | :--- | :--- |
-| **Framework Preset** | `Vite` | 프론트엔드 빌드 도구 |
+| **Framework Preset** | `Vite` 또는 `Other` | 프론트엔드 빌드 도구 (Vercel이 자동 감지) |
 | **Root Directory** | `frontend` | 작업 경로를 `frontend/` 폴더로 지정 (터미널 `cd frontend`와 동일) |
 | **Build Command** | `npm run build` | 빌드 실행 명령어 (기본값 유지) |
-| **Output Directory** | `dist/client` | 🌟 **필수 입력**: 빌드 완료 후 생성되는 정적 HTML/CSS/JS가 모이는 최종 대상 경로 |
+| **Output Directory** | **수동 수정 금지 (기본값 유지)** | 🌟 **절대 건드리지 마세요**: Vercel이 빌드 완료 후 Nitro 엔진이 뱉어내는 `.vercel/output`을 자동 감지하여 배포를 완료합니다. |
 
 > [!IMPORTANT]
 > **Output Directory 설정 시 주의사항**
-> 본 프로젝트는 Vercel에 백엔드 API 없이 **오직 프론트엔드 정적 대시보드 웹뷰만 서빙**하도록 구성되어 있습니다.
-> 이를 위해 `vite.config.ts` 에 **Prerender(프리렌더)** 설정을 활성화하여 빌드 시 `dist/client` 하위에 정적 `index.html` 파일이 확실히 출력되도록 구성해 두었습니다.
-> 따라서 Vercel 프로젝트 설정의 **Build and Output Settings**에서 **`Output Directory`** 항목을 반드시 **`dist/client`**로 수동 지정해 주셔야 Vercel이 올바른 정적 페이지를 바라보고 배포를 완수합니다. (그대로 비워두면 상위 `dist` 폴더를 서빙하게 되어 `index.html`을 찾지 못하고 404 에러가 발생합니다.)
+> 본 프로젝트는 일반 React SPA가 아닌 **TanStack Start** 풀스택 프레임워크를 사용하고 있습니다. 
+> 따라서 Vercel 클라우드에서 빌드 명령을 돌리면 내부 Nitro 엔진이 자체적으로 **`.vercel/output`** (또는 `.output`) 디렉토리를 생성하여 Vercel의 서버리스 엣지 규격에 맞춰 조립을 완료합니다.
+> Vercel 설정 대시보드에서 **Output Directory** 항목을 `dist/client` 등으로 수동 덮어쓰기하게 되면, 서버리스 구동에 필요한 엣지 라우팅 설정이 유실되어 배포가 실패하거나 오작동하게 됩니다. **반드시 기본값(공란) 그대로 두어 Vercel의 프레임워크 자동 매핑(Zero-Configuration) 기능이 작동되도록 하셔야 합니다.**
 
 ---
 
