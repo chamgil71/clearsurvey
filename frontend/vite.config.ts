@@ -6,11 +6,7 @@ export default defineConfig({
   plugins: [
     tsconfigPaths(),
     tanstackStart({
-      server: { entry: "server" },
-      prerender: {
-        enabled: true,
-        crawlLinks: true,
-      },
+      spa: { enabled: true },
     }),
   ],
   build: {
