@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 from pathlib import Path
 from typing import Optional
@@ -264,7 +265,7 @@ def init(
         else:
             # relative path from config.yaml's directory to source file
             try:
-                rel_src = str(source.resolve().relative_to(config_path.parent.resolve()))
+                rel_src = os.path.relpath(source.resolve(), config_path.parent.resolve())
             except ValueError:
                 rel_src = str(source.resolve())
             az.generate_config_yaml(
@@ -335,7 +336,7 @@ def _write_merge_config_yaml(
 
     # relative folder path from config.yaml location
     try:
-        rel_folder = str(folder.resolve().relative_to(output_path.parent.resolve()))
+        rel_folder = os.path.relpath(folder.resolve(), output_path.parent.resolve())
     except ValueError:
         rel_folder = str(folder.resolve())
 

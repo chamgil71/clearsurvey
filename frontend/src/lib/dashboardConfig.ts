@@ -2,12 +2,34 @@ import type { DashboardConfig, DataMeta } from "@/types/dashboard";
 
 export const configKey = (project: string) => `survey-dash-config-${project}`;
 
-export function loadConfig(project: string, base: DashboardConfig | null = null): DashboardConfig | null {
+export function loadConfig(
+  project: string,
+  base: DashboardConfig | null = null,
+  meta?: DataMeta
+): DashboardConfig | null {
   if (base && Object.keys(base).length > 0) return base;
   if (typeof window === "undefined") return base;
   try {
     const raw = window.localStorage.getItem(configKey(project));
-    if (raw) return JSON.parse(raw) as DashboardConfig;
+    if (raw) {
+      const parsed = JSON.parse(raw) as DashboardConfig;
+      
+      if (meta && meta.columns && parsed.charts) {
+        const validKeys = new Set(meta.columns.map((c) => c.key));
+        const isCorrupted = parsed.charts.some((chart) => {
+          if (chart.type === "multibar") {
+            return chart.cols.some((c) => !validKeys.has(c.col));
+          }
+          return "col" in chart && !validKeys.has(chart.col);
+        });
+        
+        if (isCorrupted) {
+          window.localStorage.removeItem(configKey(project));
+          return null;
+        }
+      }
+      return parsed;
+    }
   } catch {
     /* ignore */
   }

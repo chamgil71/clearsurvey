@@ -202,7 +202,7 @@ def _run_pipeline_background(name: str, cfg: "SurveyConfig", config_yaml: Path) 
         _job_set(name, {
             "status": "done",
             "cleaned_file": save_path.name,
-            "output_dir": str(save_path.parent.relative_to(BACKEND_ROOT.parent)),
+            "output_dir": os.path.relpath(save_path.parent, BACKEND_ROOT.parent),
             "finished_at": datetime.now().isoformat(),
         })
         # 자동 퍼블리시 및 매니페스트 갱신 연동
@@ -368,7 +368,7 @@ async def create_project(
             "header_row": detection["header_row"],
             "data_start_row": detection["data_start_row"],
             "column_count": detection["column_count"],
-            "draft_path": str(draft_path.relative_to(BACKEND_ROOT.parent))
+            "draft_path": os.path.relpath(draft_path, BACKEND_ROOT.parent)
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"설문 분석 및 프로젝트 생성 실패: {exc}")
@@ -527,8 +527,8 @@ async def create_merge_project(
             "header_row": detection["header_row"],
             "data_start_row": detection["data_start_row"],
             "column_count": detection["column_count"],
-            "draft_path": str(draft_path.relative_to(BACKEND_ROOT.parent)),
-            "merged_path": str(merged_file_path.relative_to(BACKEND_ROOT.parent))
+            "draft_path": os.path.relpath(draft_path, BACKEND_ROOT.parent),
+            "merged_path": os.path.relpath(merged_file_path, BACKEND_ROOT.parent)
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"병합 후 분석 및 프로젝트 생성 실패: {exc}")
@@ -902,6 +902,45 @@ async def set_publish_status(name: str, body: dict, user: dict = Depends(verify_
         json.dump(projects, f, ensure_ascii=False, indent=2)
 
     return {"status": "ok", "project": name, "published": published}
+
+
+@app.delete("/api/projects/{name}")
+async def delete_project(name: str, user: dict = Depends(verify_supabase_token)):
+    """프로젝트 설정 폴더, 배포 데이터, 그리고 projects.json 매니페스트 파일 목록에서 프로젝트를 영구 제거합니다."""
+    _validate_project_name(name)
+    
+    # 1. projects.json 매니페스트 파일에서 제거
+    manifest_path = FRONTEND_ROOT / "public" / "data" / "projects.json"
+    if manifest_path.exists():
+        try:
+            with open(manifest_path, encoding="utf-8") as f:
+                projects = json.load(f)
+            
+            # 기존 항목 제외 필터링
+            updated_projects = [p for p in projects if p.get("id") != name]
+            
+            with open(manifest_path, "w", encoding="utf-8") as f:
+                json.dump(updated_projects, f, ensure_ascii=False, indent=2)
+        except Exception as exc:
+            print(f"[경고] projects.json에서 프로젝트 제거 실패: {exc}")
+
+    # 2. 프론트엔드 배포 정적 JSON 파일 삭제
+    frontend_json = FRONTEND_ROOT / "public" / "data" / f"{name}_data.json"
+    if frontend_json.exists():
+        try:
+            frontend_json.unlink()
+        except Exception as exc:
+            print(f"[경고] 프론트엔드 데이터 파일 삭제 실패: {exc}")
+
+    # 3. 백엔드 프로젝트 저장소 폴더(config.yaml, output/ 등) 삭제
+    proj_dir = _get_project_dir(name)
+    if proj_dir.exists():
+        try:
+            shutil.rmtree(proj_dir)
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"프로젝트 폴더 삭제 실패: {exc}")
+
+    return {"status": "success", "message": f"프로젝트 '{name}'이 성공적으로 삭제되었습니다."}
 
 
 @app.get("/api/projects/{name}/export-html")

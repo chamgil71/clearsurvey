@@ -930,6 +930,15 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                         <option value={5}>상위 5개 표시</option>
                         <option value={0}>전체 표시</option>
                       </select>
+                      <select
+                        value={c.show_percent ? "yes" : "no"}
+                        title="비중(%) 표시 여부"
+                        onChange={(e) => updateChart(i, { show_percent: e.target.value === "yes" })}
+                        className="h-8 px-2 rounded border border-input bg-background text-xs max-w-[130px] flex-1 shadow-sm focus:ring-1 focus:ring-primary font-semibold"
+                      >
+                        <option value="no">비율: 표시 안 함</option>
+                        <option value="yes">비율: % 표시함</option>
+                      </select>
                       <Button
                         variant="ghost"
                         size="icon"

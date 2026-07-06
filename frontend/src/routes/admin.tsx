@@ -122,7 +122,13 @@ function AdminDashboard({ user }: { user: User }) {
         .then((data) => {
           if (active) setLoadedConfig(data);
         })
-        .catch(console.error);
+        .catch((err) => {
+          console.error(err);
+          if (active) {
+            toast.error(`설정 로드 실패: ${err instanceof Error ? err.message : String(err)}`);
+            setView("list");
+          }
+        });
     }
     return () => {
       active = false;
@@ -263,6 +269,14 @@ function AdminDashboard({ user }: { user: User }) {
                   toast.success(`'${name}' ${published ? "게시" : "비공개"} 처리됨`);
                 } catch (err: unknown) {
                   toast.error(`게시 상태 변경 실패: ${err instanceof Error ? err.message : String(err)}`);
+                }
+              }}
+              onDelete={async (name) => {
+                try {
+                  await api.deleteProject(name);
+                  toast.success(`프로젝트 '${name}'이 삭제되었습니다.`);
+                } catch (err: unknown) {
+                  toast.error(`프로젝트 삭제 실패: ${err instanceof Error ? err.message : String(err)}`);
                 }
               }}
               onNew={() => setView("new")}
@@ -502,10 +516,24 @@ function ProjectListView({
   onOpenConfig: (name: string) => void;
   onOpenRun: (name: string) => void;
   onTogglePublish: (name: string, published: boolean) => Promise<void>;
+  onDelete: (name: string) => Promise<void>;
   onNew: () => void;
 }) {
   const [toggling, setToggling] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const api = useManagerApi();
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!window.confirm(`정말로 프로젝트 '${name}'을(를) 완전히 삭제하시겠습니까?\n이 작업은 되돌릴 수 없으며 관련 설정 및 배포 데이터가 영구적으로 제거됩니다.`)) {
+      return;
+    }
+    setDeleting(id);
+    try {
+      await onDelete(id);
+    } finally {
+      setDeleting(null);
+    }
+  };
 
   const handleToggle = async (name: string, current: boolean) => {
     setToggling(name);
@@ -598,11 +626,11 @@ function ProjectListView({
 
                     {/* 액션 */}
                     <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-2 flex-wrap min-w-[320px]">
                         <Button
                           size="sm"
                           variant="outline"
-                          disabled={!isBackendAlive}
+                          disabled={!isBackendAlive || deleting === p.id}
                           onClick={() => onOpenConfig(p.id)}
                         >
                           <Settings className="h-3.5 w-3.5 mr-1" />
@@ -610,7 +638,7 @@ function ProjectListView({
                         </Button>
                         <Button
                           size="sm"
-                          disabled={!isBackendAlive}
+                          disabled={!isBackendAlive || deleting === p.id}
                           onClick={() => onOpenRun(p.id)}
                         >
                           <Play className="h-3.5 w-3.5 mr-1" />
@@ -619,6 +647,7 @@ function ProjectListView({
                         <Button
                           size="sm"
                           variant="secondary"
+                          disabled={deleting === p.id}
                           onClick={() => {
                             window.location.href = api.getExportHtmlUrl(p.id);
                           }}
@@ -627,6 +656,16 @@ function ProjectListView({
                         >
                           <FileText className="h-3.5 w-3.5 mr-1 text-slate-500" />
                           HTML 다운로드
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          disabled={!isBackendAlive || deleting === p.id}
+                          onClick={() => handleDelete(p.id, p.name)}
+                          className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 hover:text-red-700 font-bold dark:bg-red-950/20 dark:hover:bg-red-950/40"
+                          title="프로젝트 설정 및 배포 데이터를 즉시 파괴합니다."
+                        >
+                          삭제
                         </Button>
                       </div>
                     </td>

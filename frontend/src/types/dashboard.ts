@@ -37,8 +37,8 @@ export type KpiItem =
   | { label: string; type: "sum"; col: string };
 
 export type ChartItem =
-  | { type: "donut" | "bar" | "hbar" | "histogram"; col: string; title?: string; sep?: string; sort_by?: string; max_items?: number }
-  | { type: "multibar"; title?: string; cols: { col: string; label: string }[]; sort_by?: string; max_items?: number };
+  | { type: "donut" | "bar" | "hbar" | "histogram"; col: string; title?: string; sep?: string; sort_by?: string; max_items?: number; show_percent?: boolean }
+  | { type: "multibar"; title?: string; cols: { col: string; label: string }[]; sort_by?: string; max_items?: number; show_percent?: boolean };
 
 export interface DashboardConfig {
   version: number;

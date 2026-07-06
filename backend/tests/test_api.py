@@ -413,3 +413,58 @@ class TestStreamProjectLogs:
         assert "line1" in content
         assert "line2" in content
         main_module._project_logs.pop("demo", None)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DELETE /api/projects/{name} — 프로젝트 삭제
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestDeleteProject:
+    def test_invalid_name_returns_400(self, client):
+        resp = client.delete("/api/projects/../delete")
+        assert resp.status_code in (400, 404)
+
+    def test_delete_nonexistent_project_succeeds_gracefully(self, client):
+        resp = client.delete("/api/projects/nonexistent_test")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "success"
+
+    def test_complete_deletion_removes_files_and_manifest_entry(self, client, tmp_path):
+        import app.main as main_module
+        
+        # 임시 환경 모킹 설정
+        proj_name = "test_del"
+        proj_dir = tmp_path / "storage" / "projects" / proj_name
+        proj_dir.mkdir(parents=True)
+        (proj_dir / "config.yaml").write_text("project: test_del", encoding="utf-8")
+        
+        # 2. 배포용 JSON 생성
+        data_dir = tmp_path / "frontend" / "public" / "data"
+        data_dir.mkdir(parents=True)
+        frontend_json = data_dir / f"{proj_name}_data.json"
+        frontend_json.write_text("{}", encoding="utf-8")
+        
+        # 3. 매니페스트 생성 및 엔트리 삽입
+        manifest_path = data_dir / "projects.json"
+        manifest_data = [
+            {"id": "other_proj", "name": "다른프로젝트"},
+            {"id": proj_name, "name": "삭제대상프로젝트"}
+        ]
+        manifest_path.write_text(json.dumps(manifest_data), encoding="utf-8")
+        
+        # API 호출
+        resp = client.delete(f"/api/projects/{proj_name}")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "success"
+        
+        # 검증: 폴더 삭제되었는가?
+        assert not proj_dir.exists()
+        
+        # 검증: 배포 JSON 삭제되었는가?
+        assert not frontend_json.exists()
+        
+        # 검증: 매니페스트에서 제거되었는가?
+        with open(manifest_path, encoding="utf-8") as f:
+            updated_manifest = json.load(f)
+        assert len(updated_manifest) == 1
+        assert updated_manifest[0]["id"] == "other_proj"

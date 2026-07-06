@@ -49,7 +49,7 @@ function DashboardPage() {
 
   const cfg: DashboardConfig | null = useMemo(() => {
     if (!data) return null;
-    const saved = loadConfig(data.meta.project, data.dashboard || null);
+    const saved = loadConfig(data.meta.project, data.dashboard || null, data.meta);
     return saved || buildDefaultConfig(data.meta);
   }, [data]);
 

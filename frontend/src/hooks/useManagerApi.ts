@@ -441,6 +441,28 @@ export function useManagerApi() {
     }
   };
 
+  const deleteProject = async (name: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${name}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const errDetail = await res.json().catch(() => ({ detail: "프로젝트 삭제 실패" }));
+        throw new Error(errDetail.detail || "프로젝트 삭제 실패");
+      }
+      await refreshProjects();
+      return await res.json();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     isBackendAlive,
     projects,
@@ -459,6 +481,7 @@ export function useManagerApi() {
     getPipelineStatus,
     exportDashboard,
     togglePublish,
+    deleteProject,
     getDownloadUrl,
     getExportHtmlUrl,
     getLogsStreamUrl,

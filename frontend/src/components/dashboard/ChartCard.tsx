@@ -16,9 +16,11 @@ import type { ChartItem, ProjectData, Row } from "@/types/dashboard";
 import { aggCategory, aggMultiValue, aggNumericSum } from "@/lib/aggregate";
 
 const PALETTE = [
-  "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
-  "#06b6d4", "#f97316", "#84cc16", "#ec4899", "#6366f1",
-  "#14b8a6", "#fb923c", "#a3e635", "#e879f9", "#38bdf8",
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
 ];
 
 export function ChartCard({ chart, rows, data }: { chart: ChartItem; rows: Row[]; data: ProjectData }) {
@@ -78,9 +80,25 @@ export function ChartCard({ chart, rows, data }: { chart: ChartItem; rows: Row[]
     return limit > 0 ? result.slice(0, limit) : result;
   }, [chart, rows, data]);
 
+  const total = useMemo(() => items.reduce((sum, item) => sum + item.value, 0), [items]);
+
+  const renderPieLabel = ({ name, percent }: { name: string; percent: number }) => {
+    if (!chart.show_percent) return null;
+    if (percent < 0.05) return null; // 5% 미만은 텍스트가 겹치므로 표시 안 함
+    return `${name} (${(percent * 100).toFixed(1)}%)`;
+  };
+
   const hasData = items.length > 0 && items.some((item) => item.value > 0);
   const title = chart.title || (chart.type === "multibar" ? "" : chart.col);
   const unit = (chart as any).value_col ? "" : "건";
+
+  const formatTooltip = (v: number, name: string) => {
+    if (!chart.show_percent) {
+      return [`${v}${unit}`, name];
+    }
+    const pct = total > 0 ? ((v / total) * 100).toFixed(1) : "0.0";
+    return [`${v}${unit} (${pct}%)`, name];
+  };
 
   return (
     <div className="chart-card">
@@ -97,12 +115,20 @@ export function ChartCard({ chart, rows, data }: { chart: ChartItem; rows: Row[]
           <ResponsiveContainer width="100%" height={240}>
             {chart.type === "donut" ? (
               <PieChart>
-                <Pie data={items} dataKey="value" nameKey="name" innerRadius={50} outerRadius={85}>
+                <Pie
+                  data={items}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={50}
+                  outerRadius={80}
+                  label={renderPieLabel}
+                  labelLine={false}
+                >
                   {items.map((_, i) => (
                     <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(v: number) => `${v}${unit}`} />
+                <Tooltip formatter={formatTooltip} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
               </PieChart>
             ) : chart.type === "hbar" || chart.type === "multibar" ? (
@@ -110,7 +136,7 @@ export function ChartCard({ chart, rows, data }: { chart: ChartItem; rows: Row[]
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)" />
                 <XAxis type="number" tick={{ fontSize: 11 }} />
                 <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v: number) => `${v}${unit}`} />
+                <Tooltip formatter={formatTooltip} />
                 <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                   {items.map((_, i) => (
                     <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
@@ -122,7 +148,7 @@ export function ChartCard({ chart, rows, data }: { chart: ChartItem; rows: Row[]
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)" />
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v: number) => `${v}${unit}`} />
+                <Tooltip formatter={formatTooltip} />
                 <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                   {items.map((_, i) => (
                     <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
