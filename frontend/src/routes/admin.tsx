@@ -509,6 +509,7 @@ function ProjectListView({
   onOpenConfig,
   onOpenRun,
   onTogglePublish,
+  onDelete,
   onNew,
 }: {
   projects: ProjectListItem[];
