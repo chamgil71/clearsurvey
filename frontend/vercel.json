@@ -1,9 +1,7 @@
 {
+  "outputDirectory": "dist/client",
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/assets/(.*)", "destination": "/assets/$1" },
-    { "source": "/data/(.*)", "destination": "/data/$1" },
-    { "source": "/favicon.png", "destination": "/favicon.png" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
