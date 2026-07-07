@@ -55,19 +55,36 @@ const GROUP_COLORS: Record<string, string> = {
 };
 
 export const GuideDrawer: React.FC<GuideDrawerProps> = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+
   return (
     <>
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-background/40 backdrop-blur-sm z-[899] transition-opacity"
-          onClick={onClose}
-        />
-      )}
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.4)",
+          backdropFilter: "blur(4px)",
+          zIndex: 899,
+        }}
+        onClick={onClose}
+      />
 
       <div
-        className={`fixed top-[56px] right-0 w-[480px] h-[calc(100vh-56px)] bg-card border-l border-border shadow-2xl z-[900] overflow-y-auto transition-transform duration-300 ease-out flex flex-col ${
-          isOpen ? "translate-x-0" : "translate-x-full"
-        }`}
+        style={{
+          position: "fixed",
+          top: "56px",
+          right: 0,
+          width: "min(480px, 100vw)",
+          height: "calc(100vh - 56px)",
+          zIndex: 900,
+          display: "flex",
+          flexDirection: "column",
+        }}
+        className="bg-card border-l border-border shadow-2xl overflow-y-auto"
       >
         <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
           <div className="flex items-center gap-2">
