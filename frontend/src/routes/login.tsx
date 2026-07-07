@@ -68,23 +68,23 @@ function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="w-full max-w-sm space-y-6 p-8 border rounded-xl bg-card shadow-sm">
+      <div className="w-full max-w-md space-y-8 p-10 border rounded-2xl bg-card shadow-lg">
         {/* Logo */}
-        <div className="space-y-1 text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <BarChart3 className="h-7 w-7 text-primary" />
-            <span className="text-2xl font-black tracking-tight">ClearSurvey</span>
+        <div className="space-y-2 text-center">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <BarChart3 className="h-9 w-9 text-primary" />
+            <span className="text-3xl font-black tracking-tight">ClearSurvey</span>
           </div>
-          <p className="text-sm text-muted-foreground">관리자 계정으로 로그인하세요</p>
+          <p className="text-base text-muted-foreground">관리자 계정으로 로그인하세요</p>
           {isLocalDev && (
-            <div className="mt-2 inline-block px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-950/20 dark:border-amber-800 dark:text-amber-300 animate-pulse">
+            <div className="mt-3 inline-block px-3 py-1.5 rounded-full text-xs font-bold bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-950/20 dark:border-amber-800 dark:text-amber-300 animate-pulse">
               ⚠️ 로컬 개발 모드 (임의 계정 우회 로그인 가능)
             </div>
           )}
         </div>
 
         {/* Email form */}
-        <form onSubmit={handleEmailLogin} className="space-y-3">
+        <form onSubmit={handleEmailLogin} className="space-y-4">
           <Input
             type="email"
             placeholder="이메일"
@@ -92,6 +92,7 @@ function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            className="h-12 text-base"
           />
           <Input
             type="password"
@@ -100,32 +101,33 @@ function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            className="h-12 text-base"
           />
-          <Button type="submit" className="w-full" disabled={loading}>
-            <LogIn className="h-4 w-4 mr-2" />
+          <Button type="submit" size="lg" className="w-full h-12 text-base font-bold" disabled={loading}>
+            <LogIn className="h-5 w-5 mr-2" />
             {loading ? "로그인 중..." : "로그인"}
           </Button>
         </form>
 
         {/* Divider */}
-        <div className="relative">
+        <div className="relative pt-2 pb-2">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t" />
           </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">또는</span>
+          <div className="relative flex justify-center text-sm uppercase">
+            <span className="bg-card px-4 text-muted-foreground font-medium">또는</span>
           </div>
         </div>
 
         {/* GitHub OAuth */}
-        <Button variant="outline" className="w-full" onClick={handleGitHubLogin}>
-          <Github className="h-4 w-4 mr-2" />
+        <Button variant="outline" size="lg" className="w-full h-12 text-base font-bold" onClick={handleGitHubLogin}>
+          <Github className="h-5 w-5 mr-2" />
           GitHub 계정으로 로그인
         </Button>
 
         {/* Public dashboard link */}
-        <p className="text-center text-xs text-muted-foreground">
-          <a href="/" className="underline underline-offset-4 hover:text-foreground">
+        <p className="text-center text-sm text-muted-foreground pt-2">
+          <a href="/" className="underline underline-offset-4 hover:text-foreground font-medium transition-colors">
             공개 대시보드로 이동 →
           </a>
         </p>
