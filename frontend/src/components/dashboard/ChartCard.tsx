@@ -26,6 +26,8 @@ const PALETTE = [
 export function ChartCard({ chart, rows, data }: { chart: ChartItem; rows: Row[]; data: ProjectData }) {
   const [mounted, setMounted] = useState(false);
   
+  if (!chart) return null;
+  
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -35,7 +37,8 @@ export function ChartCard({ chart, rows, data }: { chart: ChartItem; rows: Row[]
     const limit = chart.max_items !== undefined ? chart.max_items : 20;
 
     if (chart.type === "multibar") {
-      const list = [...chart.cols].map((c) => ({ name: c.label || c.col, value: aggNumericSum(rows, c.col) }));
+      const safeCols = Array.isArray((chart as any).cols) ? (chart as any).cols : [];
+      const list = safeCols.map((c: any) => ({ name: c.label || c.col, value: aggNumericSum(rows, c.col) }));
       if (sortBy === "value_desc") {
         list.sort((a, b) => b.value - a.value);
       } else if (sortBy === "value_asc") {
@@ -100,10 +103,38 @@ export function ChartCard({ chart, rows, data }: { chart: ChartItem; rows: Row[]
     return [`${v}${unit} (${pct}%)`, name];
   };
 
+  let cardStyle: React.CSSProperties = {};
+  let chartHeight = 240;
+  let pieOuterRadius = 80;
+  let pieInnerRadius = 50;
+
+  // 정석 마이그레이션을 통과하지 못하고 메모리에 잔존해 있던 구버전 데이터에 대한 최종 렌더링 방어선
+  let layout = chart.layout;
+  if (!layout) {
+    if ((chart as any).width === 2 || (chart as any).width === "2") {
+      layout = "2x1";
+    } else {
+      layout = "1x1";
+    }
+  }
+
+  if (layout === "2x1") {
+    cardStyle = { gridColumn: "span 2" };
+  } else if (layout === "2x2") {
+    cardStyle = { gridColumn: "span 2", gridRow: "span 2" };
+    chartHeight = 540;
+    pieOuterRadius = 180;
+    pieInnerRadius = 110;
+  } else if (layout === "full") {
+    cardStyle = { gridColumn: "1 / -1" };
+  } else if (layout === "0.5x1") {
+    cardStyle = { maxWidth: "100%" };
+  }
+
   return (
-    <div className="chart-card">
-      <div className="chart-title">{title}</div>
-      <div className="chart-wrap" style={{ minHeight: 240, display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div className="chart-card" style={cardStyle}>
+      <div className="chart-title">{title || "Untitled Chart"}</div>
+      <div className="chart-wrap" style={{ minHeight: chartHeight, display: "flex", alignItems: "center", justifyContent: "center" }}>
         {!mounted ? (
           <div className="text-xs text-muted-foreground/40">차트 로딩 중...</div>
         ) : !hasData ? (
@@ -112,15 +143,15 @@ export function ChartCard({ chart, rows, data }: { chart: ChartItem; rows: Row[]
             <span className="text-[10px] opacity-75 font-medium">(설정 탭에서 대상 컬럼 매핑을 확인하세요)</span>
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={240}>
+          <ResponsiveContainer width="100%" height={chartHeight}>
             {chart.type === "donut" ? (
               <PieChart>
                 <Pie
                   data={items}
                   dataKey="value"
                   nameKey="name"
-                  innerRadius={50}
-                  outerRadius={80}
+                  innerRadius={pieInnerRadius}
+                  outerRadius={pieOuterRadius}
                   label={renderPieLabel}
                   labelLine={false}
                 >

@@ -48,7 +48,9 @@ export function filterRows(
     }
     for (const [col, val] of Object.entries(filters)) {
       if (!val) continue;
-      if (String(row[col] ?? "").trim() !== val) return false;
+      const rowValStr = String(row[col] ?? "").trim();
+      const parts = rowValStr.split(",").map(s => s.trim());
+      if (!parts.includes(val)) return false;
     }
     return true;
   });

@@ -533,6 +533,12 @@ async def create_merge_project(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"병합 후 분석 및 프로젝트 생성 실패: {exc}")
 
+def _sanitize_nans(obj: Any) -> Any:
+    import math
+    if isinstance(obj, float) and math.isnan(obj): return None
+    if isinstance(obj, dict): return {k: _sanitize_nans(v) for k, v in obj.items()}
+    if isinstance(obj, list): return [_sanitize_nans(x) for x in obj]
+    return obj
 
 @app.get("/api/projects/{name}/config")
 def get_project_config(name: str, user: dict = Depends(verify_supabase_token)):
@@ -706,7 +712,10 @@ async def preview_project_config(name: str, user: dict = Depends(verify_supabase
                 "cleaned": cleaned_vals
             })
             
-        return {"status": "success", "preview": preview_rows}
+        return _sanitize_nans({
+            "status": "success",
+            "preview": preview_rows
+        })
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"미리보기 가공 실패: {exc}")
 
@@ -798,10 +807,10 @@ def export_project_json(name: str, user: dict = Depends(verify_supabase_token)):
         
         _update_projects_manifest(cfg.project, json_path.name)
         
-        return {
+        return _sanitize_nans({
             "status": "success",
             "json_file": json_path.name
-        }
+        })
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"대시보드 내보내기 실패: {exc}")
 

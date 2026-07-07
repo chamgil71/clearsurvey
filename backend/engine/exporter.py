@@ -172,7 +172,10 @@ def export_to_json(
             for row in rows:
                 v = str(row.get(col["key"]) or "").strip()
                 if v:
-                    counts[v] = counts.get(v, 0) + 1
+                    # 쉼표 분리 후 개별 항목 카운팅 (다중 응답 필터 지원)
+                    parts = [p.strip() for p in v.split(",") if p.strip()]
+                    for p in parts:
+                        counts[p] = counts.get(p, 0) + 1
             aggregates[col["key"]] = dict(sorted(counts.items(), key=lambda x: -x[1]))
 
     # ── serialize rows (convert non-JSON types) ───────────────────────────────

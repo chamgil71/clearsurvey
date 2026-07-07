@@ -682,7 +682,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
 
         {/* ════════════════════ 대시보드 레이아웃 탭 ════════════════════ */}
         <TabsContent value="dashboard" className="space-y-6 pt-4">
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid lg:grid-cols-2 gap-6">
             {/* KPI 카드 빌더 */}
             <Card className="border-border bg-card">
               <CardHeader className="py-4">
@@ -699,9 +699,9 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                   <React.Fragment key={i}>
                     {i > 0 && <div className="my-3 border-t border-dashed border-muted-foreground/30" />}
                     <div className="space-y-2.5 p-3 bg-muted/20 border rounded-md text-xs shadow-sm">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-sm">
-                          핵심 스탯 #{i + 1}
+                      <div className="flex items-center justify-between pb-2 border-b border-muted">
+                        <span className="text-base font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-md shadow-sm border border-indigo-100">
+                          요약 스탯 (KPI) #{i + 1}
                         </span>
                       </div>
                       
@@ -723,7 +723,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                             value={k.col ?? ""}
                             title="KPI 연산 대상 컬럼"
                             onChange={(e) => updateKpi(i, { col: e.target.value })}
-                            className="h-8 px-2 rounded border border-input bg-background text-xs flex-1 max-w-[130px] shadow-sm focus:ring-1 focus:ring-primary"
+                            className="h-8 px-2 rounded border border-input bg-background text-xs shadow-sm focus:ring-1 focus:ring-primary"
                           >
                             <option value="">-- 대상 --</option>
                             {activeColumns.map((c) => (
@@ -754,15 +754,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                             className="h-8 text-xs w-[140px]"
                           />
                         )}
-
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteKpi(i)}
-                          className="h-8 w-8 text-destructive hover:bg-destructive/10 border"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        {/* KPI Delete button moved to top, removing it from here */}
                       </div>
                     </div>
                   </React.Fragment>
@@ -796,8 +788,8 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                   <React.Fragment key={i}>
                     {i > 0 && <div className="my-3 border-t border-dashed border-muted-foreground/30" />}
                     <div className="space-y-2.5 p-3 bg-muted/20 border rounded-md text-xs shadow-sm">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-sm">
+                      <div className="flex items-center justify-between pb-2 border-b border-muted">
+                        <span className="text-base font-bold text-teal-700 bg-teal-50 px-3 py-1.5 rounded-md shadow-sm border border-teal-100">
                           시각화 차트 #{i + 1}
                         </span>
                         <div className="flex items-center gap-1">
@@ -816,10 +808,19 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                             size="icon"
                             onClick={() => moveChart(i, 1)}
                             disabled={i === localDashboard.charts.length - 1}
-                            className="h-6 w-6 text-muted-foreground hover:text-foreground disabled:opacity-20"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground disabled:opacity-20 hover:bg-accent"
                             title="아래로 이동"
                           >
                             ▼
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => deleteChart(i)}
+                            className="h-8 w-8 text-destructive hover:bg-destructive/10 ml-2 border border-destructive/20"
+                            title="삭제"
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
@@ -923,7 +924,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                     </div>
 
                     {/* 세부 집계 및 정렬 속성들 */}
-                    <div className="flex items-center gap-2 pt-1">
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
                       {c.type !== "multibar" && (
                         <select
                           value={(c as any).value_col ?? ""}
@@ -971,14 +972,18 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                         <option value="no">비율: 표시 안 함</option>
                         <option value="yes">비율: % 표시함</option>
                       </select>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteChart(i)}
-                        className="h-8 w-8 text-destructive hover:bg-destructive/10 border ml-auto"
+                      <select
+                        value={c.layout ?? "1x1"}
+                        title="차트 크기(비율)"
+                        onChange={(e) => updateChart(i, { layout: e.target.value as any, width: undefined })}
+                        className="h-8 px-2 rounded border border-input bg-background text-xs max-w-[130px] flex-1 shadow-sm focus:ring-1 focus:ring-primary font-semibold"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                        <option value="1x1">크기: 기본 (1:1)</option>
+                        <option value="2x1">크기: 가로 2배 (2:1)</option>
+                        <option value="2x2">크기: 크게 (2:2)</option>
+                        <option value="0.5x1">크기: 절반 (1/2)</option>
+                        <option value="full">크기: 한 줄 전체</option>
+                      </select>
                     </div>
                   </div>
                 </React.Fragment>

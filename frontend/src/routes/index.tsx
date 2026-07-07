@@ -10,6 +10,7 @@ import { FilterBar } from "@/components/dashboard/FilterBar";
 import { ChartCard } from "@/components/dashboard/ChartCard";
 import { DataTable } from "@/components/dashboard/DataTable";
 import { GuideDrawer } from "@/components/dashboard/GuideDrawer";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [{ title: "Survey Dashboard" }] }),
@@ -108,8 +109,9 @@ function DashboardPage() {
   }
 
   return (
-    <div className="app-wrap">
-      <header className="header">
+    <ErrorBoundary contextName="공개 대시보드">
+      <div className="app-wrap">
+        <header className="header">
         <span className="header-logo">📊 Survey</span>
         <select
           className="project-select"
@@ -208,7 +210,8 @@ function DashboardPage() {
       </section>
 
       <GuideDrawer isOpen={guideOpen} onClose={() => setGuideOpen(false)} />
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 }
 

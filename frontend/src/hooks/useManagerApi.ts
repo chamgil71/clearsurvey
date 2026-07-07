@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import type { DashboardConfig, ProjectListItem } from "@/types/dashboard";
 import { supabase } from "@/lib/supabase";
+import { migrateConfig } from "@/lib/dashboardConfig";
 
 /**
  * FastAPI 백엔드 URL.
@@ -209,7 +210,11 @@ export function useManagerApi() {
         const errDetail = await res.json().catch(() => ({ detail: "알 수 없는 에러" }));
         throw new Error(errDetail.detail || "프로젝트 설정 로드 실패");
       }
-      return await res.json() as LoadedProjectConfig;
+      const data = await res.json() as LoadedProjectConfig;
+      if (data.dashboard) {
+        data.dashboard = migrateConfig(data.dashboard);
+      }
+      return data;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg);

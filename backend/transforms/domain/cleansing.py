@@ -300,16 +300,10 @@ def normalize_company(
     company_patterns: dict | None = None,
     **kw,
 ) -> str | None:
-    """회사명에서 법인형태 표기를 정규화.
+    """회사명에서 법인형태 표기를 정규화. 다중 항목(쉼표 등)도 각각 정규화 후 재조합.
 
     company_patterns: patterns.yaml의 company 섹션 (pipeline이 자동 주입).
     keep_corp_type=True: 법인형태를 약어로 앞에 붙임 → "(주)카카오".
-
-    예:
-      "주식회사 카카오"   → "카카오"
-      "카카오(주)"        → "카카오"
-      "㈜카카오"          → "카카오"
-      "(재) 카카오재단"   → "카카오재단"
     """
     if val is None:
         return None
@@ -324,24 +318,38 @@ def normalize_company(
         prefix_re, suffix_re, bracket_re = _CORP_PREFIX, _CORP_SUFFIX, _CORP_BRACKET
         abbrevs = _DEFAULT_ABBREVS
 
-    corp_type = ""
-    m_pref = prefix_re.match(s)
-    if m_pref:
-        corp_type = m_pref.group().strip()
-        s = s[m_pref.end():].strip()
-    m_suf = suffix_re.search(s)
-    if m_suf:
-        corp_type = corp_type or m_suf.group().strip()
-        s = s[:m_suf.start()].strip()
-    s = bracket_re.sub("", s).strip()
-    s = re.sub(r"[ \t]+", " ", s)
-    if not s:
+    # 다중 회사명(쉼표, 슬래시 분리) 대응
+    items = [x.strip() for x in re.split(r"[,/]+", s) if x.strip()]
+    if not items:
         return None
 
-    if keep_corp_type and corp_type:
-        abbr = abbrevs.get(corp_type, f"({corp_type})")
-        return f"{abbr} {s}"
-    return s
+    normalized_items = []
+    for item in items:
+        corp_type = ""
+        m_pref = prefix_re.match(item)
+        if m_pref:
+            corp_type = m_pref.group().strip()
+            item = item[m_pref.end():].strip()
+        m_suf = suffix_re.search(item)
+        if m_suf:
+            corp_type = corp_type or m_suf.group().strip()
+            item = item[:m_suf.start()].strip()
+        item = bracket_re.sub("", item).strip()
+        item = re.sub(r"[ \t]+", " ", item)
+        
+        if not item:
+            continue
+            
+        if keep_corp_type and corp_type:
+            abbr = abbrevs.get(corp_type, f"({corp_type})")
+            normalized_items.append(f"{abbr} {item}")
+        else:
+            normalized_items.append(item)
+
+    if not normalized_items:
+        return None
+        
+    return ", ".join(normalized_items)
 
 
 # ---------------------------------------------------------------------------

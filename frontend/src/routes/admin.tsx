@@ -8,6 +8,7 @@ import { Step1_ProjectUpload } from "@/components/manager/Step1_ProjectUpload";
 import { Step2_ConfigEditor } from "@/components/manager/Step2_ConfigEditor";
 import { Step3_RunDeploy } from "@/components/manager/Step3_RunDeploy";
 import { GuideDrawer } from "@/components/dashboard/GuideDrawer";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 import {
@@ -95,7 +96,11 @@ function AdminPage() {
   }
   if (!user) return null;
 
-  return <AdminDashboard user={user} />;
+  return (
+    <ErrorBoundary contextName="관리자 대시보드">
+      <AdminDashboard user={user} />
+    </ErrorBoundary>
+  );
 }
 
 // ── 관리자 대시보드 (인증 완료 후) ───────────────────────────────────────────
@@ -227,7 +232,7 @@ function AdminDashboard({ user }: { user: User }) {
   return (
     <div className="flex h-screen bg-background/50 overflow-hidden font-sans">
       {/* ── Sidebar ──────────────────────────────────────────────────────────── */}
-      <aside className="w-80 flex flex-col shrink-0 border-r border-border bg-gradient-to-b from-card via-card/98 to-muted/20 backdrop-blur-md">
+      <aside className="w-64 flex flex-col shrink-0 border-r border-border bg-gradient-to-b from-card via-card/98 to-muted/20 backdrop-blur-md">
         <SidebarLogo />
         <SidebarNavigation
           view={view}
@@ -244,7 +249,7 @@ function AdminDashboard({ user }: { user: User }) {
       {/* ── Main content ─────────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top bar */}
-        <header className="h-20 flex items-center gap-4 px-10 border-b bg-background shrink-0">
+        <header className="h-16 flex items-center gap-4 px-6 border-b bg-background shrink-0">
           <Breadcrumb view={view} project={selectedProject} onList={() => setView("list")} />
           <div className="flex-1" />
           {!api.isBackendAlive && (
@@ -256,7 +261,7 @@ function AdminDashboard({ user }: { user: User }) {
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto p-10">
+        <main className="flex-1 overflow-y-auto p-6">
           {view === "list" && (
             <ProjectListView
               projects={api.projects}
@@ -297,7 +302,7 @@ function AdminDashboard({ user }: { user: User }) {
           )}
 
           {view === "config" && (
-            <div className="max-w-7xl mx-auto space-y-6">
+            <div className="max-w-6xl mx-auto space-y-6">
               {loadedConfig ? (
                 <Step2_ConfigEditor
                   projectName={selectedProject}
@@ -375,13 +380,14 @@ function SidebarNavigation({
   setGuideOpen: (open: boolean) => void;
 }) {
   return (
-    <nav className="flex-1 py-8 space-y-4 overflow-y-auto">
+    <nav className="flex-1 py-8 overflow-y-auto">
       <SidebarItem
         icon={<LayoutDashboard className="h-5 w-5" />}
         label="프로젝트 목록"
         active={view === "list"}
         onClick={() => setView("list")}
       />
+      <div className="h-6" />
       <SidebarItem
         icon={<Plus className="h-5 w-5" />}
         label="새 프로젝트"
@@ -389,7 +395,8 @@ function SidebarNavigation({
         onClick={() => { setView("new"); setSelectedProject(""); }}
       />
 
-      <div className="pt-8 pb-3 px-8 flex items-center gap-3">
+      <div className="h-8" />
+      <div className="pb-3 px-8 flex items-center gap-3">
         <span className="text-xs uppercase font-extrabold tracking-widest text-muted-foreground/50 shrink-0">도구</span>
         <span className="h-px flex-1 bg-border" />
       </div>
@@ -400,6 +407,7 @@ function SidebarNavigation({
         active={false}
         onClick={() => setGuideOpen(true)}
       />
+      <div className="h-6" />
       <div className="px-5 py-2">
         <a
           href="/"
@@ -410,7 +418,7 @@ function SidebarNavigation({
           <span className="text-muted-foreground/80 group-hover:text-primary transition-transform duration-300 group-hover:scale-110 shrink-0">
             <ExternalLink className="h-5 w-5" />
           </span>
-          <span className="leading-none">공개 대시보드</span>
+          <span className="leading-none text-[1.1rem]">공개 대시보드</span>
         </a>
       </div>
     </nav>
@@ -467,7 +475,7 @@ function SidebarItem({
         <span className={`transition-transform duration-300 group-hover:scale-110 shrink-0 ${active ? "text-white" : "text-muted-foreground/80 group-hover:text-primary"}`}>
           {icon}
         </span>
-        <span className="leading-none">{label}</span>
+        <span className="leading-none text-[1.1rem]">{label}</span>
       </button>
     </div>
   );
@@ -575,14 +583,14 @@ function ProjectListView({
           </Button>
         </div>
       ) : (
-        <div className="border rounded-2xl overflow-hidden shadow-sm">
-          <table className="w-full text-base">
-            <thead className="bg-muted/50 text-muted-foreground text-sm uppercase tracking-wide">
+        <div className="border rounded-xl overflow-hidden shadow-sm">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-muted-foreground text-xs uppercase tracking-wide">
               <tr>
-                <th className="px-6 py-5 text-left">프로젝트명</th>
-                <th className="px-6 py-5 text-left">마지막 업데이트</th>
-                <th className="px-6 py-5 text-center">웹 게시</th>
-                <th className="px-6 py-5 text-right">액션</th>
+                <th className="px-6 py-4 text-left">프로젝트명</th>
+                <th className="px-6 py-4 text-left">마지막 업데이트</th>
+                <th className="px-6 py-4 text-center">웹 게시</th>
+                <th className="px-6 py-4 text-right">액션</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -591,26 +599,26 @@ function ProjectListView({
                 return (
                   <tr key={p.id} className="bg-background hover:bg-muted/20 transition-colors">
                     {/* 프로젝트명 */}
-                    <td className="px-6 py-5">
+                    <td className="px-6 py-4">
                       <div
                         className="flex items-center gap-3 cursor-pointer group/name"
                         onClick={() => isBackendAlive && onOpenConfig(p.id)}
                         title="클릭하여 프로젝트 설정 편집"
                       >
-                        <Settings className="h-5 w-5 text-muted-foreground/50 group-hover/name:text-primary transition-colors" />
-                        <span className="font-bold text-lg font-mono text-foreground group-hover/name:text-primary group-hover/name:underline transition-colors">
+                        <Settings className="h-4 w-4 text-muted-foreground/50 group-hover/name:text-primary transition-colors" />
+                        <span className="font-bold text-base font-mono text-foreground group-hover/name:text-primary group-hover/name:underline transition-colors">
                           {p.name}
                         </span>
                       </div>
                     </td>
 
                     {/* 업데이트 */}
-                    <td className="px-6 py-5 text-muted-foreground">
+                    <td className="px-6 py-4 text-muted-foreground">
                       {p.updated || "—"}
                     </td>
 
                     {/* 게시 토글 */}
-                    <td className="px-6 py-5">
+                    <td className="px-6 py-4">
                       <div className="flex items-center justify-center gap-3">
                         <Switch
                           checked={isPublished}
@@ -618,16 +626,16 @@ function ProjectListView({
                           onCheckedChange={() => handleToggle(p.id, isPublished)}
                         />
                         {isPublished ? (
-                          <Globe className="h-5 w-5 text-emerald-500" />
+                          <Globe className="h-4 w-4 text-emerald-500" />
                         ) : (
-                          <GlobeLock className="h-5 w-5 text-muted-foreground/50" />
+                          <GlobeLock className="h-4 w-4 text-muted-foreground/50" />
                         )}
                       </div>
                     </td>
 
                     {/* 액션 */}
-                    <td className="px-6 py-5">
-                      <div className="flex items-center justify-end gap-3 flex-wrap min-w-[360px]">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-end gap-2 flex-wrap min-w-[320px]">
                         <Button
                           size="sm"
                           variant="outline"
