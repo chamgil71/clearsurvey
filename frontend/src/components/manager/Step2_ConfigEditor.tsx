@@ -301,6 +301,16 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
     }));
   };
 
+  const moveChart = (index: number, dir: -1 | 1) => {
+    setLocalDashboard((prev: any) => {
+      const charts = [...prev.charts];
+      const target = index + dir;
+      if (target < 0 || target >= charts.length) return prev;
+      [charts[index], charts[target]] = [charts[target], charts[index]];
+      return { ...prev, charts };
+    });
+  };
+
   const updateDashboardList = (patch: Partial<{ visible_cols: string[]; filter_cols: string[] }>) => {
     setLocalDashboard((prev: any) => {
       const list = { ...(prev.list || { visible_cols: [], filter_cols: [] }), ...patch };
@@ -790,6 +800,28 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                         <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-sm">
                           시각화 차트 #{i + 1}
                         </span>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => moveChart(i, -1)}
+                            disabled={i === 0}
+                            className="h-6 w-6 text-muted-foreground hover:text-foreground disabled:opacity-20"
+                            title="위로 이동"
+                          >
+                            ▲
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => moveChart(i, 1)}
+                            disabled={i === localDashboard.charts.length - 1}
+                            className="h-6 w-6 text-muted-foreground hover:text-foreground disabled:opacity-20"
+                            title="아래로 이동"
+                          >
+                            ▼
+                          </Button>
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-2">
