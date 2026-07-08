@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+import time
 import zipfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
@@ -19,6 +21,7 @@ _NS_SLE   = "http://schemas.microsoft.com/office/drawing/2010/slicer"
 _REL_CACHE  = "http://schemas.microsoft.com/office/2007/relationships/slicerCache"
 _REL_SLICER = "http://schemas.microsoft.com/office/2007/relationships/slicer"
 _REL_DRAW   = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing"
+_EXT_SLICER_CACHES = "{A8765BA9-456A-4dab-B4F3-ACF838C3DE2C}"  # workbook-level x14:slicerCaches ext (note: distinct from worksheet-level slicerList uri)
 
 
 # ---------------------------------------------------------------------------
@@ -194,9 +197,22 @@ def inject_slicers(output_path: Path, cfg: SurveyConfig, col_index_map: dict[str
         new_files[f"xl/slicers/_rels/slicer{i}.xml.rels"]  = _slicer_rels_xml(i).encode("utf-8")
         new_files[f"xl/slicerCaches/slicerCache{i}.xml"]   = _cache_xml(cname, label, table_id, col_idx).encode("utf-8")
 
-    # ── drawing XML (visual positioning) ─────────────────────────────────────
-    new_files["xl/drawings/drawing1.xml"]               = _drawing_xml(n_slicers, n_data_cols).encode("utf-8")
-    new_files["xl/drawings/_rels/drawing1.xml.rels"]    = _drawing_rels_xml(n_slicers).encode("utf-8")
+    # ── drawing XML (visual positioning) ───────────────────────────────────────
+    # 차트가 이미 xl/drawings/drawing1.xml 을 선점하고 있을 수 있으므로(예: 요약 시트에
+    # openpyxl이 만든 차트 드로잉), 항상 drawing1.xml 을 덮어쓰면 기존 차트의 드로잉/관계가
+    # 통째로 사라지거나 [Content_Types].xml 에 동일 PartName Override가 중복 등록되어
+    # Excel이 "복구" 경고를 띄운다. 비어 있는 다음 번호를 골라 충돌을 피한다.
+    existing_drawing_nums = [
+        int(m.group(1))
+        for name in orig
+        if (m := re.match(r"xl/drawings/drawing(\d+)\.xml$", name))
+    ]
+    drawing_num       = max(existing_drawing_nums, default=0) + 1
+    drawing_file      = f"xl/drawings/drawing{drawing_num}.xml"
+    drawing_rels_file = f"xl/drawings/_rels/drawing{drawing_num}.xml.rels"
+
+    new_files[drawing_file]      = _drawing_xml(n_slicers, n_data_cols).encode("utf-8")
+    new_files[drawing_rels_file] = _drawing_rels_xml(n_slicers).encode("utf-8")
 
     # ── patch worksheet XML ───────────────────────────────────────────────────
     ws_drw_rid = "rId_drw1"
@@ -236,7 +252,7 @@ def inject_slicers(output_path: Path, cfg: SurveyConfig, col_index_map: dict[str
     new_files[ws_file] = ws_xml.encode("utf-8")
 
     # ── patch worksheet rels ──────────────────────────────────────────────────
-    new_ws_rels = f'<Relationship Id="{ws_drw_rid}" Type="{_REL_DRAW}" Target="../drawings/drawing1.xml"/>'
+    new_ws_rels = f'<Relationship Id="{ws_drw_rid}" Type="{_REL_DRAW}" Target="../drawings/drawing{drawing_num}.xml"/>'
     for i in range(1, n_slicers + 1):
         new_ws_rels += (
             f'<Relationship Id="rId_slc{i}" Type="{_REL_SLICER}"'
@@ -263,10 +279,33 @@ def inject_slicers(output_path: Path, cfg: SurveyConfig, col_index_map: dict[str
     wb_rels_str = wb_rels_str.replace("</Relationships>", wb_cache_rels + "</Relationships>")
     new_files["xl/_rels/workbook.xml.rels"] = wb_rels_str.encode("utf-8")
 
+    # ── patch workbook.xml: x14:slicerCaches 선언 (필수) ───────────────────────
+    # workbook.xml.rels 에 slicerCache 관계를 추가하는 것만으로는 부족하다.
+    # 워크북 자체의 extLst 에 x14:slicerCaches 로 각 캐시를 명시적으로 광고하지
+    # 않으면, Excel이 "연결되었지만 선언되지 않은" 관계로 판단해 파일을 열 때
+    # 콘텐츠 복구 경고를 띄운다.
+    wb_xml = orig["xl/workbook.xml"].decode("utf-8")
+    slicer_cache_items = "".join(
+        f'<x14:slicerCache xmlns:r="{_NS_R}" r:id="rId_cache{i}"/>'
+        for i in range(1, n_slicers + 1)
+    )
+    wb_slicer_ext = (
+        f'<ext xmlns:x14="{_NS_X14}" uri="{_EXT_SLICER_CACHES}">'
+        f'<x14:slicerCaches>{slicer_cache_items}</x14:slicerCaches>'
+        f'</ext>'
+    )
+    wb_last_extlst_end = wb_xml.rfind("</extLst>")
+    if wb_last_extlst_end != -1:
+        wb_xml = wb_xml[:wb_last_extlst_end] + wb_slicer_ext + wb_xml[wb_last_extlst_end:]
+    else:
+        wb_end = wb_xml.rfind("</workbook>")
+        wb_xml = wb_xml[:wb_end] + f"<extLst>{wb_slicer_ext}</extLst>" + wb_xml[wb_end:]
+    new_files["xl/workbook.xml"] = wb_xml.encode("utf-8")
+
     # ── patch [Content_Types].xml ─────────────────────────────────────────────
     ct_str = orig["[Content_Types].xml"].decode("utf-8")
     new_ct = (
-        '<Override PartName="/xl/drawings/drawing1.xml"'
+        f'<Override PartName="/{drawing_file}"'
         ' ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>'
     )
     for i in range(1, n_slicers + 1):
@@ -284,5 +323,18 @@ def inject_slicers(output_path: Path, cfg: SurveyConfig, col_index_map: dict[str
     with zipfile.ZipFile(tmp_path, "w", compression=zipfile.ZIP_DEFLATED) as zout:
         for name, data in new_files.items():
             zout.writestr(name, data)
-    tmp_path.replace(output_path)
+
+    # Windows: 백신 실시간 검사나 직전 다운로드 요청(FileResponse)이 파일을 순간적으로
+    # 붙잡고 있어 WinError 5(액세스 거부)가 발생할 수 있다. 잠금이 몇 초 지속되는 경우도
+    # 있어 충분히 여유를 두고 재시도한다.
+    _RETRY_DELAYS = [0.3, 0.6, 1.0, 1.5, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0]  # 총 최대 ~15초
+    for attempt, delay in enumerate([*_RETRY_DELAYS, None]):
+        try:
+            tmp_path.replace(output_path)
+            break
+        except PermissionError:
+            if delay is None:
+                tmp_path.unlink(missing_ok=True)
+                raise
+            time.sleep(delay)
     print(f"슬라이서 {n_slicers}개 삽입 완료")

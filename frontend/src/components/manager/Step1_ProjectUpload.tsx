@@ -1,5 +1,13 @@
 import React, { useState, useRef } from "react";
-import { FolderOpen, FileUp, Upload, CheckCircle2, AlertTriangle, Play, Trash2 } from "lucide-react";
+import {
+  FolderOpen,
+  FileUp,
+  Upload,
+  CheckCircle2,
+  AlertTriangle,
+  Play,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +30,7 @@ interface Step1Props {
       key_cols: string[];
       add_source_col: boolean;
       source_col_name: string;
-    }
+    },
   ) => Promise<void>;
   loading: boolean;
 }
@@ -37,10 +45,10 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
 }) => {
   const [newProjectName, setNewProjectName] = useState("");
   const [uploadMode, setUploadMode] = useState<"single" | "merge">("single");
-  
+
   // Single upload
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  
+
   // Merge upload
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [dedupStrategy, setDedupStrategy] = useState<"first" | "last" | "none">("none");
@@ -76,7 +84,7 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
         }
       } else {
         const validFiles = Array.from(files).filter(
-          (file) => file.name.endsWith(".xlsx") || file.name.endsWith(".xls")
+          (file) => file.name.endsWith(".xlsx") || file.name.endsWith(".xls"),
         );
         if (validFiles.length !== files.length) {
           toast.error("Excel 파일(.xlsx, .xls)만 업로드할 수 있습니다.");
@@ -151,13 +159,17 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
     <div className="space-y-6">
       {/* Backend Status Banner */}
       {!isBackendAlive && (
-        <Alert variant="destructive" className="bg-destructive/10 border-destructive text-destructive-foreground">
+        <Alert
+          variant="destructive"
+          className="bg-destructive/10 border-destructive text-destructive-foreground"
+        >
           <AlertTriangle className="h-5 w-5" />
           <AlertTitle className="font-bold">정적 모드(데모 모드) 실행 중</AlertTitle>
           <AlertDescription className="text-xs leading-relaxed mt-1">
-            로컬 백엔드 서버(FastAPI)가 비가동 상태입니다. 프로젝트 설정 변경, 신규 엑셀 분석 및 파이프라인
-            실행은 로컬 백엔드를 켰을 때(<code>python -m uvicorn app.main:app --reload</code>)만 동작합니다.
-            현재 화면에서는 가이드를 참조하시거나 우측 설정 탭을 통해 데모 설정 다운로드만 가능합니다.
+            로컬 백엔드 서버(FastAPI)가 비가동 상태입니다. 프로젝트 설정 변경, 신규 엑셀 분석 및
+            파이프라인 실행은 로컬 백엔드를 켰을 때(
+            <code>python -m uvicorn app.main:app --reload</code>)만 동작합니다. 현재 화면에서는
+            가이드를 참조하시거나 우측 설정 탭을 통해 데모 설정 다운로드만 가능합니다.
           </AlertDescription>
         </Alert>
       )}
@@ -179,11 +191,13 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
               <label className="text-xs font-semibold text-muted-foreground block">
                 등록된 프로젝트 목록 ({projects.length}개)
               </label>
-              
+
               {projects.length === 0 ? (
                 <div className="p-8 text-center text-xs text-muted-foreground bg-muted/10 border border-dashed rounded-md h-[180px] flex flex-col items-center justify-center">
                   <FolderOpen className="h-8 w-8 text-muted-foreground/40 mb-2" />
-                  등록된 프로젝트가 없습니다.<br />우측에서 신규 파일을 분석하여 시작해보세요.
+                  등록된 프로젝트가 없습니다.
+                  <br />
+                  우측에서 신규 파일을 분석하여 시작해보세요.
                 </div>
               ) : (
                 <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1">
@@ -194,7 +208,10 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
                       className="group p-3 border rounded-lg bg-background hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer flex items-center justify-between shadow-sm"
                     >
                       <div className="space-y-1">
-                        <div className="font-bold text-xs text-foreground group-hover:text-primary transition-colors truncate max-w-[200px]" title={p.name}>
+                        <div
+                          className="font-bold text-xs text-foreground group-hover:text-primary transition-colors truncate max-w-[200px]"
+                          title={p.name}
+                        >
                           {p.name}
                         </div>
                         <div className="text-[10px] text-muted-foreground font-mono">
@@ -257,28 +274,35 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <label htmlFor="projectName" className="text-xs font-semibold text-muted-foreground">
+                <label
+                  htmlFor="projectName"
+                  className="text-xs font-semibold text-muted-foreground"
+                >
                   새 프로젝트 이름
                 </label>
                 <Input
                   id="projectName"
                   placeholder="예: customer_satisfaction_2026"
                   value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ""))}
+                  onChange={(e) =>
+                    setNewProjectName(e.target.value.replace(/[^a-zA-Z0-9_\-가-힣]/g, ""))
+                  }
                   disabled={!isBackendAlive || loading}
                   required
                   className="h-9 text-xs"
                 />
                 <p className="text-[10px] text-muted-foreground">
-                  * 영문, 숫자, 하이픈(_,-) 기호만 사용하실 수 있습니다.
+                  * 한글, 영문, 숫자, 기호(_,-)만 사용하실 수 있습니다.
                 </p>
               </div>
 
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-muted-foreground block">
-                  {uploadMode === "single" ? "설문지 엑셀 원본 파일" : "병합할 복수 엑셀 파일 리스트"}
+                  {uploadMode === "single"
+                    ? "설문지 엑셀 원본 파일"
+                    : "병합할 복수 엑셀 파일 리스트"}
                 </label>
-                
+
                 <div
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
@@ -294,7 +318,7 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
                     type="file"
                     ref={fileInputRef}
                     onChange={handleFileChange}
-                    accept=".xlsx, .xls"
+                    accept=".xlsx"
                     multiple={uploadMode === "merge"}
                     className="hidden"
                     title="설문지 엑셀 파일 선택"
@@ -303,11 +327,11 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
                   <Upload className="h-8 w-8 text-muted-foreground mb-2" />
                   <div className="text-center space-y-1">
                     <p className="text-xs font-medium text-foreground">
-                      {uploadMode === "single" ? "클릭 또는 파일을 여기에 드래그 앤 드롭" : "클릭 또는 복수 파일을 여기에 드래그 앤 드롭"}
+                      {uploadMode === "single"
+                        ? "클릭 또는 파일을 여기에 드래그 앤 드롭"
+                        : "클릭 또는 복수 파일을 여기에 드래그 앤 드롭"}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      Excel 파일 (*.xlsx, *.xls)
-                    </p>
+                    <p className="text-[10px] text-muted-foreground">Excel 통합 문서 (*.xlsx)</p>
                   </div>
                 </div>
               </div>
@@ -316,18 +340,29 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
               {uploadMode === "single" && selectedFile && (
                 <div className="p-3 border rounded-lg bg-muted/10 flex items-center justify-between text-xs">
                   <span className="font-semibold truncate max-w-[240px]">{selectedFile.name}</span>
-                  <span className="text-[10px] text-muted-foreground">({(selectedFile.size / 1024).toFixed(1)} KB)</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    ({(selectedFile.size / 1024).toFixed(1)} KB)
+                  </span>
                 </div>
               )}
 
               {uploadMode === "merge" && selectedFiles.length > 0 && (
                 <div className="space-y-1.5 max-h-[140px] overflow-y-auto border p-2.5 rounded-lg bg-muted/5">
-                  <p className="text-[10px] font-semibold text-muted-foreground mb-1">업로드할 파일 ({selectedFiles.length}개)</p>
+                  <p className="text-[10px] font-semibold text-muted-foreground mb-1">
+                    업로드할 파일 ({selectedFiles.length}개)
+                  </p>
                   {selectedFiles.map((file, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-xs p-1.5 bg-background border rounded-md">
-                      <span className="truncate max-w-[200px] text-[11px] font-medium">{file.name}</span>
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between text-xs p-1.5 bg-background border rounded-md"
+                    >
+                      <span className="truncate max-w-[200px] text-[11px] font-medium">
+                        {file.name}
+                      </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-[9px] text-muted-foreground">({(file.size / 1024).toFixed(1)} KB)</span>
+                        <span className="text-[9px] text-muted-foreground">
+                          ({(file.size / 1024).toFixed(1)} KB)
+                        </span>
                         <button
                           type="button"
                           onClick={(e) => {
@@ -349,11 +384,15 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
               {uploadMode === "merge" && (
                 <Card className="border border-border/60 bg-muted/10">
                   <CardContent className="p-3.5 space-y-3">
-                    <p className="text-xs font-bold text-foreground">🔗 데이터 병합 및 중복 제거 설정</p>
-                    
+                    <p className="text-xs font-bold text-foreground">
+                      🔗 데이터 병합 및 중복 제거 설정
+                    </p>
+
                     <div className="grid grid-cols-2 gap-3.5">
                       <div className="space-y-1">
-                        <label className="text-[10px] font-semibold text-muted-foreground block">중복 제거 전략 (Dedup)</label>
+                        <label className="text-[10px] font-semibold text-muted-foreground block">
+                          중복 제거 전략 (Dedup)
+                        </label>
                         <select
                           value={dedupStrategy}
                           onChange={(e) => setDedupStrategy(e.target.value as any)}
@@ -366,7 +405,9 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-[10px] font-semibold text-muted-foreground block">중복 기준 컬럼 (Key Columns)</label>
+                        <label className="text-[10px] font-semibold text-muted-foreground block">
+                          중복 기준 컬럼 (Key Columns)
+                        </label>
                         <Input
                           placeholder="예: 답변ID, 응답자번호"
                           value={keyCols}
@@ -379,15 +420,21 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
 
                     <div className="flex items-center justify-between border-t pt-2.5">
                       <div className="space-y-0.5">
-                        <label className="text-[10px] font-semibold text-foreground block">출처 파일 컬럼 기록</label>
-                        <span className="text-[9px] text-muted-foreground">가공 행이 어느 엑셀에서 추출되었는지 기록합니다.</span>
+                        <label className="text-[10px] font-semibold text-foreground block">
+                          출처 파일 컬럼 기록
+                        </label>
+                        <span className="text-[9px] text-muted-foreground">
+                          가공 행이 어느 엑셀에서 추출되었는지 기록합니다.
+                        </span>
                       </div>
                       <Switch checked={addSourceCol} onCheckedChange={setAddSourceCol} />
                     </div>
 
                     {addSourceCol && (
                       <div className="space-y-1">
-                        <label className="text-[10px] font-semibold text-muted-foreground block">출처 정보 컬럼명</label>
+                        <label className="text-[10px] font-semibold text-muted-foreground block">
+                          출처 정보 컬럼명
+                        </label>
                         <Input
                           placeholder="_출처파일"
                           value={sourceColName}
@@ -403,14 +450,18 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
               <Button
                 type="submit"
                 disabled={
-                  !isBackendAlive || 
-                  !newProjectName.trim() || 
-                  (uploadMode === "single" ? !selectedFile : selectedFiles.length < 2) || 
+                  !isBackendAlive ||
+                  !newProjectName.trim() ||
+                  (uploadMode === "single" ? !selectedFile : selectedFiles.length < 2) ||
                   loading
                 }
                 className="w-full text-xs h-9 font-semibold"
               >
-                {loading ? "자동 정밀 병합 및 분석 중..." : (uploadMode === "single" ? "설문 구조 자동 분석 및 생성" : "복수 엑셀 병합 및 자동 분석 생성")}
+                {loading
+                  ? "자동 정밀 병합 및 분석 중..."
+                  : uploadMode === "single"
+                    ? "설문 구조 자동 분석 및 생성"
+                    : "복수 엑셀 병합 및 자동 분석 생성"}
                 {!loading && <Play className="h-3 w-3 ml-1.5" />}
               </Button>
             </form>

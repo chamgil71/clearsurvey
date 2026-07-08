@@ -11,7 +11,16 @@ interface Props {
   onReset: () => void;
 }
 
-export function FilterBar({ data, cfg, search, filters, filteredCount, onSearch, onFilterChange, onReset }: Props) {
+export function FilterBar({
+  data,
+  cfg,
+  search,
+  filters,
+  filteredCount,
+  onSearch,
+  onFilterChange,
+  onReset,
+}: Props) {
   const total = data.rows.length;
   const isFiltered = filteredCount !== total;
   const filterCols = cfg.list?.filter_cols || [];
@@ -28,7 +37,11 @@ export function FilterBar({ data, cfg, search, filters, filteredCount, onSearch,
             value={search}
             onChange={(e) => onSearch(e.target.value)}
           />
-          {isFiltered && <span className="filter-count">{filteredCount} / {total}건</span>}
+          {isFiltered && (
+            <span className="filter-count">
+              {filteredCount} / {total}건
+            </span>
+          )}
         </div>
         <div className="filter-selects">
           {filterCols.map((col) => {

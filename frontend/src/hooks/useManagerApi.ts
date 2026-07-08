@@ -18,14 +18,14 @@ const API_BASE =
  * transforms/registry.py 에 등록된 실제 transform 이름만 사용합니다.
  */
 export interface ColumnDef {
-  output_col: string;            // 출력 컬럼명 (필수)
-  source_col?: number | null;    // 원본 엑셀 열번호 (1-based)
-  source_col_name?: string;      // 원본 헤더명 (참조용)
-  transform?: string | null;     // 정제 규칙 이름 (단일 문자열)
-  flag_keyword?: string;         // to_binary 전용
-  backup_col?: number | null;    // jang 전용
+  output_col: string; // 출력 컬럼명 (필수)
+  source_col?: number | null; // 원본 엑셀 열번호 (1-based)
+  source_col_name?: string; // 원본 헤더명 (참조용)
+  transform?: string | null; // 정제 규칙 이름 (단일 문자열)
+  flag_keyword?: string; // to_binary 전용
+  backup_col?: number | null; // jang 전용
   include_in_slicer?: boolean;
-  type?: string;                 // UI 표시 힌트 (내보내기 시 자동 감지)
+  type?: string; // UI 표시 힌트 (내보내기 시 자동 감지)
 }
 
 /**
@@ -85,7 +85,9 @@ export function useManagerApi() {
       setSessionToken(session?.access_token ?? null);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_, session) => {
       setSessionToken(session?.access_token ?? null);
     });
     return () => subscription.unsubscribe();
@@ -121,7 +123,6 @@ export function useManagerApi() {
 
     return res;
   };
-
 
   // Check health on mount
   useEffect(() => {
@@ -210,7 +211,7 @@ export function useManagerApi() {
         const errDetail = await res.json().catch(() => ({ detail: "알 수 없는 에러" }));
         throw new Error(errDetail.detail || "프로젝트 설정 로드 실패");
       }
-      const data = await res.json() as LoadedProjectConfig;
+      const data = (await res.json()) as LoadedProjectConfig;
       if (data.dashboard) {
         data.dashboard = migrateConfig(data.dashboard);
       }
@@ -224,7 +225,11 @@ export function useManagerApi() {
     }
   };
 
-  const saveProjectConfig = async (name: string, config: ProjectConfig, dashboard: DashboardConfig | null) => {
+  const saveProjectConfig = async (
+    name: string,
+    config: ProjectConfig,
+    dashboard: DashboardConfig | null,
+  ) => {
     setLoading(true);
     setError(null);
     try {
@@ -277,10 +282,7 @@ export function useManagerApi() {
    */
   const runPipeline = async (name: string) => {
     setError(null);
-    setLogs((prev) => [
-      ...prev,
-      `[SYSTEM] 파이프라인 실행 요청 전송 중...`,
-    ]);
+    setLogs((prev) => [...prev, `[SYSTEM] 파이프라인 실행 요청 전송 중...`]);
     try {
       const res = await fetchWithAuth(`${API_BASE}/api/projects/${name}/run`, {
         method: "POST",
@@ -290,10 +292,7 @@ export function useManagerApi() {
         throw new Error(errDetail.detail || "파이프라인 실행 실패");
       }
       const data = await res.json(); // { status: "started" }
-      setLogs((prev) => [
-        ...prev,
-        `[RUNNING] 정제 엔진이 백그라운드에서 구동을 시작했습니다...`,
-      ]);
+      setLogs((prev) => [...prev, `[RUNNING] 정제 엔진이 백그라운드에서 구동을 시작했습니다...`]);
       return data;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -304,7 +303,9 @@ export function useManagerApi() {
   };
 
   /** 파이프라인 실행 상태 폴링 — GET /api/projects/{name}/status */
-  const getPipelineStatus = async (name: string): Promise<{
+  const getPipelineStatus = async (
+    name: string,
+  ): Promise<{
     status: "idle" | "running" | "done" | "error";
     cleaned_file?: string;
     output_dir?: string;
@@ -361,7 +362,7 @@ export function useManagerApi() {
       key_cols: string[];
       add_source_col: boolean;
       source_col_name: string;
-    }
+    },
   ) => {
     setLoading(true);
     setError(null);
@@ -436,9 +437,7 @@ export function useManagerApi() {
         const err = await res.json().catch(() => ({ detail: "게시 상태 변경 실패" }));
         throw new Error(err.detail);
       }
-      setProjects((prev) =>
-        prev.map((p) => (p.id === name ? { ...p, published } : p))
-      );
+      setProjects((prev) => prev.map((p) => (p.id === name ? { ...p, published } : p)));
       return await res.json();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

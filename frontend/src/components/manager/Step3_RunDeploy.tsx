@@ -1,5 +1,14 @@
 import React, { useRef, useEffect, useState } from "react";
-import { Terminal as TerminalIcon, Play, Download, ExternalLink, RefreshCw, CheckCircle2, Eye, EyeOff } from "lucide-react";
+import {
+  Terminal as TerminalIcon,
+  Play,
+  Download,
+  ExternalLink,
+  RefreshCw,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useManagerApi } from "@/hooks/useManagerApi";
@@ -28,7 +37,9 @@ export const Step3_RunDeploy: React.FC<Step3Props> = ({
 }) => {
   const terminalEndRef = useRef<HTMLDivElement>(null);
 
-  const [previewRows, setPreviewRows] = useState<{ raw: Record<string, string>; cleaned: Record<string, string> }[] | null>(null);
+  const [previewRows, setPreviewRows] = useState<
+    { raw: Record<string, string>; cleaned: Record<string, string> }[] | null
+  >(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [activeSampleIdx, setActiveSampleIdx] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
@@ -225,15 +236,19 @@ export const Step3_RunDeploy: React.FC<Step3Props> = ({
                     </button>
                   ))}
                 </div>
-                
+
                 {/* 컬럼 리스트 스크롤 영역 */}
                 <div className="border rounded-lg overflow-hidden max-h-[300px] overflow-y-auto">
                   <table className="w-full text-[11px] font-mono leading-normal">
                     <thead className="bg-muted/50 border-b">
                       <tr>
-                        <th className="px-3 py-2 text-left font-bold w-[40%]">문항 (출력 컬럼명)</th>
+                        <th className="px-3 py-2 text-left font-bold w-[40%]">
+                          문항 (출력 컬럼명)
+                        </th>
                         <th className="px-3 py-2 text-left font-bold w-[30%]">원본 값 (Raw)</th>
-                        <th className="px-3 py-2 text-left font-bold w-[30%] text-primary">정제 결과 (Cleaned)</th>
+                        <th className="px-3 py-2 text-left font-bold w-[30%] text-primary">
+                          정제 결과 (Cleaned)
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
@@ -241,12 +256,28 @@ export const Step3_RunDeploy: React.FC<Step3Props> = ({
                         const rawVal = previewRows[activeSampleIdx].raw[colName];
                         const cleanedVal = previewRows[activeSampleIdx].cleaned[colName];
                         const isChanged = rawVal !== cleanedVal;
-                        
+
                         return (
-                          <tr key={colName} className={`hover:bg-muted/10 ${isChanged ? "bg-amber-500/5" : ""}`}>
-                            <td className="px-3 py-2 font-bold font-sans text-foreground truncate max-w-[130px]" title={colName}>{colName}</td>
-                            <td className="px-3 py-2 text-muted-foreground truncate max-w-[90px]" title={rawVal}>{rawVal || "—"}</td>
-                            <td className={`px-3 py-2 truncate max-w-[90px] font-bold ${isChanged ? "text-amber-600" : "text-muted-foreground"}`} title={cleanedVal}>
+                          <tr
+                            key={colName}
+                            className={`hover:bg-muted/10 ${isChanged ? "bg-amber-500/5" : ""}`}
+                          >
+                            <td
+                              className="px-3 py-2 font-bold font-sans text-foreground truncate max-w-[130px]"
+                              title={colName}
+                            >
+                              {colName}
+                            </td>
+                            <td
+                              className="px-3 py-2 text-muted-foreground truncate max-w-[90px]"
+                              title={rawVal}
+                            >
+                              {rawVal || "—"}
+                            </td>
+                            <td
+                              className={`px-3 py-2 truncate max-w-[90px] font-bold ${isChanged ? "text-amber-600" : "text-muted-foreground"}`}
+                              title={cleanedVal}
+                            >
                               {cleanedVal}
                             </td>
                           </tr>

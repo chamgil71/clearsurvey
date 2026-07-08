@@ -210,7 +210,7 @@ class ExcelAnalyzer:
         cfg: dict = {
             "project": proj,
             "style_file": None,
-            "patterns_file": None,
+            "patterns_file": "../../../backend/config/patterns.yaml",
             "source": {
                 "file": src_path,
                 "sheet": target if target != sheets[0] else None,

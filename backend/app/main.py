@@ -103,6 +103,8 @@ from engine.exporter import export_to_json
 
 app = FastAPI(title="Survey Engine v2 API Server", version="2.0.0")
 
+from fastapi.staticfiles import StaticFiles
+
 # Enable CORS for local Vite dev server
 app.add_middleware(
     CORSMiddleware,
@@ -111,6 +113,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Serve generated JSON files directly to bypass Vite's HMR static caching issues
+data_dir = FRONTEND_ROOT / "public" / "data"
+data_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/data", StaticFiles(directory=str(data_dir)), name="data")
 
 _SAFE_NAME_RE = re.compile(r"^[a-zA-Z0-9_\-가-힣]{1,64}$")
 
@@ -305,9 +312,9 @@ async def create_project(
     _validate_project_name(name)
 
     safe_fname = _safe_filename(file.filename or "upload.xlsx")
-    # xlsx / xls 확장자만 허용
-    if not safe_fname.lower().endswith((".xlsx", ".xls")):
-        raise HTTPException(status_code=400, detail="xlsx 또는 xls 파일만 업로드할 수 있습니다.")
+    # xlsx 확장자만 허용
+    if not safe_fname.lower().endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="xlsx 파일만 업로드할 수 있습니다.")
 
     storage_dir = STORAGE_ROOT / "raw"
     storage_dir.mkdir(parents=True, exist_ok=True)
@@ -405,8 +412,8 @@ async def create_merge_project(
     saved_paths: list[Path] = []
     for f in files:
         safe_fname = _safe_filename(f.filename or "upload.xlsx")
-        if not safe_fname.lower().endswith((".xlsx", ".xls")):
-            raise HTTPException(status_code=400, detail="xlsx 또는 xls 파일만 업로드할 수 있습니다.")
+        if not safe_fname.lower().endswith(".xlsx"):
+            raise HTTPException(status_code=400, detail="xlsx 파일만 업로드할 수 있습니다.")
         
         # 파일 중복 덮어쓰기 방지를 위한 파일별 격리 저장
         proj_raw_dir = storage_dir / name

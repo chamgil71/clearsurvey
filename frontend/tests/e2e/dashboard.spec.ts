@@ -43,9 +43,7 @@ test.describe("공개 대시보드 (/)", () => {
     await page.waitForSelector(".theme-toggle", { timeout: 10_000 });
     const toggle = page.locator(".theme-toggle");
     await toggle.click();
-    const isDark = await page.evaluate(
-      () => document.documentElement.classList.contains("dark")
-    );
+    const isDark = await page.evaluate(() => document.documentElement.classList.contains("dark"));
     expect(isDark).toBe(true);
     // 복원
     await toggle.click();

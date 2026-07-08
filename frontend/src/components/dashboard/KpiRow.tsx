@@ -15,10 +15,11 @@ export function KpiRow({
     return (cfg.kpi || []).map((k) => {
       if (k.type === "total_rows") return { label: k.label, value: rows.length, unit: "건" };
       if (k.type === "count_value") {
-        const valPattern = String(k.value ?? "").trim();
+        let valPattern = String(k.value ?? "").trim();
+        if (valPattern.startsWith("=")) valPattern = valPattern.slice(1).trim();
         const cnt = rows.filter((r) => {
           const cellStr = String(r[k.col] ?? "").trim();
-          
+
           // 1. Negation (e.g. <> Seoul or != Seoul)
           if (valPattern.startsWith("<>") || valPattern.startsWith("!=")) {
             const cleanPattern = valPattern.replace("<>", "").replace("!=", "").trim();
@@ -28,7 +29,7 @@ export function KpiRow({
             }
             return cellStr !== cleanPattern;
           }
-          
+
           // 2. Wildcards (e.g. *Seoul*)
           if (valPattern.startsWith("*") && valPattern.endsWith("*")) {
             const kw = valPattern.slice(1, -1).trim();
@@ -40,7 +41,7 @@ export function KpiRow({
             const kw = valPattern.slice(0, -1).trim();
             return cellStr.startsWith(kw);
           }
-          
+
           // 3. Exact match
           return cellStr === valPattern;
         }).length;
@@ -58,7 +59,8 @@ export function KpiRow({
     <div className="kpi-row">
       {items.map((v, i) => {
         const origKpi = (cfg.kpi || [])[i];
-        const isClickable = origKpi && (origKpi.type === "count_value" || origKpi.type === "total_rows");
+        const isClickable =
+          origKpi && (origKpi.type === "count_value" || origKpi.type === "total_rows");
         return (
           <div
             key={i}

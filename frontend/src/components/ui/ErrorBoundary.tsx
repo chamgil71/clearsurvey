@@ -36,9 +36,12 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="flex flex-col items-center justify-center p-6 bg-destructive/5 border border-destructive/20 rounded-xl m-4 space-y-4">
           <AlertTriangle className="h-10 w-10 text-destructive/70" />
           <div className="text-center">
-            <h2 className="text-lg font-bold text-destructive">화면 렌더링 중 오류가 발생했습니다.</h2>
+            <h2 className="text-lg font-bold text-destructive">
+              화면 렌더링 중 오류가 발생했습니다.
+            </h2>
             <p className="text-sm text-muted-foreground mt-1">
-              {this.props.contextName ? `[${this.props.contextName}] ` : ""}오류로 인해 컴포넌트를 표시할 수 없습니다.
+              {this.props.contextName ? `[${this.props.contextName}] ` : ""}오류로 인해 컴포넌트를
+              표시할 수 없습니다.
             </p>
           </div>
           <div className="bg-background p-4 rounded-md w-full max-w-2xl overflow-auto border shadow-inner text-xs font-mono text-muted-foreground">

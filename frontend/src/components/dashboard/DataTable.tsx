@@ -4,12 +4,12 @@ import { DetailPanel } from "./DetailPanel";
 
 const PAGE_SIZE = 30;
 
-export function DataTable({ 
-  rows, 
-  cfg, 
-  search = "" 
-}: { 
-  rows: Row[]; 
+export function DataTable({
+  rows,
+  cfg,
+  search = "",
+}: {
+  rows: Row[];
   cfg: DashboardConfig;
   search?: string;
 }) {
@@ -51,9 +51,7 @@ export function DataTable({
     const header = colsToExport.join(",");
     const body = sorted
       .map((row) =>
-        colsToExport
-          .map((col) => `"${String(row[col] ?? "").replace(/"/g, '""')}"`)
-          .join(","),
+        colsToExport.map((col) => `"${String(row[col] ?? "").replace(/"/g, '""')}"`).join(","),
       )
       .join("\n");
     const blob = new Blob(["\uFEFF" + header + "\n" + body], { type: "text/csv;charset=utf-8;" });
@@ -66,13 +64,28 @@ export function DataTable({
 
   const highlightText = (text: string, searchWord: string) => {
     if (!searchWord.trim()) return text;
-    const parts = text.split(new RegExp(`(${searchWord.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, 'gi'));
+    const parts = text.split(
+      new RegExp(`(${searchWord.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")})`, "gi"),
+    );
     return (
       <span>
-        {parts.map((part, i) => 
-          part.toLowerCase() === searchWord.toLowerCase() 
-            ? <mark key={i} style={{ backgroundColor: "#fef08a", color: "#1e293b", padding: "0 2px", borderRadius: "3px", fontWeight: "600" }}>{part}</mark> 
-            : part
+        {parts.map((part, i) =>
+          part.toLowerCase() === searchWord.toLowerCase() ? (
+            <mark
+              key={i}
+              style={{
+                backgroundColor: "#fef08a",
+                color: "#1e293b",
+                padding: "0 2px",
+                borderRadius: "3px",
+                fontWeight: "600",
+              }}
+            >
+              {part}
+            </mark>
+          ) : (
+            part
+          ),
         )}
       </span>
     );
@@ -80,16 +93,25 @@ export function DataTable({
 
   return (
     <>
-      <div className="list-header" style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
+      <div
+        className="list-header"
+        style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}
+      >
         <span className="list-count-label" style={{ fontSize: "13px", color: "var(--text-muted)" }}>
-          총 <strong style={{ color: "var(--text-primary)" }}>{sorted.length.toLocaleString()}</strong>건
+          총{" "}
+          <strong style={{ color: "var(--text-primary)" }}>{sorted.length.toLocaleString()}</strong>
+          건
         </span>
         <div style={{ flex: 1 }} />
         <div style={{ display: "flex", gap: "6px" }}>
           <button className="btn-ghost btn-sm" onClick={() => exportCSV(false)}>
             ⬇ CSV 내보내기 (화면 컬럼)
           </button>
-          <button className="btn-ghost btn-sm" onClick={() => exportCSV(true)} style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
+          <button
+            className="btn-ghost btn-sm"
+            onClick={() => exportCSV(true)}
+            style={{ borderColor: "var(--accent)", color: "var(--accent)" }}
+          >
             ⬇ CSV 내보내기 (전체 컬럼)
           </button>
         </div>
@@ -97,7 +119,10 @@ export function DataTable({
 
       <div className="list-split-full" style={{ width: "100%" }}>
         <div className="list-left" style={{ width: "100%" }}>
-          <div id="list-table-wrap" style={{ width: "100%", overflowX: "auto", borderRadius: "var(--radius)" }}>
+          <div
+            id="list-table-wrap"
+            style={{ width: "100%", overflowX: "auto", borderRadius: "var(--radius)" }}
+          >
             <table className="data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
@@ -120,7 +145,11 @@ export function DataTable({
               <tbody>
                 {pageRows.length === 0 ? (
                   <tr>
-                    <td colSpan={visibleCols.length} className="empty-row" style={{ textAlign: "center", padding: "30px" }}>
+                    <td
+                      colSpan={visibleCols.length}
+                      className="empty-row"
+                      style={{ textAlign: "center", padding: "30px" }}
+                    >
                       검색 결과가 없습니다
                     </td>
                   </tr>
@@ -147,7 +176,10 @@ export function DataTable({
               </tbody>
             </table>
           </div>
-          <div id="list-pager" style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "16px" }}>
+          <div
+            id="list-pager"
+            style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "16px" }}
+          >
             <span className="page-info">
               {curPage} / {totalPages} 페이지
             </span>
@@ -166,8 +198,8 @@ export function DataTable({
       </div>
 
       {/* Sliding Drawer Backdrop */}
-      <div 
-        className={`drawer-backdrop ${selected ? "open" : ""}`} 
+      <div
+        className={`drawer-backdrop ${selected ? "open" : ""}`}
         onClick={() => setSelected(null)}
       />
 

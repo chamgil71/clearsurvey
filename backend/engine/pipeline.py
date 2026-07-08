@@ -95,6 +95,13 @@ def _build_registry(cfg: SurveyConfig) -> TransformRegistry:
     # ── 내장 pass-through ─────────────────────────────────────────────────────
     reg.register("copy", lambda val, **kw: val)
 
+    # ── 공통 주소 모듈 폴백 (기본값) ──────────────────────────────────────────
+    try:
+        from transforms.common.address import _TRANSFORMS as _addr_transforms
+        reg.register_dict(_addr_transforms)
+    except Exception:
+        pass
+
     # ── 주소 변환 (project address_parsing 설정 기반 클로저) ──────────────────
     # 클로저가 해당 프로젝트의 address_parsing 설정을 캡처하므로
     # 싱글톤에 등록하면 동시 요청 간 설정이 덮어써집니다.
@@ -135,13 +142,6 @@ def _build_registry(cfg: SurveyConfig) -> TransformRegistry:
         reg.auto_load_domain("transforms.domain")
     except Exception as exc:
         print(f"[경고] domain 모듈 자동 로드 실패: {exc}")
-
-    # ── 공통 주소 모듈 폴백 (address_parsing 미설정 시) ───────────────────────
-    try:
-        from transforms.common.address import _TRANSFORMS as _addr_transforms
-        reg.register_dict(_addr_transforms)
-    except Exception:
-        pass
 
     return reg
 
@@ -225,6 +225,49 @@ class SurveyPipeline:
         writer  = CleanedSheetWriter(cfg, registry)
         n_rows, col_index_map, cleaned_col_vals = writer.write(out_wb, df)
         print(f"Cleaned 시트 기록: {n_rows}행")
+
+        # ── dashboard.json 차트 → summary.sections 자동 생성 ─────────────────
+        # 웹 관리자 화면(Step2)은 dashboard.json의 charts만 편집할 뿐 config.yaml의
+        # summary.sections를 편집하는 UI가 없어, 웹으로 만든 프로젝트는 sections가
+        # 항상 비어 있다. sections가 비어 있으면 아래 SummarySheetWriter 자체가
+        # 건너뛰어져 Summary 시트가 생성되지 않고, 결과적으로 대시보드에 설정한
+        # 차트가 엑셀에는 하나도 반영되지 않는다(에러 없이 조용히 스킵됨).
+        # 사용자가 summary.sections를 직접 구성하지 않은 경우에 한해, dashboard.json의
+        # 차트 목록에서 필요한 unique_count 섹션을 자동으로 만들어 붙여준다.
+        if not cfg.summary.sections and proj_dir:
+            dashboard_path = proj_dir / "dashboard.json"
+            if dashboard_path.exists():
+                try:
+                    with open(dashboard_path, encoding="utf-8") as f:
+                        dash_data = json.load(f)
+                    chart_cols: list[tuple[str, str]] = []  # (col_ref, title)
+                    seen: set[str] = set()
+                    for c in dash_data.get("charts", []):
+                        col_ref = c.get("col") or c.get("colRef")
+                        if not col_ref or col_ref in seen or col_ref not in col_index_map:
+                            continue
+                        seen.add(col_ref)
+                        chart_cols.append((col_ref, c.get("title") or f"{col_ref} 집계"))
+                    if chart_cols:
+                        from engine.config import SummarySection, SummaryLayout
+                        if cfg.summary.layout is None:
+                            cfg.summary.layout = SummaryLayout()
+                        n_layout_cols = max(cfg.summary.layout.cols, 1)
+                        cfg.summary.sections = [
+                            SummarySection(
+                                title=title,
+                                type="unique_count",
+                                col_ref=col_ref,
+                                layout_col=(i % n_layout_cols) + 1,
+                            )
+                            for i, (col_ref, title) in enumerate(chart_cols)
+                        ]
+                        print(
+                            f"[정보] dashboard.json 차트 {len(chart_cols)}개 기준으로 "
+                            f"summary.sections 자동 생성"
+                        )
+                except Exception as exc:
+                    print(f"[경고] dashboard.json 기반 summary.sections 자동 생성 실패: {exc}")
 
         if cfg.summary.sections:
             SummarySheetWriter(cfg).write(out_wb, df, col_index_map, cleaned_col_vals)

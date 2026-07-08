@@ -21,13 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -47,12 +41,12 @@ import { Badge } from "@/components/ui/badge";
 interface ColumnDef {
   output_col: string;
   source_col?: number | null;
-  source_col_name?: string;       // 원본 헤더명 (참조용, 수정 불필요)
+  source_col_name?: string; // 원본 헤더명 (참조용, 수정 불필요)
   transform?: string | null;
   flag_keyword?: string;
   backup_col?: number | null;
   include_in_slicer?: boolean;
-  type?: string;                  // UI 표시용 힌트 (auto-detect 시 내보내기에서 자동 결정)
+  type?: string; // UI 표시용 힌트 (auto-detect 시 내보내기에서 자동 결정)
   source_cols?: number[];
 }
 
@@ -75,33 +69,36 @@ interface Step2Props {
  * (오래된 alias 는 엔진 내부에서 호환되지만 UI 에서는 canonical 이름만 노출)
  */
 const TRANSFORM_RULES: { value: string; label: string }[] = [
-  { value: "",               label: "정제 없음 (통과)" },
-  { value: "copy",           label: "copy — 원본 값 그대로" },
-  { value: "exclude",        label: "exclude — 출력 제외" },
+  { value: "", label: "정제 없음 (통과)" },
+  { value: "copy", label: "copy — 원본 값 그대로" },
+  { value: "exclude", label: "exclude — 출력 제외" },
   // ── 클렌징 (norm_) ─────────────────────────────────────────────────────────
-  { value: "norm_date",      label: "norm_date — 날짜 표준화 (YYYY-MM-DD)" },
-  { value: "norm_date_parts",label: "norm_date_parts — 날짜 + 연/월/일 파생열 4개 자동 생성" },
-  { value: "date_year",      label: "date_year — 날짜 연도(YYYY) 숫자만 추출" },
-  { value: "norm_phone",     label: "norm_phone — 전화번호 정규화" },
-  { value: "norm_company",   label: "norm_company — 회사명 정규화" },
-  { value: "norm_text",      label: "norm_text — 텍스트 정규화" },
-  { value: "norm_num",       label: "norm_num — 숫자 정규화" },
-  { value: "norm_position",  label: "norm_position — 직함 정규화" },
+  { value: "norm_date", label: "norm_date — 날짜 표준화 (YYYY-MM-DD)" },
+  { value: "norm_date_parts", label: "norm_date_parts — 날짜 + 연/월/일 파생열 4개 자동 생성" },
+  { value: "date_year", label: "date_year — 날짜 연도(YYYY) 숫자만 추출" },
+  { value: "norm_phone", label: "norm_phone — 전화번호 정규화" },
+  { value: "norm_company", label: "norm_company — 회사명 정규화" },
+  { value: "norm_text", label: "norm_text — 텍스트 정규화" },
+  { value: "norm_num", label: "norm_num — 숫자 정규화" },
+  { value: "norm_position", label: "norm_position — 직함 정규화" },
   // ── 검증 (val_) ────────────────────────────────────────────────────────────
-  { value: "val_email",      label: "val_email — 이메일 유효성 검사" },
-  { value: "val_url",        label: "val_url — URL 유효성 검사" },
-  { value: "val_brn",        label: "val_brn — 사업자번호 유효성 검사" },
+  { value: "val_email", label: "val_email — 이메일 유효성 검사" },
+  { value: "val_url", label: "val_url — URL 유효성 검사" },
+  { value: "val_brn", label: "val_brn — 사업자번호 유효성 검사" },
   // ── 마스킹 (mask_) ─────────────────────────────────────────────────────────
-  { value: "mask_name",      label: "mask_name — 이름 마스킹" },
-  { value: "mask_rrn",       label: "mask_rrn — 주민번호 뒷자리 마스킹" },
+  { value: "mask_name", label: "mask_name — 이름 마스킹" },
+  { value: "mask_rrn", label: "mask_rrn — 주민번호 뒷자리 마스킹" },
   // ── 변환 ────────────────────────────────────────────────────────────────────
-  { value: "to_binary",      label: "to_binary — 키워드 포함 여부 → 1/0 (flag_keyword 필요)" },
-  { value: "split_binary",   label: "split_binary — 복수 선택형 다중 이진 플래그 분리 (flag_keyword 필요)" },
-  { value: "to_pct",         label: "to_pct — 퍼센트 문자열 → float" },
+  { value: "to_binary", label: "to_binary — 키워드 포함 여부 → 1/0 (flag_keyword 필요)" },
+  {
+    value: "split_binary",
+    label: "split_binary — 복수 선택형 다중 이진 플래그 분리 (flag_keyword 필요)",
+  },
+  { value: "to_pct", label: "to_pct — 퍼센트 문자열 → float" },
   // ── 주소 ────────────────────────────────────────────────────────────────────
-  { value: "addr_split",     label: "addr_split — 주소 → 시도/시군구/상세 파생열 4개" },
+  { value: "addr_split", label: "addr_split — 주소 → 시도/시군구/상세 파생열 4개" },
   // ── 집계 ────────────────────────────────────────────────────────────────────
-  { value: "group_sum",      label: "group_sum — 다중 컬럼 합산 (source_cols 필요)" },
+  { value: "group_sum", label: "group_sum — 다중 컬럼 합산 (source_cols 필요)" },
 ];
 
 /** flag_keyword 인수가 필요한 transform 목록 */
@@ -118,8 +115,8 @@ const DERIVES_COLUMNS = new Set(["norm_date_parts", "addr_split", "split_binary"
 
 const COL_TYPES = [
   { value: "category", label: "카테고리 (category)" },
-  { value: "numeric",  label: "수치 데이터 (numeric)" },
-  { value: "text",     label: "자유 텍스트 (text)" },
+  { value: "numeric", label: "수치 데이터 (numeric)" },
+  { value: "text", label: "자유 텍스트 (text)" },
   { value: "datetime", label: "날짜/시간 (datetime)" },
 ];
 
@@ -282,9 +279,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
   };
 
   const addChart = () => {
-    const firstCol = (localConfig.columns as ColumnDef[]).find(
-      (c) => c.transform !== "exclude",
-    );
+    const firstCol = (localConfig.columns as ColumnDef[]).find((c) => c.transform !== "exclude");
     setLocalDashboard((prev: any) => ({
       ...prev,
       charts: [
@@ -311,7 +306,9 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
     });
   };
 
-  const updateDashboardList = (patch: Partial<{ visible_cols: string[]; filter_cols: string[] }>) => {
+  const updateDashboardList = (
+    patch: Partial<{ visible_cols: string[]; filter_cols: string[] }>,
+  ) => {
     setLocalDashboard((prev: any) => {
       const list = { ...(prev.list || { visible_cols: [], filter_cols: [] }), ...patch };
       return { ...prev, list };
@@ -350,7 +347,10 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
     activeColumns.forEach((col) => {
       list.push(col.output_col);
       if (col.transform === "split_binary" && col.flag_keyword) {
-        const kws = col.flag_keyword.split(",").map((k) => k.trim()).filter(Boolean);
+        const kws = col.flag_keyword
+          .split(",")
+          .map((k) => k.trim())
+          .filter(Boolean);
         kws.forEach((kw) => {
           list.push(`${col.output_col}_${kw}`);
         });
@@ -375,16 +375,11 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
             프로젝트 설정 및 대시보드 설계자
           </h2>
           <p className="text-xs text-muted-foreground">
-            프로젝트: <strong className="text-primary">{projectName}</strong>
-            {" "}| 엑셀 원본 매핑과 대시보드 레이아웃을 코딩 없이 제어하세요.
+            프로젝트: <strong className="text-primary">{projectName}</strong> | 엑셀 원본 매핑과
+            대시보드 레이아웃을 코딩 없이 제어하세요.
           </p>
         </div>
-        <Button
-          onClick={handleSave}
-          disabled={loading}
-          size="sm"
-          className="font-semibold gap-1.5"
-        >
+        <Button onClick={handleSave} disabled={loading} size="sm" className="font-semibold gap-1.5">
           <Save className="h-4 w-4" />
           {loading ? "저장 중..." : "정제 설정 저장"}
         </Button>
@@ -412,8 +407,8 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
             <CardHeader className="py-4">
               <CardTitle className="text-sm font-bold">컬럼 정제 정의 시트</CardTitle>
               <CardDescription className="text-xs">
-                각 설문 문항의 정제 규칙과 원본 컬럼(1-based 인덱스) 번호를 매핑합니다.
-                타입 선택은 표시용이며, 내보내기(export) 시 실제 데이터로 자동 감지됩니다.
+                각 설문 문항의 정제 규칙과 원본 컬럼(1-based 인덱스) 번호를 매핑합니다. 타입 선택은
+                표시용이며, 내보내기(export) 시 실제 데이터로 자동 감지됩니다.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0 overflow-x-auto">
@@ -434,12 +429,8 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                     <TableHead className="w-[215px] font-semibold text-center">
                       정제 규칙 (transform)
                     </TableHead>
-                    <TableHead className="w-[155px] font-semibold text-center">
-                      추가 인수
-                    </TableHead>
-                    <TableHead className="w-[75px] font-semibold text-center">
-                      필터
-                    </TableHead>
+                    <TableHead className="w-[155px] font-semibold text-center">추가 인수</TableHead>
+                    <TableHead className="w-[75px] font-semibold text-center">필터</TableHead>
                     <TableHead className="w-[46px]" />
                   </TableRow>
                 </TableHeader>
@@ -467,7 +458,9 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                             >
                               ▲
                             </Button>
-                            <span className="text-[10px] text-muted-foreground font-mono leading-none">{index + 1}</span>
+                            <span className="text-[10px] text-muted-foreground font-mono leading-none">
+                              {index + 1}
+                            </span>
                             <Button
                               variant="ghost"
                               size="icon"
@@ -516,9 +509,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                           <select
                             value={col.type ?? ""}
                             title="데이터 타입 (표시 힌트, 내보내기 시 자동 감지)"
-                            onChange={(e) =>
-                              handleColumnChange(index, { type: e.target.value })
-                            }
+                            onChange={(e) => handleColumnChange(index, { type: e.target.value })}
                             className="w-full p-1.5 rounded border border-input bg-background text-xs cursor-pointer focus:ring-1 focus:ring-primary"
                           >
                             <option value="">자동 감지</option>
@@ -538,9 +529,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                             disabled={isExcluded}
                             onChange={(e) =>
                               handleColumnChange(index, {
-                                source_col: e.target.value
-                                  ? Number(e.target.value)
-                                  : undefined,
+                                source_col: e.target.value ? Number(e.target.value) : undefined,
                               })
                             }
                             className="w-full p-1.5 rounded border border-input bg-background text-xs cursor-pointer text-center font-mono focus:ring-1 focus:ring-primary disabled:opacity-40"
@@ -592,7 +581,8 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                               title="group_sum: 합산할 엑셀 원본 열 번호들을 쉼표로 나열하세요"
                               onChange={(e) => {
                                 const val = e.target.value;
-                                const nums = val.split(",")
+                                const nums = val
+                                  .split(",")
                                   .map((v) => parseInt(v.trim(), 10))
                                   .filter((n) => !isNaN(n));
                                 handleColumnChange(index, { source_cols: nums });
@@ -606,9 +596,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                               title="jang: 주 컬럼이 빈 경우 사용할 보조 열번호"
                               onChange={(e) =>
                                 handleColumnChange(index, {
-                                  backup_col: e.target.value
-                                    ? Number(e.target.value)
-                                    : undefined,
+                                  backup_col: e.target.value ? Number(e.target.value) : undefined,
                                 })
                               }
                               className="w-full p-1.5 rounded border border-input bg-background text-[10px] cursor-pointer font-semibold"
@@ -697,14 +685,16 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
               <CardContent className="space-y-3">
                 {localDashboard.kpi.map((k: KpiItem, i: number) => (
                   <React.Fragment key={i}>
-                    {i > 0 && <div className="my-3 border-t border-dashed border-muted-foreground/30" />}
+                    {i > 0 && (
+                      <div className="my-3 border-t border-dashed border-muted-foreground/30" />
+                    )}
                     <div className="space-y-2.5 p-3 bg-muted/20 border rounded-md text-xs shadow-sm">
                       <div className="flex items-center justify-between pb-2 border-b border-muted">
                         <span className="text-base font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-md shadow-sm border border-indigo-100">
                           요약 스탯 (KPI) #{i + 1}
                         </span>
                       </div>
-                      
+
                       {/* 1층: 연산 유형 & 대상 컬럼 */}
                       <div className="flex items-center gap-2">
                         <select
@@ -726,9 +716,9 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                             className="h-8 px-2 rounded border border-input bg-background text-xs shadow-sm focus:ring-1 focus:ring-primary"
                           >
                             <option value="">-- 대상 --</option>
-                            {activeColumns.map((c) => (
-                              <option key={c.output_col} value={c.output_col}>
-                                {c.output_col}
+                            {allAvailableChartCols.map((cname) => (
+                              <option key={cname} value={cname}>
+                                {cname}
                               </option>
                             ))}
                           </select>
@@ -786,7 +776,9 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
               <CardContent className="space-y-3">
                 {localDashboard.charts.map((c: ChartItem, i: number) => (
                   <React.Fragment key={i}>
-                    {i > 0 && <div className="my-3 border-t border-dashed border-muted-foreground/30" />}
+                    {i > 0 && (
+                      <div className="my-3 border-t border-dashed border-muted-foreground/30" />
+                    )}
                     <div className="space-y-2.5 p-3 bg-muted/20 border rounded-md text-xs shadow-sm">
                       <div className="flex items-center justify-between pb-2 border-b border-muted">
                         <span className="text-base font-bold text-teal-700 bg-teal-50 px-3 py-1.5 rounded-md shadow-sm border border-teal-100">
@@ -846,148 +838,166 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                           </select>
                         )}
 
-                      <select
-                        value={c.type}
-                        title="차트 렌더링 스타일"
-                        onChange={(e) => {
-                          const newType = e.target.value;
-                          if (newType === "multibar") {
-                            updateChart(i, { type: newType, cols: [], col: undefined });
-                          } else {
-                            updateChart(i, { type: newType, cols: undefined, col: allAvailableChartCols[0] || "" });
-                          }
-                        }}
-                        className="h-8 px-2 rounded border border-input bg-background text-xs text-primary font-semibold shadow-sm focus:ring-1 focus:ring-primary"
-                      >
-                        {CHART_TYPES.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {c.type === "multibar" && (
-                      <div className="flex-1 border border-dashed rounded-md p-2 bg-muted/10 min-h-[36px] flex flex-wrap items-center gap-1.5 text-xs">
-                        <span className="font-semibold text-muted-foreground mr-1 text-[11px]">다중 분석 열:</span>
-                        {((c as any).cols || []).map((colObj: any, colIdx: number) => (
-                          <Badge key={colIdx} variant="secondary" className="text-[10px] font-semibold flex items-center gap-1">
-                            {colObj.label || colObj.col}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const nextCols = [...((c as any).cols || [])].filter((_, ci) => ci !== colIdx);
-                                updateChart(i, { cols: nextCols });
-                              }}
-                              className="hover:text-destructive text-muted-foreground/60 font-bold ml-0.5"
-                            >
-                              ×
-                            </button>
-                          </Badge>
-                        ))}
                         <select
-                          value=""
-                          title="다중 집계 대상 열 추가"
+                          value={c.type}
+                          title="차트 렌더링 스타일"
                           onChange={(e) => {
-                            if (!e.target.value) return;
-                            const selected = e.target.value;
-                            const currentCols = (c as any).cols || [];
-                            if (currentCols.some((co: any) => co.col === selected)) return;
-                            updateChart(i, {
-                              cols: [...currentCols, { col: selected, label: selected }]
-                            });
+                            const newType = e.target.value;
+                            if (newType === "multibar") {
+                              updateChart(i, { type: newType, cols: [], col: undefined });
+                            } else {
+                              updateChart(i, {
+                                type: newType,
+                                cols: undefined,
+                                col: allAvailableChartCols[0] || "",
+                              });
+                            }
                           }}
-                          className="h-6 px-1 rounded border bg-background text-[10px] shadow-sm font-semibold max-w-[130px] outline-none cursor-pointer"
+                          className="h-8 px-2 rounded border border-input bg-background text-xs text-primary font-semibold shadow-sm focus:ring-1 focus:ring-primary"
                         >
-                          <option value="">+ 컬럼 추가...</option>
-                          {allAvailableChartCols.map((cname) => (
-                            <option key={cname} value={cname}>
-                              {cname}
+                          {CHART_TYPES.map((t) => (
+                            <option key={t} value={t}>
+                              {t}
                             </option>
                           ))}
                         </select>
                       </div>
-                    )}
 
-                    {/* 차트 제목 입력 필드 - 단독 배치로 찌그러짐 차단 */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-muted-foreground">
-                        차트 카드 제목
-                      </label>
-                      <Input
-                        placeholder="차트 카드 제목 (예: 기관유형 분포)"
-                        value={c.title ?? ""}
-                        title="차트 카드 제목"
-                        onChange={(e) => updateChart(i, { title: e.target.value })}
-                        className="h-8 text-xs font-semibold w-full bg-background"
-                      />
-                    </div>
-
-                    {/* 세부 집계 및 정렬 속성들 */}
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
-                      {c.type !== "multibar" && (
-                        <select
-                          value={(c as any).value_col ?? ""}
-                          title="합산할 값 열 (선택)"
-                          onChange={(e) => updateChart(i, { value_col: e.target.value || undefined })}
-                          className="h-8 px-2 rounded border border-input bg-background text-xs max-w-[170px] flex-1 shadow-sm focus:ring-1 focus:ring-primary font-semibold"
-                        >
-                          <option value="">-- 단순 건수(Count) --</option>
-                          {allAvailableChartCols.map((cname) => (
-                            <option key={cname} value={cname}>
-                              값 합산: {cname}
-                            </option>
+                      {c.type === "multibar" && (
+                        <div className="flex-1 border border-dashed rounded-md p-2 bg-muted/10 min-h-[36px] flex flex-wrap items-center gap-1.5 text-xs">
+                          <span className="font-semibold text-muted-foreground mr-1 text-[11px]">
+                            다중 분석 열:
+                          </span>
+                          {((c as any).cols || []).map((colObj: any, colIdx: number) => (
+                            <Badge
+                              key={colIdx}
+                              variant="secondary"
+                              className="text-[10px] font-semibold flex items-center gap-1"
+                            >
+                              {colObj.label || colObj.col}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const nextCols = [...((c as any).cols || [])].filter(
+                                    (_, ci) => ci !== colIdx,
+                                  );
+                                  updateChart(i, { cols: nextCols });
+                                }}
+                                className="hover:text-destructive text-muted-foreground/60 font-bold ml-0.5"
+                              >
+                                ×
+                              </button>
+                            </Badge>
                           ))}
-                        </select>
+                          <select
+                            value=""
+                            title="다중 집계 대상 열 추가"
+                            onChange={(e) => {
+                              if (!e.target.value) return;
+                              const selected = e.target.value;
+                              const currentCols = (c as any).cols || [];
+                              if (currentCols.some((co: any) => co.col === selected)) return;
+                              updateChart(i, {
+                                cols: [...currentCols, { col: selected, label: selected }],
+                              });
+                            }}
+                            className="h-6 px-1 rounded border bg-background text-[10px] shadow-sm font-semibold max-w-[130px] outline-none cursor-pointer"
+                          >
+                            <option value="">+ 컬럼 추가...</option>
+                            {allAvailableChartCols.map((cname) => (
+                              <option key={cname} value={cname}>
+                                {cname}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       )}
-                      <select
-                        value={c.sort_by ?? "value_desc"}
-                        title="차트 데이터 정렬 순서"
-                        onChange={(e) => updateChart(i, { sort_by: e.target.value })}
-                        className="h-8 px-2 rounded border border-input bg-background text-xs max-w-[140px] flex-1 shadow-sm focus:ring-1 focus:ring-primary font-semibold"
-                      >
-                        <option value="value_desc">정렬: 값 내림차순</option>
-                        <option value="value_asc">정렬: 값 오름차순</option>
-                        <option value="name_asc">정렬: 이름 가나다</option>
-                        <option value="none">정렬: 기본 순서</option>
-                      </select>
-                      <select
-                        value={c.max_items ?? 20}
-                        title="표시할 항목 갯수 제한"
-                        onChange={(e) => updateChart(i, { max_items: Number(e.target.value) })}
-                        className="h-8 px-2 rounded border border-input bg-background text-xs max-w-[130px] flex-1 shadow-sm focus:ring-1 focus:ring-primary font-semibold"
-                      >
-                        <option value={20}>상위 20개 표시</option>
-                        <option value={15}>상위 15개 표시</option>
-                        <option value={10}>상위 10개 표시</option>
-                        <option value={5}>상위 5개 표시</option>
-                        <option value={0}>전체 표시</option>
-                      </select>
-                      <select
-                        value={c.show_percent ? "yes" : "no"}
-                        title="비중(%) 표시 여부"
-                        onChange={(e) => updateChart(i, { show_percent: e.target.value === "yes" })}
-                        className="h-8 px-2 rounded border border-input bg-background text-xs max-w-[130px] flex-1 shadow-sm focus:ring-1 focus:ring-primary font-semibold"
-                      >
-                        <option value="no">비율: 표시 안 함</option>
-                        <option value="yes">비율: % 표시함</option>
-                      </select>
-                      <select
-                        value={c.layout ?? "1x1"}
-                        title="차트 크기(비율)"
-                        onChange={(e) => updateChart(i, { layout: e.target.value as any, width: undefined })}
-                        className="h-8 px-2 rounded border border-input bg-background text-xs max-w-[130px] flex-1 shadow-sm focus:ring-1 focus:ring-primary font-semibold"
-                      >
-                        <option value="1x1">크기: 기본 (1:1)</option>
-                        <option value="2x1">크기: 가로 2배 (2:1)</option>
-                        <option value="2x2">크기: 크게 (2:2)</option>
-                        <option value="0.5x1">크기: 절반 (1/2)</option>
-                        <option value="full">크기: 한 줄 전체</option>
-                      </select>
+
+                      {/* 차트 제목 입력 필드 - 단독 배치로 찌그러짐 차단 */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-muted-foreground">
+                          차트 카드 제목
+                        </label>
+                        <Input
+                          placeholder="차트 카드 제목 (예: 기관유형 분포)"
+                          value={c.title ?? ""}
+                          title="차트 카드 제목"
+                          onChange={(e) => updateChart(i, { title: e.target.value })}
+                          className="h-8 text-xs font-semibold w-full bg-background"
+                        />
+                      </div>
+
+                      {/* 세부 집계 및 정렬 속성들 */}
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        {c.type !== "multibar" && (
+                          <select
+                            value={(c as any).value_col ?? ""}
+                            title="합산할 값 열 (선택)"
+                            onChange={(e) =>
+                              updateChart(i, { value_col: e.target.value || undefined })
+                            }
+                            className="h-8 px-2 rounded border border-input bg-background text-xs max-w-[170px] flex-1 shadow-sm focus:ring-1 focus:ring-primary font-semibold"
+                          >
+                            <option value="">-- 단순 건수(Count) --</option>
+                            {allAvailableChartCols.map((cname) => (
+                              <option key={cname} value={cname}>
+                                값 합산: {cname}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        <select
+                          value={c.sort_by ?? "value_desc"}
+                          title="차트 데이터 정렬 순서"
+                          onChange={(e) => updateChart(i, { sort_by: e.target.value })}
+                          className="h-8 px-2 rounded border border-input bg-background text-xs max-w-[140px] flex-1 shadow-sm focus:ring-1 focus:ring-primary font-semibold"
+                        >
+                          <option value="value_desc">정렬: 값 내림차순</option>
+                          <option value="value_asc">정렬: 값 오름차순</option>
+                          <option value="name_asc">정렬: 이름 가나다</option>
+                          <option value="none">정렬: 기본 순서</option>
+                        </select>
+                        <select
+                          value={c.max_items ?? 20}
+                          title="표시할 항목 갯수 제한"
+                          onChange={(e) => updateChart(i, { max_items: Number(e.target.value) })}
+                          className="h-8 px-2 rounded border border-input bg-background text-xs max-w-[130px] flex-1 shadow-sm focus:ring-1 focus:ring-primary font-semibold"
+                        >
+                          <option value={20}>상위 20개 표시</option>
+                          <option value={15}>상위 15개 표시</option>
+                          <option value={10}>상위 10개 표시</option>
+                          <option value={5}>상위 5개 표시</option>
+                          <option value={0}>전체 표시</option>
+                        </select>
+                        <select
+                          value={c.show_percent ? "yes" : "no"}
+                          title="비중(%) 표시 여부"
+                          onChange={(e) =>
+                            updateChart(i, { show_percent: e.target.value === "yes" })
+                          }
+                          className="h-8 px-2 rounded border border-input bg-background text-xs max-w-[130px] flex-1 shadow-sm focus:ring-1 focus:ring-primary font-semibold"
+                        >
+                          <option value="no">비율: 표시 안 함</option>
+                          <option value="yes">비율: % 표시함</option>
+                        </select>
+                        <select
+                          value={c.layout ?? "1x1"}
+                          title="차트 크기(비율)"
+                          onChange={(e) =>
+                            updateChart(i, { layout: e.target.value as any, width: undefined })
+                          }
+                          className="h-8 px-2 rounded border border-input bg-background text-xs max-w-[130px] flex-1 shadow-sm focus:ring-1 focus:ring-primary font-semibold"
+                        >
+                          <option value="1x1">크기: 기본 (1:1)</option>
+                          <option value="2x1">크기: 가로 2배 (2:1)</option>
+                          <option value="2x2">크기: 크게 (2:2)</option>
+                          <option value="0.5x1">크기: 절반 (1/2)</option>
+                          <option value="full">크기: 한 줄 전체</option>
+                        </select>
+                      </div>
                     </div>
-                  </div>
-                </React.Fragment>
-              ))}
+                  </React.Fragment>
+                ))}
 
                 <Button
                   variant="outline"
@@ -1019,23 +1029,26 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                     🔍 대시보드 상단 조회 필터 열
                   </label>
                   <div className="border rounded-md p-2 bg-muted/10 max-h-[140px] overflow-y-auto space-y-1.5">
-                    {activeColumns.map((col) => {
-                      const isFiltered = (localDashboard.list?.filter_cols || []).includes(col.output_col);
+                    {allAvailableChartCols.map((colName) => {
+                      const isFiltered = (localDashboard.list?.filter_cols || []).includes(colName);
                       return (
-                        <label key={col.output_col} className="flex items-center gap-2 text-[11px] cursor-pointer hover:bg-muted/30 p-1 rounded">
+                        <label
+                          key={colName}
+                          className="flex items-center gap-2 text-[11px] cursor-pointer hover:bg-muted/30 p-1 rounded"
+                        >
                           <input
                             type="checkbox"
                             checked={isFiltered}
                             onChange={(e) => {
                               const current = localDashboard.list?.filter_cols || [];
                               const next = e.target.checked
-                                ? [...current, col.output_col]
-                                : current.filter((c: string) => c !== col.output_col);
+                                ? [...current, colName]
+                                : current.filter((c: string) => c !== colName);
                               updateDashboardList({ filter_cols: next });
                             }}
                             className="rounded border-input text-primary focus:ring-primary h-3.5 w-3.5"
                           />
-                          <span className="truncate">{col.output_col}</span>
+                          <span className="truncate">{colName}</span>
                         </label>
                       );
                     })}
@@ -1048,23 +1061,26 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                     📋 목록 표 노출 열 (전체 검색 대상)
                   </label>
                   <div className="border rounded-md p-2 bg-muted/10 max-h-[140px] overflow-y-auto space-y-1.5">
-                    {activeColumns.map((col) => {
-                      const isVisible = (localDashboard.list?.visible_cols || []).includes(col.output_col);
+                    {allAvailableChartCols.map((colName) => {
+                      const isVisible = (localDashboard.list?.visible_cols || []).includes(colName);
                       return (
-                        <label key={col.output_col} className="flex items-center gap-2 text-[11px] cursor-pointer hover:bg-muted/30 p-1 rounded">
+                        <label
+                          key={colName}
+                          className="flex items-center gap-2 text-[11px] cursor-pointer hover:bg-muted/30 p-1 rounded"
+                        >
                           <input
                             type="checkbox"
                             checked={isVisible}
                             onChange={(e) => {
                               const current = localDashboard.list?.visible_cols || [];
                               const next = e.target.checked
-                                ? [...current, col.output_col]
-                                : current.filter((c: string) => c !== col.output_col);
+                                ? [...current, colName]
+                                : current.filter((c: string) => c !== colName);
                               updateDashboardList({ visible_cols: next });
                             }}
                             className="rounded border-input text-primary focus:ring-primary h-3.5 w-3.5"
                           />
-                          <span className="truncate">{col.output_col}</span>
+                          <span className="truncate">{colName}</span>
                         </label>
                       );
                     })}
@@ -1092,10 +1108,13 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                       checked={localConfig?.excel_options?.include_slicers ?? true}
                       onChange={(e) => {
                         if (!localConfig) return;
-                        const current = localConfig.excel_options || { include_slicers: true, include_charts: true };
+                        const current = localConfig.excel_options || {
+                          include_slicers: true,
+                          include_charts: true,
+                        };
                         setLocalConfig({
                           ...localConfig,
-                          excel_options: { ...current, include_slicers: e.target.checked }
+                          excel_options: { ...current, include_slicers: e.target.checked },
                         });
                       }}
                       className="rounded border-input text-primary focus:ring-primary h-4 w-4"
@@ -1109,10 +1128,13 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                       checked={localConfig?.excel_options?.include_charts ?? true}
                       onChange={(e) => {
                         if (!localConfig) return;
-                        const current = localConfig.excel_options || { include_slicers: true, include_charts: true };
+                        const current = localConfig.excel_options || {
+                          include_slicers: true,
+                          include_charts: true,
+                        };
                         setLocalConfig({
                           ...localConfig,
-                          excel_options: { ...current, include_charts: e.target.checked }
+                          excel_options: { ...current, include_charts: e.target.checked },
                         });
                       }}
                       className="rounded border-input text-primary focus:ring-primary h-4 w-4"
@@ -1138,7 +1160,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
             >
               ← 이전 단계 (프로젝트 목록)
             </Button>
-            
+
             <Button
               onClick={async () => {
                 try {
@@ -1166,7 +1188,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
             >
               ← 이전 단계 (컬럼 정제 설정)
             </Button>
-            
+
             <Button
               onClick={handleSaveAndNext}
               disabled={loading}

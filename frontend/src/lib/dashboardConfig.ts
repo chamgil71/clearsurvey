@@ -4,14 +4,16 @@ export const configKey = (project: string) => `survey-dash-config-${project}`;
 
 export function migrateConfig(parsed: DashboardConfig): DashboardConfig {
   if (parsed.charts && Array.isArray(parsed.charts)) {
-    parsed.charts = parsed.charts.filter((c) => c != null).map((c: any) => {
-      // 과거 width 속성이 있으면 최신 layout으로 업그레이드
-      if (!c.layout && c.width !== undefined) {
-        c.layout = (c.width === 2 || c.width === "2") ? "2x1" : "1x1";
-        delete c.width;
-      }
-      return c;
-    });
+    parsed.charts = parsed.charts
+      .filter((c) => c != null)
+      .map((c: any) => {
+        // 과거 width 속성이 있으면 최신 layout으로 업그레이드
+        if (!c.layout && c.width !== undefined) {
+          c.layout = c.width === 2 || c.width === "2" ? "2x1" : "1x1";
+          delete c.width;
+        }
+        return c;
+      });
   }
   return parsed;
 }
@@ -19,7 +21,7 @@ export function migrateConfig(parsed: DashboardConfig): DashboardConfig {
 export function loadConfig(
   project: string,
   base: DashboardConfig | null = null,
-  meta?: DataMeta
+  meta?: DataMeta,
 ): DashboardConfig | null {
   if (base && Object.keys(base).length > 0) return migrateConfig(base);
   if (typeof window === "undefined") return base ? migrateConfig(base) : null;
@@ -28,7 +30,7 @@ export function loadConfig(
     if (raw) {
       let parsed = JSON.parse(raw) as DashboardConfig;
       parsed = migrateConfig(parsed);
-      
+
       if (meta && meta.columns && parsed.charts) {
         const validKeys = new Set(meta.columns.map((c) => c.key));
         const isCorrupted = parsed.charts.some((chart) => {
@@ -37,7 +39,7 @@ export function loadConfig(
           }
           return "col" in chart && !validKeys.has(chart.col);
         });
-        
+
         if (isCorrupted) {
           window.localStorage.removeItem(configKey(project));
           return null;

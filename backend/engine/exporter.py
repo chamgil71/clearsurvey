@@ -107,14 +107,23 @@ def export_to_json(
         wb = openpyxl.load_workbook(cleaned_xlsx, data_only=True, read_only=True)
     except Exception:
         wb = openpyxl.load_workbook(cleaned_xlsx, data_only=True)
-    ws_name = cfg.sheets.cleaned
-    if ws_name not in wb.sheetnames:
-        raise ValueError(f"'{ws_name}' 시트를 찾을 수 없습니다: {cleaned_xlsx.name}")
-    ws = wb[ws_name]
 
-    # ── headers from row 2 (output header row) ───────────────────────────────
-    # read_only worksheets use .rows iterator; cell() is not available
-    all_rows_iter = list(ws.rows)
+    # read_only 워크북은 내부적으로 zip 아카이브 핸들을 계속 들고 있어, 명시적으로
+    # close() 하지 않으면 CPython의 순환 참조 때문에 GC가 지연되어 파일 핸들이
+    # 예측 불가능하게 오래 열려 있게 된다. 이후 파이프라인 재실행 시 같은 파일을
+    # 교체(rename)하려다 WinError 5(액세스 거부)로 실패하는 원인이었다.
+    try:
+        ws_name = cfg.sheets.cleaned
+        if ws_name not in wb.sheetnames:
+            raise ValueError(f"'{ws_name}' 시트를 찾을 수 없습니다: {cleaned_xlsx.name}")
+        ws = wb[ws_name]
+
+        # ── headers from row 2 (output header row) ───────────────────────────────
+        # read_only worksheets use .rows iterator; cell() is not available
+        all_rows_iter = list(ws.rows)
+    finally:
+        wb.close()
+
     hdr_row_cells = all_rows_iter[1] if len(all_rows_iter) > 1 else []
     headers: list[str] = [
         str(c.value).strip() if c.value is not None else ""
@@ -157,17 +166,51 @@ def export_to_json(
                 entry["sum"] = sum(nums)
         columns.append(entry)
 
+    # ── dashboard config 조기 로드 (aggregates 계산에 filter_cols 필요) ────────
+    # 우선순위: project/dashboard.json > config/dashboard_defaults.yaml > 자동 생성
+    # 자동 생성 결과는 React DashboardConfig 타입과 호환됩니다.
+    dash_cfg: dict | None = None
+
+    if project_dir is not None:
+        defaults_path = project_dir.parent.parent / "config" / "dashboard_defaults.yaml"
+        if defaults_path.exists():
+            import yaml as _yaml
+            with open(defaults_path, encoding="utf-8") as f:
+                raw_defaults = _yaml.safe_load(f) or {}
+            if raw_defaults and any(v is not None for v in raw_defaults.values()):
+                dash_cfg = raw_defaults
+
+    if project_dir is not None:
+        dash_path = project_dir / "dashboard.json"
+        if dash_path.exists():
+            with open(dash_path, encoding="utf-8") as f:
+                dash_cfg = json.load(f)
+            print(f"대시보드 설정 포함: {dash_path}")
+
+    if not dash_cfg:
+        dash_cfg = _build_default_dashboard(columns)
+
+    filter_cols: set[str] = set(dash_cfg.get("list", {}).get("filter_cols") or [])
+
     # ── aggregates (category counts) ──────────────────────────────────────────
+    # 필터 드롭다운 옵션 개수 상한. 사용자가 필터로 명시 등록한 컬럼이라도
+    # 값이 사실상 자유 텍스트(고유값이 지나치게 많음)면 드롭다운이 무의미하고
+    # JSON 용량만 커지므로 상한을 넘으면 건너뛴다.
+    _FILTER_UNIQUE_CAP = 150
     aggregates: dict[str, dict[str, int]] = {}
     for col in columns:
         vals = [r[col["key"]] for r in rows if r.get(col["key"]) is not None]
         unique_vals = {str(v).strip() for v in vals if str(v).strip()}
-        
+
         # Check if the column is configured to be in slicer in config.yaml
         cfg_col = next((c for c in cfg.columns if c.output_col == col["key"]), None)
         in_slicer = getattr(cfg_col, "include_in_slicer", False) if cfg_col else False
-        
-        if col["type"] == "category" or in_slicer:
+        is_filter_col = col["key"] in filter_cols
+
+        if is_filter_col and len(unique_vals) > _FILTER_UNIQUE_CAP:
+            continue
+
+        if col["type"] == "category" or in_slicer or is_filter_col:
             counts: dict[str, int] = {}
             for row in rows:
                 v = str(row.get(col["key"]) or "").strip()
@@ -220,34 +263,7 @@ def export_to_json(
         "aggregates": aggregates,
     }
 
-    # ── embed dashboard config ────────────────────────────────────────────────
-    # 우선순위: project/dashboard.json > config/dashboard_defaults.yaml > 자동 생성
-    # 자동 생성 결과는 React DashboardConfig 타입과 호환됩니다.
-    dash_cfg: dict | None = None
-
-    # 1. 조직 공통 기본값 (config/dashboard_defaults.yaml)
-    if project_dir is not None:
-        defaults_path = project_dir.parent.parent / "config" / "dashboard_defaults.yaml"
-        if defaults_path.exists():
-            import yaml as _yaml
-            with open(defaults_path, encoding="utf-8") as f:
-                raw_defaults = _yaml.safe_load(f) or {}
-            # 주석만 있는 파일은 실제 키가 없을 수 있음
-            if raw_defaults and any(v is not None for v in raw_defaults.values()):
-                dash_cfg = raw_defaults
-
-    # 2. 프로젝트별 설정 (project/dashboard.json) — 공통값 위에 덮어씀
-    if project_dir is not None:
-        dash_path = project_dir / "dashboard.json"
-        if dash_path.exists():
-            with open(dash_path, encoding="utf-8") as f:
-                dash_cfg = json.load(f)
-            print(f"대시보드 설정 포함: {dash_path}")
-
-    # 3. 설정 없으면 컬럼 메타에서 DashboardConfig 호환 기본값 자동 생성
-    if not dash_cfg:
-        dash_cfg = _build_default_dashboard(columns)
-
+    # dash_cfg는 aggregates 계산 전에 이미 로드됨 (filter_cols 참조 목적)
     result["dashboard"] = dash_cfg
 
     if output_path:

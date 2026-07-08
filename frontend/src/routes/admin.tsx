@@ -75,7 +75,9 @@ function AdminPage() {
       setAuthLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_, session) => {
       setUser(session?.user ?? null);
     });
     return () => subscription.unsubscribe();
@@ -117,13 +119,19 @@ function AdminDashboard({ user }: { user: User }) {
 
   const api = useManagerApi();
 
-  useEffect(() => () => { if (pollingRef.current) clearInterval(pollingRef.current); }, []);
+  useEffect(
+    () => () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    },
+    [],
+  );
 
   // 프로젝트 설정 로드 (컴포넌트 수명 주기 클린업 및 Race Condition 방어)
   useEffect(() => {
     let active = true;
-    if (selectedProject && api.isBackendAlive && (view === "config" || view === "run")) {
-      api.loadProjectConfig(selectedProject)
+    if (selectedProject && api.isBackendAlive && view === "config") {
+      api
+        .loadProjectConfig(selectedProject)
         .then((data) => {
           if (active) setLoadedConfig(data);
         })
@@ -137,7 +145,9 @@ function AdminDashboard({ user }: { user: User }) {
     }
     return () => {
       active = false;
-      setLoadedConfig(null);
+      if (view === "config") {
+        setLoadedConfig(null);
+      }
     };
   }, [selectedProject, api.isBackendAlive, view]);
 
@@ -192,11 +202,18 @@ function AdminDashboard({ user }: { user: User }) {
   // ── Step3 핸들러 ────────────────────────────────────────────────────────────
   const handleRunWithPolling = async (): Promise<void> => {
     if (!selectedProject) return;
-    if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
 
     api.clearLogs();
     let startResult: { status: string } | undefined;
-    try { startResult = await api.runPipeline(selectedProject); } catch { return; }
+    try {
+      startResult = await api.runPipeline(selectedProject);
+    } catch {
+      return;
+    }
     if (startResult?.status !== "started") return;
 
     const eventSource = new EventSource(api.getLogsStreamUrl(selectedProject));
@@ -215,7 +232,11 @@ function AdminDashboard({ user }: { user: User }) {
         clearInterval(pollingRef.current!);
         pollingRef.current = null;
         eventSource.close();
-        try { await api.exportDashboard(selectedProject); } catch { /* logged internally */ }
+        try {
+          await api.exportDashboard(selectedProject);
+        } catch {
+          /* logged internally */
+        }
         setPipelineRunning(false);
       } else if (status.status === "error") {
         clearInterval(pollingRef.current!);
@@ -240,10 +261,7 @@ function AdminDashboard({ user }: { user: User }) {
           setSelectedProject={setSelectedProject}
           setGuideOpen={setGuideOpen}
         />
-        <SidebarUserPanel
-          email={user.email ?? ""}
-          onSignOut={handleSignOut}
-        />
+        <SidebarUserPanel email={user.email ?? ""} onSignOut={handleSignOut} />
       </aside>
 
       {/* ── Main content ─────────────────────────────────────────────────────── */}
@@ -253,10 +271,14 @@ function AdminDashboard({ user }: { user: User }) {
           <Breadcrumb view={view} project={selectedProject} onList={() => setView("list")} />
           <div className="flex-1" />
           {!api.isBackendAlive && (
-            <Badge variant="destructive" className="text-xs">서버 오프라인</Badge>
+            <Badge variant="destructive" className="text-xs">
+              서버 오프라인
+            </Badge>
           )}
           {api.isBackendAlive && (
-            <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-300">서버 온라인</Badge>
+            <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-300">
+              서버 온라인
+            </Badge>
           )}
         </header>
 
@@ -273,7 +295,9 @@ function AdminDashboard({ user }: { user: User }) {
                   await api.togglePublish(name, published);
                   toast.success(`'${name}' ${published ? "게시" : "비공개"} 처리됨`);
                 } catch (err: unknown) {
-                  toast.error(`게시 상태 변경 실패: ${err instanceof Error ? err.message : String(err)}`);
+                  toast.error(
+                    `게시 상태 변경 실패: ${err instanceof Error ? err.message : String(err)}`,
+                  );
                 }
               }}
               onDelete={async (name) => {
@@ -281,7 +305,9 @@ function AdminDashboard({ user }: { user: User }) {
                   await api.deleteProject(name);
                   toast.success(`프로젝트 '${name}'이 삭제되었습니다.`);
                 } catch (err: unknown) {
-                  toast.error(`프로젝트 삭제 실패: ${err instanceof Error ? err.message : String(err)}`);
+                  toast.error(
+                    `프로젝트 삭제 실패: ${err instanceof Error ? err.message : String(err)}`,
+                  );
                 }
               }}
               onNew={() => setView("new")}
@@ -346,7 +372,7 @@ function AdminDashboard({ user }: { user: User }) {
   );
 }
 
-  // ── 서브 컴포넌트 ─────────────────────────────────────────────────────────────
+// ── 서브 컴포넌트 ─────────────────────────────────────────────────────────────
 
 function SidebarLogo() {
   return (
@@ -362,7 +388,12 @@ function SidebarLogo() {
           Data Platform
         </span>
       </div>
-      <Badge variant="outline" className="text-[10px] px-2 py-1 ml-auto border-primary/30 bg-primary/5 text-primary font-extrabold shadow-sm shrink-0">Admin</Badge>
+      <Badge
+        variant="outline"
+        className="text-[10px] px-2 py-1 ml-auto border-primary/30 bg-primary/5 text-primary font-extrabold shadow-sm shrink-0"
+      >
+        Admin
+      </Badge>
       <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
     </div>
   );
@@ -392,12 +423,17 @@ function SidebarNavigation({
         icon={<Plus className="h-5 w-5" />}
         label="새 프로젝트"
         active={view === "new"}
-        onClick={() => { setView("new"); setSelectedProject(""); }}
+        onClick={() => {
+          setView("new");
+          setSelectedProject("");
+        }}
       />
 
       <div className="h-8" />
       <div className="pb-3 px-8 flex items-center gap-3">
-        <span className="text-xs uppercase font-extrabold tracking-widest text-muted-foreground/50 shrink-0">도구</span>
+        <span className="text-xs uppercase font-extrabold tracking-widest text-muted-foreground/50 shrink-0">
+          도구
+        </span>
         <span className="h-px flex-1 bg-border" />
       </div>
 
@@ -425,13 +461,7 @@ function SidebarNavigation({
   );
 }
 
-function SidebarUserPanel({
-  email,
-  onSignOut,
-}: {
-  email: string;
-  onSignOut: () => void;
-}) {
+function SidebarUserPanel({ email, onSignOut }: { email: string; onSignOut: () => void }) {
   return (
     <div className="p-6 border-t border-border bg-gradient-to-t from-muted/30 to-transparent space-y-4 shrink-0">
       <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-card/60 border border-border/80 text-sm shadow-sm min-w-0">
@@ -457,8 +487,16 @@ function SidebarUserPanel({
 
 // ── SidebarItem ─────────────────────────────────────────────────────────────
 function SidebarItem({
-  icon, label, active, onClick,
-}: { icon: React.ReactNode; label: string; active: boolean; onClick: () => void }) {
+  icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
   return (
     <div className="relative px-5">
       {active && (
@@ -472,7 +510,9 @@ function SidebarItem({
             : "text-muted-foreground hover:bg-accent/60 hover:text-foreground hover:pl-6"
         }`}
       >
-        <span className={`transition-transform duration-300 group-hover:scale-110 shrink-0 ${active ? "text-white" : "text-muted-foreground/80 group-hover:text-primary"}`}>
+        <span
+          className={`transition-transform duration-300 group-hover:scale-110 shrink-0 ${active ? "text-white" : "text-muted-foreground/80 group-hover:text-primary"}`}
+        >
           {icon}
         </span>
         <span className="leading-none text-[1.1rem]">{label}</span>
@@ -482,8 +522,14 @@ function SidebarItem({
 }
 
 function Breadcrumb({
-  view, project, onList,
-}: { view: AdminView; project: string; onList: () => void }) {
+  view,
+  project,
+  onList,
+}: {
+  view: AdminView;
+  project: string;
+  onList: () => void;
+}) {
   const labels: Record<AdminView, string> = {
     list: "프로젝트 목록",
     new: "새 프로젝트",
@@ -533,7 +579,11 @@ function ProjectListView({
   const api = useManagerApi();
 
   const handleDelete = async (id: string, name: string) => {
-    if (!window.confirm(`정말로 프로젝트 '${name}'을(를) 완전히 삭제하시겠습니까?\n이 작업은 되돌릴 수 없으며 관련 설정 및 배포 데이터가 영구적으로 제거됩니다.`)) {
+    if (
+      !window.confirm(
+        `정말로 프로젝트 '${name}'을(를) 완전히 삭제하시겠습니까?\n이 작업은 되돌릴 수 없으며 관련 설정 및 배포 데이터가 영구적으로 제거됩니다.`,
+      )
+    ) {
       return;
     }
     setDeleting(id);
@@ -546,7 +596,11 @@ function ProjectListView({
 
   const handleToggle = async (name: string, current: boolean) => {
     setToggling(name);
-    try { await onTogglePublish(name, !current); } finally { setToggling(null); }
+    try {
+      await onTogglePublish(name, !current);
+    } finally {
+      setToggling(null);
+    }
   };
 
   return (
@@ -560,15 +614,15 @@ function ProjectListView({
           </p>
         </div>
         <Button size="lg" onClick={onNew} disabled={!isBackendAlive}>
-          <Plus className="h-5 w-5 mr-2" />
-          새 프로젝트
+          <Plus className="h-5 w-5 mr-2" />새 프로젝트
         </Button>
       </div>
 
       {/* Backend offline notice */}
       {!isBackendAlive && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-4 text-sm text-amber-800 dark:text-amber-200">
-          ⚠ FastAPI 서버가 오프라인 상태입니다. 설정 변경 및 파이프라인 실행은 서버 온라인 시 가능합니다.
+          ⚠ FastAPI 서버가 오프라인 상태입니다. 설정 변경 및 파이프라인 실행은 서버 온라인 시
+          가능합니다.
         </div>
       )}
 
@@ -578,8 +632,7 @@ function ProjectListView({
           <FolderOpen className="h-12 w-12 text-muted-foreground/40 mb-4" />
           <p className="text-muted-foreground">등록된 프로젝트가 없습니다</p>
           <Button className="mt-4" onClick={onNew} disabled={!isBackendAlive}>
-            <Plus className="h-4 w-4 mr-2" />
-            첫 프로젝트 만들기
+            <Plus className="h-4 w-4 mr-2" />첫 프로젝트 만들기
           </Button>
         </div>
       ) : (
@@ -613,9 +666,7 @@ function ProjectListView({
                     </td>
 
                     {/* 업데이트 */}
-                    <td className="px-6 py-4 text-muted-foreground">
-                      {p.updated || "—"}
-                    </td>
+                    <td className="px-6 py-4 text-muted-foreground">{p.updated || "—"}</td>
 
                     {/* 게시 토글 */}
                     <td className="px-6 py-4">
@@ -689,7 +740,11 @@ function ProjectListView({
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         <StatCard label="전체 프로젝트" value={projects.length} />
-        <StatCard label="웹 게시 중" value={projects.filter((p) => p.published !== false).length} accent />
+        <StatCard
+          label="웹 게시 중"
+          value={projects.filter((p) => p.published !== false).length}
+          accent
+        />
         <StatCard label="비공개" value={projects.filter((p) => p.published === false).length} />
       </div>
     </div>
@@ -698,7 +753,9 @@ function ProjectListView({
 
 function StatCard({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
   return (
-    <div className={`border rounded-2xl p-6 shadow-sm ${accent ? "bg-primary/5 border-primary/20" : "bg-muted/20"}`}>
+    <div
+      className={`border rounded-2xl p-6 shadow-sm ${accent ? "bg-primary/5 border-primary/20" : "bg-muted/20"}`}
+    >
       <div className={`text-4xl font-bold ${accent ? "text-primary" : ""}`}>{value}</div>
       <div className="text-sm font-medium text-muted-foreground mt-2">{label}</div>
     </div>

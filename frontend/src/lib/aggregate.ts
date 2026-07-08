@@ -31,11 +31,7 @@ export function aggMultiValue(rows: Row[], col: string, sep = ","): Record<strin
   return Object.fromEntries(Object.entries(counts).sort((a, b) => b[1] - a[1]));
 }
 
-export function filterRows(
-  rows: Row[],
-  search: string,
-  filters: Record<string, string>,
-): Row[] {
+export function filterRows(rows: Row[], search: string, filters: Record<string, string>): Row[] {
   const hasFilters = Object.values(filters).some(Boolean);
   if (!search && !hasFilters) return rows;
   const term = search.toLowerCase();
@@ -49,7 +45,7 @@ export function filterRows(
     for (const [col, val] of Object.entries(filters)) {
       if (!val) continue;
       const rowValStr = String(row[col] ?? "").trim();
-      const parts = rowValStr.split(",").map(s => s.trim());
+      const parts = rowValStr.split(",").map((s) => s.trim());
       if (!parts.includes(val)) return false;
     }
     return true;

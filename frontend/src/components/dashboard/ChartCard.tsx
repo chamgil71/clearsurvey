@@ -23,11 +23,19 @@ const PALETTE = [
   "var(--chart-5)",
 ];
 
-export function ChartCard({ chart, rows, data }: { chart: ChartItem; rows: Row[]; data: ProjectData }) {
+export function ChartCard({
+  chart,
+  rows,
+  data,
+}: {
+  chart: ChartItem;
+  rows: Row[];
+  data: ProjectData;
+}) {
   const [mounted, setMounted] = useState(false);
-  
+
   if (!chart) return null;
-  
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -38,7 +46,10 @@ export function ChartCard({ chart, rows, data }: { chart: ChartItem; rows: Row[]
 
     if (chart.type === "multibar") {
       const safeCols = Array.isArray((chart as any).cols) ? (chart as any).cols : [];
-      const list = safeCols.map((c: any) => ({ name: c.label || c.col, value: aggNumericSum(rows, c.col) }));
+      const list = safeCols.map((c: any) => ({
+        name: c.label || c.col,
+        value: aggNumericSum(rows, c.col),
+      }));
       if (sortBy === "value_desc") {
         list.sort((a, b) => b.value - a.value);
       } else if (sortBy === "value_asc") {
@@ -48,12 +59,9 @@ export function ChartCard({ chart, rows, data }: { chart: ChartItem; rows: Row[]
       }
       return limit > 0 ? list.slice(0, limit) : list;
     }
-    const colMeta = data.meta.columns.find((c) => c.key === chart.col);
+
     let counts: Record<string, number>;
-    if (colMeta?.type === "numeric") {
-      const numRows = rows.filter((r) => typeof r[chart.col] === "number" && (r[chart.col] as number) > 0);
-      counts = { [`${chart.col} > 0`]: numRows.length, "미입력/0": rows.length - numRows.length };
-    } else if ((chart as { type: string }).type === "multivalue") {
+    if ((chart as { type: string }).type === "multivalue") {
       counts = aggMultiValue(rows, chart.col, (chart as { sep?: string }).sep || ",");
     } else {
       const valCol = (chart as any).value_col;
@@ -134,13 +142,24 @@ export function ChartCard({ chart, rows, data }: { chart: ChartItem; rows: Row[]
   return (
     <div className="chart-card" style={cardStyle}>
       <div className="chart-title">{title || "Untitled Chart"}</div>
-      <div className="chart-wrap" style={{ minHeight: chartHeight, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div
+        className="chart-wrap"
+        style={{
+          minHeight: chartHeight,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
         {!mounted ? (
           <div className="text-xs text-muted-foreground/40">차트 로딩 중...</div>
         ) : !hasData ? (
           <div className="text-xs text-muted-foreground/50 text-center px-4 leading-relaxed">
-            ⚠️ 표시할 데이터가 없습니다.<br />
-            <span className="text-[10px] opacity-75 font-medium">(설정 탭에서 대상 컬럼 매핑을 확인하세요)</span>
+            ⚠️ 표시할 데이터가 없습니다.
+            <br />
+            <span className="text-[10px] opacity-75 font-medium">
+              (설정 탭에서 대상 컬럼 매핑을 확인하세요)
+            </span>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={chartHeight}>

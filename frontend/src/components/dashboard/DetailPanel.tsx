@@ -44,7 +44,8 @@ export function DetailPanel({
 
       // 제목 섹션
       const titleBlock = document.createElement("div");
-      titleBlock.style.cssText = "margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid #2563eb;";
+      titleBlock.style.cssText =
+        "margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid #2563eb;";
       titleBlock.innerHTML = `
         <div style="font-size:10px;color:#6b7280;font-weight:700;text-transform:uppercase;margin-bottom:4px;">상세조회 레코드</div>
         <div style="font-size:18px;font-weight:700;color:#111;">${String(title)}</div>
@@ -118,10 +119,7 @@ export function DetailPanel({
         </button>
       </div>
 
-      <div
-        id="detail-pdf-content"
-        style={{ flex: 1, padding: "10px 0", overflowY: "auto" }}
-      >
+      <div id="detail-pdf-content" style={{ flex: 1, padding: "10px 0", overflowY: "auto" }}>
         <div
           style={{
             marginBottom: "20px",

@@ -1,7 +1,7 @@
 {
   "meta": {
     "project": "bus",
-    "generated_at": "2026-07-07T11:16:46",
+    "generated_at": "2026-07-08T17:42:06",
     "total_rows": 2423,
     "source_file": "bus_cleaned.xlsx",
     "columns": [
@@ -17031,21 +17031,15 @@
     ],
     "charts": [
       {
-        "col": "관리번호",
+        "col": "시군구명",
         "type": "donut",
         "title": "총갯수",
         "max_items": 0
       },
       {
-        "col": "시군구명",
-        "type": "bar",
-        "title": "시군구"
-      },
-      {
         "col": "읍면동명",
-        "type": "donut",
-        "title": "새 차트",
-        "max_items": 0
+        "type": "bar",
+        "title": "읍면동"
       }
     ],
     "list": {

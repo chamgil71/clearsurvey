@@ -10,6 +10,8 @@
 * **[prd.md](plan/prd.md) (신규)**: ClearSurvey 서비스의 제품 정의, 핵심 기능 스코프, 기술 아키텍처를 정의한 **제품 요구사항 정의서(PRD)**.
 * **[feature_plan.md](plan/feature_plan.md)**: 연도 추출, 복수 선택 분리(`split_binary`), 정렬, 수치 다중 합산(`group_sum`), 자동 구동 UX 등 기능 개선 계획서.
 * **[plan/excel_chart_plan.md](plan/excel_chart_plan.md)**: 엑셀 내 차트 삽입에 관한 구현 기획안.
+* **[plan/remaining_improvements.md](plan/remaining_improvements.md)**: 병합 웹 UI, 클라우드 스토리지, 번들 최적화 등 잔여 개선 사항 기획서.
+* **[plan/transform_test_plan.md](plan/transform_test_plan.md)**: 정제 규칙(transform) 함수별 테스트 커버리지 공백 및 보강 계획서.
 * **[plan/pending/gui_plan.md](plan/pending/gui_plan.md)**: 대화형 설정 에디터 초기 기획서.
 
 ---
@@ -20,6 +22,7 @@
 * **[guides/integrated_guide.md](guides/integrated_guide.md)**: 백엔드 API, 프론트엔드 연동, 전체 정제 정산 워크플로우를 포괄하는 **시스템 통합 가이드**.
 * **[guides/project_config_guide.md](guides/project_config_guide.md)**: 정제 폴더 구조 정의 및 config.yaml 매뉴얼 가이드.
 * **[guides/config_guide.md](guides/config_guide.md)**: Excel Config 규칙(10열) 상세 정의서.
+* **[guides/project_files_lifecycle.md](guides/project_files_lifecycle.md)**: 프로젝트 폴더 내 각 파일(config.yaml/dashboard.json/style.yaml/draft·output xlsx/*_data.json 등)의 역할, 생성 시점, 생성 주체를 정리한 가이드.
 
 ---
 

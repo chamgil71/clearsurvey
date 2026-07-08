@@ -8,7 +8,11 @@ async function fetchJson<T>(url: string): Promise<T> {
 }
 
 function normalizeUrl(u: string) {
-  return u.startsWith("data/") || u.startsWith("/") ? (u.startsWith("/") ? u : "/" + u) : "/data/" + u;
+  return u.startsWith("data/") || u.startsWith("/")
+    ? u.startsWith("/")
+      ? u
+      : "/" + u
+    : "/data/" + u;
 }
 
 export function useDashboardData(initialUrl?: string) {

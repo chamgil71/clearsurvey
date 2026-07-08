@@ -103,7 +103,12 @@ function LoginPage() {
             required
             className="h-12 text-base"
           />
-          <Button type="submit" size="lg" className="w-full h-12 text-base font-bold" disabled={loading}>
+          <Button
+            type="submit"
+            size="lg"
+            className="w-full h-12 text-base font-bold"
+            disabled={loading}
+          >
             <LogIn className="h-5 w-5 mr-2" />
             {loading ? "로그인 중..." : "로그인"}
           </Button>
@@ -120,14 +125,22 @@ function LoginPage() {
         </div>
 
         {/* GitHub OAuth */}
-        <Button variant="outline" size="lg" className="w-full h-12 text-base font-bold" onClick={handleGitHubLogin}>
+        <Button
+          variant="outline"
+          size="lg"
+          className="w-full h-12 text-base font-bold"
+          onClick={handleGitHubLogin}
+        >
           <Github className="h-5 w-5 mr-2" />
           GitHub 계정으로 로그인
         </Button>
 
         {/* Public dashboard link */}
         <p className="text-center text-sm text-muted-foreground pt-2">
-          <a href="/" className="underline underline-offset-4 hover:text-foreground font-medium transition-colors">
+          <a
+            href="/"
+            className="underline underline-offset-4 hover:text-foreground font-medium transition-colors"
+          >
             공개 대시보드로 이동 →
           </a>
         </p>
