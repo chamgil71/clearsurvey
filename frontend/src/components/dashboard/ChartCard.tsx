@@ -46,8 +46,8 @@ export function ChartCard({
 
     if (chart.type === "multibar") {
       const safeCols = Array.isArray((chart as any).cols) ? (chart as any).cols : [];
-      const list = safeCols.map((c: any) => ({
-        name: c.label || c.col,
+      const list: { name: string; value: number }[] = safeCols.map((c: any) => ({
+        name: String(c.label || c.col),
         value: aggNumericSum(rows, c.col),
       }));
       if (sortBy === "value_desc") {
