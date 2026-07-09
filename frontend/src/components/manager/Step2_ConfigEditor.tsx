@@ -413,28 +413,28 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
             </CardHeader>
             <CardContent className="p-0 overflow-x-auto">
               <Table>
-                <TableHeader className="bg-muted/50 text-[11px]">
-                  <TableRow>
-                    <TableHead className="w-[52px] font-semibold text-center">순서</TableHead>
-                    <TableHead className="w-[50px] font-semibold text-center">제외</TableHead>
-                    <TableHead className="w-[185px] font-semibold text-center">
+                <TableHeader className="bg-muted/40 text-xs">
+                  <TableRow className="border-b border-border">
+                    <TableHead className="w-14 py-3 font-semibold text-center text-muted-foreground">순서</TableHead>
+                    <TableHead className="w-14 py-3 font-semibold text-center text-muted-foreground">제외</TableHead>
+                    <TableHead className="min-w-[200px] py-3 font-semibold text-left text-muted-foreground">
                       출력 컬럼명 (output_col)
                     </TableHead>
-                    <TableHead className="w-[110px] font-semibold text-center">
+                    <TableHead className="w-[120px] py-3 font-semibold text-center text-muted-foreground">
                       타입 (표시용)
                     </TableHead>
-                    <TableHead className="w-[90px] font-semibold text-center">
+                    <TableHead className="w-[96px] py-3 font-semibold text-center text-muted-foreground">
                       원본 열번호
                     </TableHead>
-                    <TableHead className="w-[215px] font-semibold text-center">
+                    <TableHead className="min-w-[220px] py-3 font-semibold text-left text-muted-foreground">
                       정제 규칙 (transform)
                     </TableHead>
-                    <TableHead className="w-[155px] font-semibold text-center">추가 인수</TableHead>
-                    <TableHead className="w-[75px] font-semibold text-center">필터</TableHead>
-                    <TableHead className="w-[46px]" />
+                    <TableHead className="min-w-[170px] py-3 font-semibold text-left text-muted-foreground">추가 인수</TableHead>
+                    <TableHead className="w-20 py-3 font-semibold text-center text-muted-foreground">필터</TableHead>
+                    <TableHead className="w-12 py-3" />
                   </TableRow>
                 </TableHeader>
-                <TableBody className="text-xs">
+                <TableBody className="text-sm">
                   {(localConfig.columns as ColumnDef[]).map((col, index) => {
                     const transform = col.transform ?? "";
                     const isExcluded = transform === "exclude";
@@ -443,22 +443,22 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                     return (
                       <TableRow
                         key={index}
-                        className={`hover:bg-muted/10 ${isExcluded ? "bg-muted/40 opacity-50" : ""}`}
+                        className={`hover:bg-muted/30 border-b border-border/60 ${isExcluded ? "bg-muted/40 opacity-50" : ""}`}
                       >
                         {/* 순서 이동 */}
-                        <TableCell className="p-1 text-center">
+                        <TableCell className="px-2 py-3 text-center align-top">
                           <div className="flex flex-col gap-0.5 items-center">
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => moveColumn(index, -1)}
                               disabled={index === 0}
-                              className="h-5 w-5 text-muted-foreground hover:text-foreground disabled:opacity-20"
+                              className="h-6 w-6 text-muted-foreground hover:text-foreground disabled:opacity-20"
                               title="위로"
                             >
                               ▲
                             </Button>
-                            <span className="text-[10px] text-muted-foreground font-mono leading-none">
+                            <span className="text-[11px] text-muted-foreground font-mono leading-none">
                               {index + 1}
                             </span>
                             <Button
@@ -466,7 +466,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                               size="icon"
                               onClick={() => moveColumn(index, 1)}
                               disabled={index === totalCols - 1}
-                              className="h-5 w-5 text-muted-foreground hover:text-foreground disabled:opacity-20"
+                              className="h-6 w-6 text-muted-foreground hover:text-foreground disabled:opacity-20"
                               title="아래로"
                             >
                               ▼
@@ -475,28 +475,28 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                         </TableCell>
 
                         {/* 제외 체크박스 */}
-                        <TableCell className="p-1 text-center">
+                        <TableCell className="px-2 py-3 text-center align-top">
                           <Checkbox
                             checked={isExcluded}
                             onCheckedChange={() => handleExcludeToggle(index, isExcluded)}
                             title="출력 결과에서 제외"
-                            className="scale-90"
+                            className="h-[18px] w-[18px]"
                           />
                         </TableCell>
 
                         {/* 출력 컬럼명 */}
-                        <TableCell className="p-2">
+                        <TableCell className="px-3 py-3 align-top">
                           <Input
                             value={col.output_col}
                             title="출력 컬럼명 (output_col)"
                             onChange={(e) =>
                               handleColumnChange(index, { output_col: e.target.value })
                             }
-                            className="h-8 text-xs font-semibold"
+                            className="h-9 text-sm font-semibold"
                           />
                           {col.source_col_name && (
                             <span
-                              className="text-[10px] text-muted-foreground pl-1 truncate block max-w-[170px] mt-0.5"
+                              className="text-[11px] text-muted-foreground pl-1 truncate block max-w-[170px] mt-0.5"
                               title={col.source_col_name}
                             >
                               ← {col.source_col_name}
@@ -505,12 +505,12 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                         </TableCell>
 
                         {/* 타입 (표시용) */}
-                        <TableCell className="p-2">
+                        <TableCell className="px-3 py-3 align-top">
                           <select
                             value={col.type ?? ""}
                             title="데이터 타입 (표시 힌트, 내보내기 시 자동 감지)"
                             onChange={(e) => handleColumnChange(index, { type: e.target.value })}
-                            className="w-full p-1.5 rounded border border-input bg-background text-xs cursor-pointer focus:ring-1 focus:ring-primary"
+                            className="w-full p-2 rounded-md border border-input bg-background text-sm cursor-pointer focus:ring-1 focus:ring-primary"
                           >
                             <option value="">자동 감지</option>
                             {COL_TYPES.map((t) => (
@@ -522,7 +522,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                         </TableCell>
 
                         {/* 원본 열번호 */}
-                        <TableCell className="p-2">
+                        <TableCell className="px-3 py-3 align-top">
                           <select
                             value={col.source_col ?? ""}
                             title="원본 엑셀 열번호 (1-based)"
@@ -532,7 +532,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                                 source_col: e.target.value ? Number(e.target.value) : undefined,
                               })
                             }
-                            className="w-full p-1.5 rounded border border-input bg-background text-xs cursor-pointer text-center font-mono focus:ring-1 focus:ring-primary disabled:opacity-40"
+                            className="w-full p-2 rounded-md border border-input bg-background text-sm cursor-pointer text-center font-mono focus:ring-1 focus:ring-primary disabled:opacity-40"
                           >
                             <option value="">-</option>
                             {sourceColOptions.map((n) => (
@@ -544,12 +544,12 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                         </TableCell>
 
                         {/* 정제 규칙 */}
-                        <TableCell className="p-2">
+                        <TableCell className="px-3 py-3 align-top">
                           <select
                             value={transform}
                             title="정제 규칙 선택 (transform)"
                             onChange={(e) => handleTransformChange(index, e.target.value)}
-                            className={`w-full p-1.5 rounded border border-input bg-background text-xs cursor-pointer font-medium focus:ring-1 focus:ring-primary ${
+                            className={`w-full p-2 rounded-md border border-input bg-background text-sm cursor-pointer font-medium focus:ring-1 focus:ring-primary ${
                               isExcluded ? "text-destructive" : "text-primary"
                             }`}
                           >
@@ -562,7 +562,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                         </TableCell>
 
                         {/* 추가 인수 */}
-                        <TableCell className="p-2">
+                        <TableCell className="px-3 py-3 align-top">
                           {NEEDS_FLAG_KEYWORD.has(transform) && (
                             <Input
                               placeholder="flag_keyword (예: GPU)"
@@ -571,7 +571,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                               onChange={(e) =>
                                 handleColumnChange(index, { flag_keyword: e.target.value })
                               }
-                              className="h-8 text-[10px]"
+                              className="h-9 text-xs"
                             />
                           )}
                           {NEEDS_SOURCE_COLS.has(transform) && (
@@ -587,7 +587,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                                   .filter((n) => !isNaN(n));
                                 handleColumnChange(index, { source_cols: nums });
                               }}
-                              className="h-8 text-[10px]"
+                              className="h-9 text-xs"
                             />
                           )}
                           {NEEDS_BACKUP_COL.has(transform) && (
@@ -599,7 +599,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                                   backup_col: e.target.value ? Number(e.target.value) : undefined,
                                 })
                               }
-                              className="w-full p-1.5 rounded border border-input bg-background text-[10px] cursor-pointer font-semibold"
+                              className="w-full p-2 rounded-md border border-input bg-background text-xs cursor-pointer font-semibold"
                             >
                               <option value="">보조열 없음</option>
                               {sourceColOptions.map((n) => (
@@ -610,7 +610,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                             </select>
                           )}
                           {DERIVES_COLUMNS.has(transform) && (
-                            <span className="text-[10px] text-amber-600 text-center block py-1.5 font-medium">
+                            <span className="text-[11px] text-amber-600 text-center block py-1.5 font-medium">
                               ⚡ 파생열 자동 생성
                             </span>
                           )}
@@ -618,14 +618,14 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                             !NEEDS_SOURCE_COLS.has(transform) &&
                             !NEEDS_BACKUP_COL.has(transform) &&
                             !DERIVES_COLUMNS.has(transform) && (
-                              <span className="text-[10px] text-muted-foreground text-center block py-1.5">
+                              <span className="text-[11px] text-muted-foreground text-center block py-1.5">
                                 —
                               </span>
                             )}
                         </TableCell>
 
                         {/* 필터 여부 */}
-                        <TableCell className="p-2 text-center">
+                        <TableCell className="px-3 py-3 text-center align-top">
                           <div className="flex justify-center items-center">
                             <Checkbox
                               checked={col.include_in_slicer ?? false}
@@ -639,7 +639,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                         </TableCell>
 
                         {/* 삭제 */}
-                        <TableCell className="p-2 text-center">
+                        <TableCell className="px-3 py-3 text-center align-top">
                           <Button
                             variant="ghost"
                             size="icon"
@@ -872,7 +872,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                             <Badge
                               key={colIdx}
                               variant="secondary"
-                              className="text-[10px] font-semibold flex items-center gap-1"
+                              className="text-[11px] font-semibold flex items-center gap-1"
                             >
                               {colObj.label || colObj.col}
                               <button
@@ -901,7 +901,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                                 cols: [...currentCols, { col: selected, label: selected }],
                               });
                             }}
-                            className="h-6 px-1 rounded border bg-background text-[10px] shadow-sm font-semibold max-w-[130px] outline-none cursor-pointer"
+                            className="h-6 px-1 rounded border bg-background text-[11px] shadow-sm font-semibold max-w-[130px] outline-none cursor-pointer"
                           >
                             <option value="">+ 컬럼 추가...</option>
                             {allAvailableChartCols.map((cname) => (
@@ -915,7 +915,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
 
                       {/* 차트 제목 입력 필드 - 단독 배치로 찌그러짐 차단 */}
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-muted-foreground">
+                        <label className="text-[11px] font-bold text-muted-foreground">
                           차트 카드 제목
                         </label>
                         <Input

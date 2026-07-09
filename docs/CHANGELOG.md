@@ -2,6 +2,21 @@
 
 All notable changes to the ClearSurvey project will be documented in this file.
 
+## [2026-07-09] Step2 설정 테이블 디자인 개선 (가독성·평면화)
+
+### Changed
+- **설정 편집기(`Step2_ConfigEditor`) 컬럼 정제 정의 테이블 — 디자인 구성만 개선 (로직/핸들러 불변)**
+  - 방향: `new-beginnings` 템플릿의 "여백·평면·좌정렬" 구성 원칙을 clearsurvey의 `@theme` 토큰(`bg-muted`·`border-border`·`text-muted-foreground` 등)으로 재표현.
+  - **헤더**: 폰트 `text-[11px]→text-xs`, 고정 픽셀폭 → 텍스트 열은 `min-w`(가변)·좁은 열만 고정, 이름/규칙/인수 열 **좌정렬**, `py-3` 여백, `text-muted-foreground`.
+  - **본문**: `text-xs→text-sm`, 셀 여백 `p-1/p-2 → px-3 py-3 align-top`, 인풋 `h-8→h-9`, 셀렉트 `p-1.5 text-xs → p-2 rounded-md text-sm`.
+  - **초소형 요소 제거**: `text-[10px]→text-[11px]`(잔존 0), 체크박스 `scale-90` 제거, 순서 이동 버튼 `h-5→h-6`.
+  - **행 구분 강화**: `hover:bg-muted/30` + `border-b border-border/60`.
+  - ⚠ 스타일 시스템 차이(new-beginnings=순수 CSS / clearsurvey=Tailwind+@theme) 때문에 클래스 복붙이 아니라 **구성 원칙만 차용**해 토큰으로 재표현.
+
+### 남은 작업
+- shell(사이드바·헤더)의 과한 그라디언트·그림자·`animate-pulse` 차분화는 후속(사용자 선택: "설정 테이블부터").
+- 런타임/타입체크 미검증(로컬 툴체인 부재) → `npm run dev`로 확인 필요.
+
 ## [2026-07-07] Dashboard UI & Layout Engine Improvements
 
 ### Added
