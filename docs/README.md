@@ -23,6 +23,7 @@
 * **[guides/project_config_guide.md](guides/project_config_guide.md)**: 정제 폴더 구조 정의 및 config.yaml 매뉴얼 가이드.
 * **[guides/config_guide.md](guides/config_guide.md)**: Excel Config 규칙(10열) 상세 정의서.
 * **[guides/project_files_lifecycle.md](guides/project_files_lifecycle.md)**: 프로젝트 폴더 내 각 파일(config.yaml/dashboard.json/style.yaml/draft·output xlsx/*_data.json 등)의 역할, 생성 시점, 생성 주체를 정리한 가이드.
+* **[multi_pc_data_sync.md](multi_pc_data_sync.md)**: 여러 PC에서 작업 시 `storage/` gitignore로 인한 **프로젝트 미표시·Vercel 덮어쓰기 충돌** 원인과 안전 운영 방법(작성 PC 지정·레시피 화이트리스트·클라우드 동기화).
 
 ---
 
