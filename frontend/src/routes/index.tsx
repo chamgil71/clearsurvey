@@ -178,6 +178,14 @@ function DashboardPage() {
           >
             📖 가이드
           </button>
+          <Link
+            to="/admin"
+            className="btn-ghost btn-sm"
+            style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "4px" }}
+            title="대시보드 관리자 설정"
+          >
+            ⚙️ 설정
+          </Link>
         </header>
 
         <KpiRow

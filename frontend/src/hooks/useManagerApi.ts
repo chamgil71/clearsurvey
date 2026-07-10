@@ -162,7 +162,7 @@ export function useManagerApi() {
     }
   };
 
-  const createProject = async (name: string, file: File) => {
+  const createProject = async (name: string, file: File, copyFromProject?: string) => {
     setLoading(true);
     setError(null);
     setLogs((prev) => [...prev, `[SYSTEM] 프로젝트 '${name}' 생성 중...`]);
@@ -170,6 +170,9 @@ export function useManagerApi() {
       const formData = new FormData();
       formData.append("name", name);
       formData.append("file", file);
+      if (copyFromProject) {
+        formData.append("copy_from_project", copyFromProject);
+      }
 
       const res = await fetchWithAuth(`${API_BASE}/api/projects/create`, {
         method: "POST",
@@ -363,6 +366,7 @@ export function useManagerApi() {
       add_source_col: boolean;
       source_col_name: string;
     },
+    copyFromProject?: string,
   ) => {
     setLoading(true);
     setError(null);
@@ -374,6 +378,9 @@ export function useManagerApi() {
         formData.append("files", file);
       });
       formData.append("options", JSON.stringify(options));
+      if (copyFromProject) {
+        formData.append("copy_from_project", copyFromProject);
+      }
 
       const res = await fetchWithAuth(`${API_BASE}/api/projects/create-merge`, {
         method: "POST",

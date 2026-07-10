@@ -18,10 +18,7 @@ export function DataTable({
   const [selected, setSelected] = useState<Row | null>(null);
 
   const visibleCols = useMemo(
-    () =>
-      cfg.list?.visible_cols?.length
-        ? cfg.list.visible_cols
-        : Object.keys(rows[0] || {}).slice(0, 10),
+    () => (cfg.list?.visible_cols?.length ? cfg.list.visible_cols : Object.keys(rows[0] || {})),
     [cfg, rows],
   );
 
@@ -65,7 +62,7 @@ export function DataTable({
   const highlightText = (text: string, searchWord: string) => {
     if (!searchWord.trim()) return text;
     const parts = text.split(
-      new RegExp(`(${searchWord.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")})`, "gi"),
+      new RegExp(`(${searchWord.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")})`, "gi"),
     );
     return (
       <span>

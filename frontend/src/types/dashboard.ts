@@ -57,6 +57,28 @@ export type ChartItem =
       layout?: "1x1" | "2x1" | "2x2" | "0.5x1" | "full";
     };
 
+export interface DashboardTheme {
+  preset?: string;
+  mode?: "라이트 모드" | "다크 모드";
+  primaryColor?: string;
+  borderRadius?: string;
+  brandTitle?: string;
+  logoText?: string;
+  chartPalette?: string;
+}
+
+export interface DashboardLayout {
+  useHeroBanner?: boolean;
+  heroTitle?: string;
+  heroSubtitle?: string;
+  heroBgUrl?: string;
+  heroBtnText?: string;
+  heroBtnUrl?: string;
+  useFooter?: boolean;
+  footerText?: string;
+  listViewMode?: "Drawer" | "Modal" | "Page";
+}
+
 export interface DashboardConfig {
   version: number;
   kpi: KpiItem[];
@@ -65,6 +87,8 @@ export interface DashboardConfig {
     visible_cols: string[];
     filter_cols: string[];
   };
+  theme?: DashboardTheme;
+  layout?: DashboardLayout;
 }
 
 export interface GlobalFilter {

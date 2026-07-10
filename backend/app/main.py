@@ -300,6 +300,7 @@ def list_projects(user: dict = Depends(verify_supabase_token)):
 @app.post("/api/projects/create")
 async def create_project(
     name: str = Form(...),
+    copy_from_project: str | None = Form(None),
     file: UploadFile = File(...),
     user: dict = Depends(verify_supabase_token)
 ):
@@ -351,21 +352,48 @@ async def create_project(
             config_path.parent.resolve()
         ).replace("\\", "/")
             
-        analyzer.generate_config_yaml(
-            config_path,
-            project_name=name,
-            source_override=rel_src
-        )
-        
-        # style.yaml 복사 — 우선순위:
-        #   1) config/default_style.yaml  (공통 기본값)
-        #   2) 빈 파일 생성
-        default_style = BACKEND_ROOT / "config" / "default_style.yaml"
-        dest_style = proj_dir / "style.yaml"
-        if default_style.exists():
-            shutil.copy2(default_style, dest_style)
-        else:
-            dest_style.write_text("# style.yaml — 스타일 설정\n", encoding="utf-8")
+        copied_config = False
+        if copy_from_project:
+            copy_dir = _get_project_dir(copy_from_project)
+            if copy_dir.exists() and (copy_dir / "config.yaml").exists():
+                shutil.copy2(copy_dir / "config.yaml", config_path)
+                # Update source file
+                import yaml
+                with open(config_path, "r", encoding="utf-8") as f:
+                    cfg_yaml = yaml.safe_load(f)
+                if "source" not in cfg_yaml:
+                    cfg_yaml["source"] = {}
+                cfg_yaml["source"]["file"] = rel_src
+                with open(config_path, "w", encoding="utf-8") as f:
+                    yaml.dump(cfg_yaml, f, allow_unicode=True, sort_keys=False)
+                
+                # Copy dashboard.json if exists
+                if (copy_dir / "dashboard.json").exists():
+                    shutil.copy2(copy_dir / "dashboard.json", proj_dir / "dashboard.json")
+                
+                # Copy style.yaml if exists
+                dest_style = proj_dir / "style.yaml"
+                if (copy_dir / "style.yaml").exists():
+                    shutil.copy2(copy_dir / "style.yaml", dest_style)
+                
+                copied_config = True
+
+        if not copied_config:
+            analyzer.generate_config_yaml(
+                config_path,
+                project_name=name,
+                source_override=rel_src
+            )
+            
+            # style.yaml 복사 — 우선순위:
+            #   1) config/default_style.yaml  (공통 기본값)
+            #   2) 빈 파일 생성
+            default_style = BACKEND_ROOT / "config" / "default_style.yaml"
+            dest_style = proj_dir / "style.yaml"
+            if default_style.exists():
+                shutil.copy2(default_style, dest_style)
+            else:
+                dest_style.write_text("# style.yaml — 스타일 설정\n", encoding="utf-8")
             
         _update_projects_manifest(name, f"{name}_data.json")
             
@@ -384,6 +412,7 @@ async def create_project(
 @app.post("/api/projects/create-merge")
 async def create_merge_project(
     name: str = Form(...),
+    copy_from_project: str | None = Form(None),
     files: list[UploadFile] = File(...),
     options: str = Form(...),  # JSON string
     user: dict = Depends(verify_supabase_token)
@@ -504,19 +533,44 @@ async def create_merge_project(
             output=MergeOutputConfig(add_source_col=add_source_col, source_col_name=source_col_name)
         )
         
-        analyzer.generate_config_yaml(
-            config_path,
-            project_name=name,
-            source_override=rel_src
-        )
+        copied_config = False
+        if copy_from_project:
+            copy_dir = _get_project_dir(copy_from_project)
+            if copy_dir.exists() and (copy_dir / "config.yaml").exists():
+                shutil.copy2(copy_dir / "config.yaml", config_path)
+                import yaml
+                with open(config_path, "r", encoding="utf-8") as f:
+                    cfg_yaml = yaml.safe_load(f)
+                if "source" not in cfg_yaml:
+                    cfg_yaml["source"] = {}
+                cfg_yaml["source"]["file"] = rel_src
+                cfg_yaml["merge"] = rel_merge_cfg.model_dump(exclude_none=True)
+                with open(config_path, "w", encoding="utf-8") as f:
+                    yaml.dump(cfg_yaml, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+                
+                if (copy_dir / "dashboard.json").exists():
+                    shutil.copy2(copy_dir / "dashboard.json", proj_dir / "dashboard.json")
+                
+                dest_style = proj_dir / "style.yaml"
+                if (copy_dir / "style.yaml").exists():
+                    shutil.copy2(copy_dir / "style.yaml", dest_style)
+                
+                copied_config = True
 
-        # config.yaml에 merge 속성 수동 추가 주입 (analyzer.py 수정 방어)
-        if config_path.exists():
-            with open(config_path, "r", encoding="utf-8") as f:
-                cfg_dict = yaml.safe_load(f) or {}
-            cfg_dict["merge"] = rel_merge_cfg.model_dump(exclude_none=True)
-            with open(config_path, "w", encoding="utf-8") as f:
-                yaml.dump(cfg_dict, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        if not copied_config:
+            analyzer.generate_config_yaml(
+                config_path,
+                project_name=name,
+                source_override=rel_src
+            )
+
+            # config.yaml에 merge 속성 수동 추가 주입 (analyzer.py 수정 방어)
+            if config_path.exists():
+                with open(config_path, "r", encoding="utf-8") as f:
+                    cfg_dict = yaml.safe_load(f) or {}
+                cfg_dict["merge"] = rel_merge_cfg.model_dump(exclude_none=True)
+                with open(config_path, "w", encoding="utf-8") as f:
+                    yaml.dump(cfg_dict, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
         
         # style.yaml 복사
         default_style = BACKEND_ROOT / "config" / "default_style.yaml"
@@ -1314,7 +1368,10 @@ def _build_single_html_template(project_name: str, data: dict) -> str:
 
     // 6. 데이터 테이블 렌더링
     function renderTable() {{
-      const visibleCols = data.dashboard?.list?.visible_cols || [];
+      let visibleCols = data.dashboard?.list?.visible_cols || [];
+      if (visibleCols.length === 0 && data.columns && data.columns.length > 0) {{
+        visibleCols = data.columns.slice(0, 10).map(c => c.key);
+      }}
       const thead = document.getElementById("table-head");
       const tbody = document.getElementById("table-body");
       const countEl = document.getElementById("table-count");

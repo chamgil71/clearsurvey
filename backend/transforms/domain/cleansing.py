@@ -22,6 +22,7 @@
 """
 from __future__ import annotations
 
+import math
 import re
 from datetime import date as _date
 from typing import Any
@@ -111,6 +112,8 @@ def normalize_number(val, *, as_int: bool = False, **kw) -> int | float | None:
     """
     if val is None:
         return None
+    if isinstance(val, float) and math.isnan(val):
+        return None
     s = str(val).strip().replace(",", "")
     # 괄호와 대괄호 내의 부가 설명 텍스트 제거 (예: "(대당8)" -> "")
     s = re.sub(r"\([^)]*\)|\[[^\]]*\]", "", s).strip()
@@ -137,8 +140,15 @@ def normalize_number(val, *, as_int: bool = False, **kw) -> int | float | None:
         except ValueError:
             return None
 
-    if as_int or v == int(v):
-        return int(v)
+    import math
+    if isinstance(v, float) and math.isnan(v):
+        return None
+
+    try:
+        if as_int or v == int(v):
+            return int(v)
+    except (ValueError, TypeError, OverflowError):
+        pass
     return v
 
 
@@ -717,14 +727,20 @@ def group_sum(val, **kw) -> int | float | None:
     values = val if isinstance(val, list) else [val]
     total: float = 0.0
     for v in values:
+        if isinstance(v, float) and math.isnan(v):
+            continue
         if isinstance(v, (int, float)):
             total += v
         elif v is not None:
             s = str(v).strip().replace(",", "")
+            if s.lower() == "nan":
+                continue
             try:
                 total += float(s)
             except ValueError:
                 pass
+    if math.isnan(total):
+        return None
     return int(total) if total == int(total) else total
 
 

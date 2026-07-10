@@ -26,5 +26,12 @@
     "file": "bus_data.json",
     "updated": "2026-07-08 17:42",
     "published": false
+  },
+  {
+    "id": "gpu_4",
+    "name": "gpu_4",
+    "file": "gpu_4_data.json",
+    "updated": "2026-07-10 15:23",
+    "published": false
   }
 ]

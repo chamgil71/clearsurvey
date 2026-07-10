@@ -15,13 +15,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { ProjectListItem } from "@/types/dashboard";
 
 interface Step1Props {
   isBackendAlive: boolean;
   projects: ProjectListItem[];
   onSelectProject: (name: string) => void;
-  onCreateProject: (name: string, file: File) => Promise<void>;
+  onCreateProject: (name: string, file: File, copyFromProject?: string) => Promise<void>;
   onCreateMergeProject?: (
     name: string,
     files: File[],
@@ -31,6 +38,7 @@ interface Step1Props {
       add_source_col: boolean;
       source_col_name: string;
     },
+    copyFromProject?: string,
   ) => Promise<void>;
   loading: boolean;
 }
@@ -44,6 +52,7 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
   loading,
 }) => {
   const [newProjectName, setNewProjectName] = useState("");
+  const [copyFromProject, setCopyFromProject] = useState<string>("none");
   const [uploadMode, setUploadMode] = useState<"single" | "merge">("single");
 
   // Single upload
@@ -119,7 +128,11 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
     try {
       if (uploadMode === "single") {
         if (!selectedFile) return;
-        await onCreateProject(name, selectedFile);
+        await onCreateProject(
+          name,
+          selectedFile,
+          copyFromProject !== "none" ? copyFromProject : undefined,
+        );
         setSelectedFile(null);
       } else {
         if (selectedFiles.length < 2) {
@@ -140,12 +153,17 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
           return;
         }
 
-        await onCreateMergeProject(name, selectedFiles, {
-          dedup_strategy: dedupStrategy,
-          key_cols: parsedKeyCols,
-          add_source_col: addSourceCol,
-          source_col_name: sourceColName.trim() || "_출처파일",
-        });
+        await onCreateMergeProject(
+          name,
+          selectedFiles,
+          {
+            dedup_strategy: dedupStrategy,
+            key_cols: parsedKeyCols,
+            add_source_col: addSourceCol,
+            source_col_name: sourceColName.trim() || "_출처파일",
+          },
+          copyFromProject !== "none" ? copyFromProject : undefined,
+        );
         setSelectedFiles([]);
         setKeyCols("");
       }
@@ -293,6 +311,30 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
                 />
                 <p className="text-[10px] text-muted-foreground">
                   * 한글, 영문, 숫자, 기호(_,-)만 사용하실 수 있습니다.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground block">
+                  기존 설정 복사하기 (선택)
+                </label>
+                <Select value={copyFromProject} onValueChange={setCopyFromProject}>
+                  <SelectTrigger className="w-full h-9 text-xs">
+                    <SelectValue placeholder="복사할 프로젝트를 선택하세요" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none" className="text-xs">
+                      사용 안 함 (새로 구성)
+                    </SelectItem>
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id} className="text-xs">
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground">
+                  기존 프로젝트의 정제 규칙과 대시보드 설정을 가져와 적용합니다.
                 </p>
               </div>
 

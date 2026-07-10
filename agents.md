@@ -4,6 +4,26 @@
 
 ---
 
+## 0. 프론트엔드 기술 스택 (표준 체인)
+
+`frontend/`는 워크스페이스 표준 React 스택 체인을 그대로 따릅니다.
+
+```
+React
+  ↓
+TanStack Start
+  ↓
+Vite
+  ↓
+Tailwind CSS
+  ↓
+shadcn/ui
+```
+
+라우팅/SSR은 `@tanstack/react-start` + `@tanstack/react-router`, 번들러는 Vite, 스타일링은 Tailwind CSS 위에 shadcn/ui(Radix 기반) 컴포넌트를 사용합니다. 신규 화면/컴포넌트 추가 시 이 체인을 벗어나지 않습니다.
+
+---
+
 ## 1. 경로 설정 및 파일시스템 주입 규칙 (Path & Directory Rules)
 * **하드코딩 금지**: 드라이브명(`C:`, `D:`)이나 절대 경로를 코드에 직접 주입하지 마십시오.
 * **상대 경로 갱신**: Windows 와 Linux 환경의 경로 대소문자 구분을 방어하기 위해 `Path.relative_to` 대신 항상 **`os.path.relpath`** 를 사용해 상대 경로(`../../raw/파일명.xlsx`)를 정교하게 계산 조립하십시오.

@@ -240,30 +240,52 @@ class SurveyPipeline:
                 try:
                     with open(dashboard_path, encoding="utf-8") as f:
                         dash_data = json.load(f)
-                    chart_cols: list[tuple[str, str]] = []  # (col_ref, title)
+                    from engine.config import SummarySection, SummaryLayout, SummaryColumnItem
+                    chart_sections = []
                     seen: set[str] = set()
+                    
                     for c in dash_data.get("charts", []):
+                        c_type = c.get("type")
+                        if c_type == "multibar":
+                            cols = c.get("cols", [])
+                            valid_items = []
+                            for ci in cols:
+                                col_name = ci.get("col")
+                                if col_name and col_name in col_index_map:
+                                    valid_items.append(
+                                        SummaryColumnItem(col_ref=col_name, label=ci.get("label") or col_name)
+                                    )
+                            if valid_items:
+                                chart_sections.append(
+                                    SummarySection(
+                                        title=c.get("title") or "다중 항목 집계",
+                                        type="binary_sum",
+                                        columns=valid_items,
+                                    )
+                                )
+                            continue
+                            
                         col_ref = c.get("col") or c.get("colRef")
                         if not col_ref or col_ref in seen or col_ref not in col_index_map:
                             continue
                         seen.add(col_ref)
-                        chart_cols.append((col_ref, c.get("title") or f"{col_ref} 집계"))
-                    if chart_cols:
-                        from engine.config import SummarySection, SummaryLayout
+                        chart_sections.append(
+                            SummarySection(
+                                title=c.get("title") or f"{col_ref} 집계",
+                                type="unique_count",
+                                col_ref=col_ref,
+                            )
+                        )
+
+                    if chart_sections:
                         if cfg.summary.layout is None:
                             cfg.summary.layout = SummaryLayout()
                         n_layout_cols = max(cfg.summary.layout.cols, 1)
-                        cfg.summary.sections = [
-                            SummarySection(
-                                title=title,
-                                type="unique_count",
-                                col_ref=col_ref,
-                                layout_col=(i % n_layout_cols) + 1,
-                            )
-                            for i, (col_ref, title) in enumerate(chart_cols)
-                        ]
+                        for i, sec in enumerate(chart_sections):
+                            sec.layout_col = (i % n_layout_cols) + 1
+                        cfg.summary.sections = chart_sections
                         print(
-                            f"[정보] dashboard.json 차트 {len(chart_cols)}개 기준으로 "
+                            f"[정보] dashboard.json 차트 {len(chart_sections)}개 기준으로 "
                             f"summary.sections 자동 생성"
                         )
                 except Exception as exc:

@@ -112,9 +112,9 @@ export function ChartCard({
   };
 
   let cardStyle: React.CSSProperties = {};
-  let chartHeight = 240;
-  let pieOuterRadius = 80;
-  let pieInnerRadius = 50;
+  let chartHeight = 200;
+  let pieOuterRadius = 75;
+  let pieInnerRadius = 45;
 
   // 정석 마이그레이션을 통과하지 못하고 메모리에 잔존해 있던 구버전 데이터에 대한 최종 렌더링 방어선
   let layout = chart.layout;
