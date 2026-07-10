@@ -73,7 +73,7 @@ describe("buildDefaultConfig", () => {
 
   it("카테고리 컬럼 수 만큼 차트를 생성한다 (최대 5개)", () => {
     const cfg = buildDefaultConfig(meta);
-    const catCharts = cfg.charts.filter((c) => "col" in c && c.type !== "multibar");
+    const catCharts = cfg.charts.filter((c) => "col" in c);
     expect(catCharts.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -84,7 +84,8 @@ describe("buildDefaultConfig", () => {
 
   it("O_ 접두사 컬럼이 2개 이상이면 multibar 차트를 추가한다", () => {
     const cfg = buildDefaultConfig(meta);
-    const multibar = cfg.charts.find((c) => c.type === "multibar");
+    // multibar 변형만 "cols" 필드를 가지므로 in 연산자로 판별한다
+    const multibar = cfg.charts.find((c) => "cols" in c);
     expect(multibar).toBeDefined();
   });
 
