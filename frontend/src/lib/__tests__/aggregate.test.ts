@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { aggCategory, aggNumericSum, aggMultiValue, filterRows } from "@/lib/aggregate";
+import { aggCategory, aggNumericSum, aggMultiValue, filterRows, matchesPattern } from "@/lib/aggregate";
 import type { Row } from "@/types/dashboard";
 
 const rows: Row[] = [
@@ -97,7 +97,7 @@ describe("aggMultiValue", () => {
 
 describe("filterRows", () => {
   it("search·filters가 모두 비어있으면 전체 rows를 반환한다", () => {
-    expect(filterRows(rows, "", {})).toBe(rows);
+    expect(filterRows(rows, "", {})).toEqual(rows);
   });
 
   it("search 문자열로 전체 컬럼을 대소문자 무시 검색한다", () => {
@@ -124,10 +124,84 @@ describe("filterRows", () => {
 
   it("필터 값이 빈 문자열이면 해당 필터는 무시한다", () => {
     const result = filterRows(rows, "", { 부서: "" });
-    expect(result).toBe(rows);
+    expect(result).toEqual(rows);
   });
 
   it("빈 rows 배열이면 빈 배열을 반환한다", () => {
     expect(filterRows([], "서울", {})).toEqual([]);
+  });
+});
+
+// ── matchesPattern ────────────────────────────────────────────────────────────
+
+describe("matchesPattern", () => {
+  it("정확 일치를 수행한다", () => {
+    expect(matchesPattern("서울", "서울")).toBe(true);
+    expect(matchesPattern("부산", "서울")).toBe(false);
+  });
+
+  it("콤마 구분 멀티밸류 셀에서 부분 일치한다", () => {
+    expect(matchesPattern("교육,연구", "교육")).toBe(true);
+    expect(matchesPattern("교육,연구", "상업")).toBe(false);
+  });
+
+  it("<> 부정 연산자는 다른 값만 통과시킨다", () => {
+    expect(matchesPattern("부산", "<>서울")).toBe(true);
+    expect(matchesPattern("서울", "<>서울")).toBe(false);
+  });
+
+  it("!= 부정 연산자도 동일하게 동작한다", () => {
+    expect(matchesPattern("부산", "!=서울")).toBe(true);
+    expect(matchesPattern("서울", "!=서울")).toBe(false);
+  });
+
+  it("<>*kw* 는 포함하지 않는 값을 통과시킨다", () => {
+    expect(matchesPattern("부산", "<>*서울*")).toBe(true);
+    expect(matchesPattern("서울 강남", "<>*서울*")).toBe(false);
+  });
+
+  it("*kw* 는 포함 검색이다", () => {
+    expect(matchesPattern("서울 강남", "*서울*")).toBe(true);
+    expect(matchesPattern("부산", "*서울*")).toBe(false);
+  });
+
+  it("kw* 는 시작 검색이다", () => {
+    expect(matchesPattern("서울 강남", "서울*")).toBe(true);
+    expect(matchesPattern("강남 서울", "서울*")).toBe(false);
+  });
+
+  it("*kw 는 끝 검색이다", () => {
+    expect(matchesPattern("서울 강남", "*강남")).toBe(true);
+    expect(matchesPattern("강남 서울", "*강남")).toBe(false);
+  });
+
+  it("= 접두사는 무시하고 정확 일치한다", () => {
+    expect(matchesPattern("서울", "=서울")).toBe(true);
+    expect(matchesPattern("부산", "=서울")).toBe(false);
+  });
+});
+
+// ── filterRows — 패턴 매칭 필터 ───────────────────────────────────────────────
+
+describe("filterRows — 패턴 매칭 필터", () => {
+  it("<> 부정 연산자 필터는 일치하지 않는 행만 반환한다", () => {
+    const result = filterRows(rows, "", { 지역: "<>서울" });
+    expect(result).toHaveLength(2);
+    result.forEach((r) => expect(r.지역).not.toBe("서울"));
+  });
+
+  it("*keyword* 와일드카드 필터는 포함 검색을 수행한다", () => {
+    const r: Row[] = [{ 지역: "서울" }, { 지역: "서울 강남" }, { 지역: "부산" }];
+    expect(filterRows(r, "", { 지역: "*서울*" })).toHaveLength(2);
+  });
+
+  it("keyword* 와일드카드 필터는 시작 검색을 수행한다", () => {
+    const r: Row[] = [{ 지역: "서울" }, { 지역: "서울 강남" }, { 지역: "부산" }];
+    expect(filterRows(r, "", { 지역: "서울*" })).toHaveLength(2);
+  });
+
+  it("*keyword 와일드카드 필터는 끝 검색을 수행한다", () => {
+    const r: Row[] = [{ 지역: "서울 강남" }, { 지역: "인천 강남" }, { 지역: "부산" }];
+    expect(filterRows(r, "", { 지역: "*강남" })).toHaveLength(2);
   });
 });

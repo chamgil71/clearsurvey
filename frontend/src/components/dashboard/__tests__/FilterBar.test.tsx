@@ -89,11 +89,11 @@ describe("FilterBar — 필터 활성 상태", () => {
 // ── 인터랙션 ──────────────────────────────────────────────────────────────────
 
 describe("FilterBar — 인터랙션", () => {
-  it("검색어 입력 시 onSearch가 호출된다", async () => {
+  it("검색어 입력 시 onSearch가 입력값으로 호출된다", async () => {
     const user = userEvent.setup();
     const { props } = renderBar();
-    await user.type(screen.getByRole("searchbox"), "서울");
-    expect(props.onSearch).toHaveBeenCalled();
+    await user.type(screen.getByRole("searchbox"), "a");
+    expect(props.onSearch).toHaveBeenLastCalledWith("a");
   });
 
   it("셀렉트 변경 시 onFilterChange가 호출된다", async () => {
