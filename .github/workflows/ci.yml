@@ -49,6 +49,9 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
+      - name: Unit tests
+        run: npm test
+
   playwright-e2e:
     name: Playwright E2E
     runs-on: ubuntu-latest
