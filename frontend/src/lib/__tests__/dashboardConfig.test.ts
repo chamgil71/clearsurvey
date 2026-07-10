@@ -13,15 +13,30 @@ describe("configKey", () => {
 // ── migrateConfig ─────────────────────────────────────────────────────────────
 
 describe("migrateConfig", () => {
+  const baseList = { visible_cols: ["a"], filter_cols: ["b"] };
+
   it("이미 layout이 있는 차트는 변경하지 않는다", () => {
     const cfg = {
       version: 1,
-      kpi: [],
+      kpi: [{ label: "총", type: "total_rows" as const }],
       charts: [{ type: "bar" as const, col: "a", layout: "2x1" as const }],
-      list: { visible_cols: [], filter_cols: [] },
+      list: baseList,
     };
     const result = migrateConfig(cfg);
     expect(result.charts[0].layout).toBe("2x1");
+    expect(result.version).toBe(1);
+    expect(result.kpi).toEqual(cfg.kpi);
+    expect(result.list).toEqual(baseList);
+  });
+
+  it("원본 객체를 변이하지 않는다", () => {
+    const cfg = {
+      version: 1, kpi: [],
+      charts: [{ type: "bar" as const, col: "a", width: 2 } as any],
+      list: { visible_cols: [], filter_cols: [] },
+    };
+    migrateConfig(cfg);
+    expect((cfg.charts[0] as any).width).toBe(2);
   });
 
   it("width=2인 레거시 차트를 layout '2x1'로 업그레이드한다", () => {
@@ -33,6 +48,8 @@ describe("migrateConfig", () => {
     const result = migrateConfig(cfg);
     expect(result.charts[0].layout).toBe("2x1");
     expect((result.charts[0] as any).width).toBeUndefined();
+    expect(result.version).toBe(1);
+    expect(result.list).toEqual(cfg.list);
   });
 
   it("width=1인 레거시 차트를 layout '1x1'로 업그레이드한다", () => {
@@ -43,6 +60,7 @@ describe("migrateConfig", () => {
     };
     const result = migrateConfig(cfg);
     expect(result.charts[0].layout).toBe("1x1");
+    expect(result.version).toBe(1);
   });
 
   it("null 차트 항목을 필터링한다", () => {
@@ -53,6 +71,7 @@ describe("migrateConfig", () => {
     };
     const result = migrateConfig(cfg);
     expect(result.charts).toHaveLength(1);
+    expect(result.kpi).toEqual([]);
   });
 });
 
@@ -125,10 +144,15 @@ describe("loadConfig / saveConfig", () => {
   });
 
   it("saveConfig 후 loadConfig하면 동일한 설정을 반환한다", () => {
+    const meta: DataMeta = {
+      project: "demo", total_rows: 1,
+      columns: [{ key: "지역", label: "지역", type: "category" }],
+    };
     saveConfig("demo", base);
-    const result = loadConfig("demo");
+    const result = loadConfig("demo", null, meta);
     expect(result).toMatchObject({ version: 1 });
     expect(result?.kpi[0].type).toBe("total_rows");
+    expect(result?.charts[0]).toMatchObject({ type: "bar", col: "지역" });
   });
 
   it("localStorage에 저장된 값이 없으면 null을 반환한다", () => {

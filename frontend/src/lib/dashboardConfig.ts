@@ -3,19 +3,17 @@ import type { DashboardConfig, DataMeta } from "@/types/dashboard";
 export const configKey = (project: string) => `survey-dash-config-${project}`;
 
 export function migrateConfig(parsed: DashboardConfig): DashboardConfig {
-  if (parsed.charts && Array.isArray(parsed.charts)) {
-    parsed.charts = parsed.charts
-      .filter((c) => c != null)
-      .map((c: any) => {
-        // 과거 width 속성이 있으면 최신 layout으로 업그레이드
-        if (!c.layout && c.width !== undefined) {
-          c.layout = c.width === 2 || c.width === "2" ? "2x1" : "1x1";
-          delete c.width;
-        }
-        return c;
-      });
-  }
-  return parsed;
+  if (!parsed.charts || !Array.isArray(parsed.charts)) return parsed;
+  const charts = parsed.charts
+    .filter((c) => c != null)
+    .map((c: any) => {
+      if (!c.layout && c.width !== undefined) {
+        const { width, ...rest } = c;
+        return { ...rest, layout: width === 2 || width === "2" ? "2x1" : "1x1" };
+      }
+      return c;
+    });
+  return { ...parsed, charts };
 }
 
 export function loadConfig(

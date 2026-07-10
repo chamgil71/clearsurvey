@@ -31,6 +31,28 @@ export function aggMultiValue(rows: Row[], col: string, sep = ","): Record<strin
   return Object.fromEntries(Object.entries(counts).sort((a, b) => b[1] - a[1]));
 }
 
+// Matches a cell string against a filter pattern.
+// Supports: exact match, comma-split multi-value, wildcards (*kw*, kw*, *kw),
+// negation (<>val, !=val, <>*kw*, !=*kw*), and leading = for exact.
+export function matchesPattern(cellStr: string, pattern: string): boolean {
+  let p = pattern.trim();
+  if (p.startsWith("=")) p = p.slice(1).trim();
+
+  if (p.startsWith("<>") || p.startsWith("!=")) {
+    const clean = p.replace(/^(<>|!=)/, "").trim();
+    if (clean.startsWith("*") && clean.endsWith("*")) {
+      return !cellStr.includes(clean.slice(1, -1).trim());
+    }
+    return cellStr !== clean;
+  }
+
+  if (p.startsWith("*") && p.endsWith("*")) return cellStr.includes(p.slice(1, -1).trim());
+  if (p.startsWith("*")) return cellStr.endsWith(p.slice(1).trim());
+  if (p.endsWith("*")) return cellStr.startsWith(p.slice(0, -1).trim());
+
+  return cellStr.split(",").map((s) => s.trim()).includes(p);
+}
+
 export function filterRows(rows: Row[], search: string, filters: Record<string, string>): Row[] {
   const hasFilters = Object.values(filters).some(Boolean);
   if (!search && !hasFilters) return rows;
@@ -45,8 +67,7 @@ export function filterRows(rows: Row[], search: string, filters: Record<string, 
     for (const [col, val] of Object.entries(filters)) {
       if (!val) continue;
       const rowValStr = String(row[col] ?? "").trim();
-      const parts = rowValStr.split(",").map((s) => s.trim());
-      if (!parts.includes(val)) return false;
+      if (!matchesPattern(rowValStr, val)) return false;
     }
     return true;
   });
