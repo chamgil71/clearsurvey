@@ -145,7 +145,7 @@ describe("KpiRow — 복합 KPI", () => {
   });
 
   it("kpi 배열이 비어있으면 아무것도 렌더링하지 않는다", () => {
-    const { container } = render(<KpiRow rows={rows} cfg={makeCfg([])} />);
-    expect(container.querySelector(".kpi-card")).toBeNull();
+    render(<KpiRow rows={rows} cfg={makeCfg([])} />);
+    expect(screen.queryByText("건")).toBeNull();
   });
 });

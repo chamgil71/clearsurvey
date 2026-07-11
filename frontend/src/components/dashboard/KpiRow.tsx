@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import type { DashboardConfig, Row } from "@/types/dashboard";
 import { aggNumericSum } from "@/lib/aggregate";
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 export function KpiRow({
   rows,
@@ -56,24 +58,29 @@ export function KpiRow({
   }, [rows, cfg]);
 
   return (
-    <div className="kpi-row">
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3 px-6 pt-3">
       {items.map((v, i) => {
         const origKpi = (cfg.kpi || [])[i];
         const isClickable =
           origKpi && (origKpi.type === "count_value" || origKpi.type === "total_rows");
         return (
-          <div
+          <Card
             key={i}
-            className={`kpi-card ${isClickable ? "cursor-pointer hover:shadow-md hover:border-primary/40 transition-all" : ""}`}
+            className={cn(
+              "shadow-sm border-border/60",
+              isClickable && "cursor-pointer hover:shadow-md hover:border-primary/40 transition-all",
+            )}
             onClick={() => isClickable && onKpiClick && onKpiClick(origKpi)}
             title={isClickable ? "클릭하여 이 조건으로 필터링" : undefined}
           >
-            <div className="kpi-label">{v.label}</div>
-            <div className="kpi-value">
-              {Number(v.value).toLocaleString("ko-KR")}
-              {v.unit}
-            </div>
-          </div>
+            <CardContent className="px-4 py-3">
+              <div className="text-[11px] text-muted-foreground mb-1">{v.label}</div>
+              <div className="text-2xl font-bold text-primary">
+                {Number(v.value).toLocaleString("ko-KR")}
+                {v.unit}
+              </div>
+            </CardContent>
+          </Card>
         );
       })}
     </div>

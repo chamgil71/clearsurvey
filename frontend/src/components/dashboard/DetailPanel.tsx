@@ -1,5 +1,6 @@
 import { Fragment, useState } from "react";
 import type { DashboardConfig, Row } from "@/types/dashboard";
+import { Button } from "@/components/ui/button";
 
 export function DetailPanel({
   row,
@@ -13,7 +14,11 @@ export function DetailPanel({
   const [saving, setSaving] = useState(false);
 
   if (!row) {
-    return <div className="detail-empty">좌측 목록에서 항목을 선택하세요</div>;
+    return (
+      <div className="text-muted-foreground text-center px-2 py-8 text-sm">
+        좌측 목록에서 항목을 선택하세요
+      </div>
+    );
   }
 
   const keys = Object.keys(row);
@@ -24,10 +29,8 @@ export function DetailPanel({
     if (saving) return;
     setSaving(true);
     try {
-      // 동적 import — CDN 불필요, 타입 안전
       const { default: html2pdf } = await import("html2pdf.js");
 
-      // 오프스크린 컨테이너: overflow/height 제약 없이 전체 내용 캡처
       const wrapper = document.createElement("div");
       Object.assign(wrapper.style, {
         position: "fixed",
@@ -42,7 +45,6 @@ export function DetailPanel({
         lineHeight: "1.6",
       });
 
-      // 제목 섹션
       const titleBlock = document.createElement("div");
       titleBlock.style.cssText =
         "margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid #2563eb;";
@@ -52,7 +54,6 @@ export function DetailPanel({
       `;
       wrapper.appendChild(titleBlock);
 
-      // 데이터 필드 — dl 대신 table 구조로 (html2canvas dl/grid 호환성 개선)
       const table = document.createElement("table");
       table.style.cssText = "width:100%;border-collapse:collapse;";
       keys.forEach((k) => {
@@ -66,7 +67,6 @@ export function DetailPanel({
         table.appendChild(tr);
       });
       wrapper.appendChild(table);
-
       document.body.appendChild(wrapper);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -90,90 +90,46 @@ export function DetailPanel({
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div
-        className="detail-header"
-        style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-      >
-        <button
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between pb-3 mb-3 border-b border-border">
+        <Button
+          size="sm"
           onClick={downloadPDF}
           disabled={saving}
-          className="btn-primary btn-sm"
-          style={{
-            background: saving ? "#9ca3af" : "#16a34a",
-            fontSize: "11px",
-            display: "flex",
-            alignItems: "center",
-            gap: "4px",
-            cursor: saving ? "not-allowed" : "pointer",
-          }}
+          className={saving ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-green-600 hover:bg-green-700 text-white"}
         >
           {saving ? "⏳ 저장 중..." : "📄 PDF 다운로드"}
-        </button>
-        <button
-          className="btn-ghost btn-sm"
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={onClose}
-          style={{ width: "28px", height: "28px", borderRadius: "50%", padding: 0 }}
+          className="h-7 w-7 rounded-full"
         >
           ✕
-        </button>
+        </Button>
       </div>
 
-      <div id="detail-pdf-content" style={{ flex: 1, padding: "10px 0", overflowY: "auto" }}>
-        <div
-          style={{
-            marginBottom: "20px",
-            paddingBottom: "12px",
-            borderBottom: "2px solid var(--accent)",
-          }}
-        >
-          <small
-            style={{
-              color: "var(--text-muted)",
-              fontSize: "10px",
-              textTransform: "uppercase",
-              fontWeight: 700,
-            }}
-          >
+      <div id="detail-pdf-content" className="flex-1 py-2.5 overflow-y-auto">
+        <div className="mb-5 pb-3 border-b-2 border-primary">
+          <small className="text-muted-foreground text-[10px] uppercase font-bold tracking-wide">
             상세조회 레코드
           </small>
-          <div className="detail-title" style={{ fontSize: "18px", marginTop: "4px" }}>
+          <div className="text-lg font-bold text-primary mt-1 break-words">
             {String(title)}
           </div>
         </div>
 
-        <dl
-          className="detail-list"
-          style={{ display: "grid", gridTemplateColumns: "130px 1fr", gap: "10px 16px" }}
-        >
+        <dl className="grid gap-x-4 gap-y-2.5" style={{ gridTemplateColumns: "130px 1fr" }}>
           {keys.map((k) => {
             const v = row[k];
             if (v == null || v === "") return null;
             return (
               <Fragment key={k}>
-                <dt
-                  style={{
-                    fontWeight: 600,
-                    color: "var(--text-muted)",
-                    fontSize: "11px",
-                    borderBottom: "1px solid var(--border)",
-                    paddingBottom: "4px",
-                    display: "flex",
-                    alignItems: "center",
-                  }}
-                >
+                <dt className="font-semibold text-muted-foreground text-[11px] border-b border-border pb-1 flex items-center">
                   {k}
                 </dt>
-                <dd
-                  style={{
-                    color: "var(--text-primary)",
-                    fontSize: "12px",
-                    borderBottom: "1px solid var(--border)",
-                    paddingBottom: "4px",
-                    wordBreak: "break-all",
-                    whiteSpace: "pre-wrap",
-                  }}
-                >
+                <dd className="text-foreground text-xs border-b border-border pb-1 break-all whitespace-pre-wrap">
                   {String(v)}
                 </dd>
               </Fragment>

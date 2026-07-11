@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import type { ChartItem, ProjectData, Row } from "@/types/dashboard";
 import { aggCategory, aggMultiValue, aggNumericSum } from "@/lib/aggregate";
+import { cn } from "@/lib/utils";
 
 const PALETTE = [
   "var(--chart-1)",
@@ -95,7 +96,7 @@ export function ChartCard({
 
   const renderPieLabel = ({ name, percent }: { name: string; percent: number }) => {
     if (!chart.show_percent) return null;
-    if (percent < 0.05) return null; // 5% 미만은 텍스트가 겹치므로 표시 안 함
+    if (percent < 0.05) return null;
     return `${name} (${(percent * 100).toFixed(1)}%)`;
   };
 
@@ -111,12 +112,10 @@ export function ChartCard({
     return [`${v}${unit} (${pct}%)`, name];
   };
 
-  let cardStyle: React.CSSProperties = {};
   let chartHeight = 200;
   let pieOuterRadius = 75;
   let pieInnerRadius = 45;
 
-  // 정석 마이그레이션을 통과하지 못하고 메모리에 잔존해 있던 구버전 데이터에 대한 최종 렌더링 방어선
   let layout = chart.layout;
   if (!layout) {
     if ((chart as any).width === 2 || (chart as any).width === "2") {
@@ -126,24 +125,24 @@ export function ChartCard({
     }
   }
 
-  if (layout === "2x1") {
-    cardStyle = { gridColumn: "span 2" };
-  } else if (layout === "2x2") {
-    cardStyle = { gridColumn: "span 2", gridRow: "span 2" };
+  if (layout === "2x2") {
     chartHeight = 540;
     pieOuterRadius = 180;
     pieInnerRadius = 110;
-  } else if (layout === "full") {
-    cardStyle = { gridColumn: "1 / -1" };
-  } else if (layout === "0.5x1") {
-    cardStyle = { maxWidth: "100%" };
   }
 
+  const cardClassName = cn(
+    "bg-card border border-border/60 rounded-xl p-3 shadow-sm",
+    layout === "2x1" && "col-span-2 max-sm:col-span-1",
+    layout === "2x2" && "col-span-2 max-sm:col-span-1 row-span-2",
+    layout === "full" && "col-span-full",
+  );
+
   return (
-    <div className="chart-card" style={cardStyle}>
-      <div className="chart-title">{title || "Untitled Chart"}</div>
+    <div className={cardClassName}>
+      <div className="text-xs font-semibold text-foreground mb-2">{title || "Untitled Chart"}</div>
       <div
-        className="chart-wrap"
+        className="relative"
         style={{
           minHeight: chartHeight,
           display: "flex",
