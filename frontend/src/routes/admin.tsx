@@ -31,6 +31,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 
 // ── 관리자 뷰 타입 ────────────────────────────────────────────────────────────
 type AdminView = "list" | "new" | "config" | "run";
@@ -253,57 +254,70 @@ function AdminDashboard({ user }: { user: User }) {
 
   // ── 렌더 ────────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-screen bg-[#f3f4f6] font-sans">
+    <div className="flex flex-col h-screen bg-background font-sans">
       {/* ── Top Header ───────────────────────────────────────────────────────── */}
-      {view === "list" && (
-        <header className="h-16 flex items-center justify-between px-8 bg-white border-b border-slate-200 shrink-0 z-10">
-          <div className="flex items-center gap-3">
-            <span className="font-extrabold text-[17px] tracking-tight text-slate-800">
-              📊 ClearSurvey Admin
-            </span>
-            <Badge
-              variant="outline"
-              className="ml-1 text-[10px] px-1.5 py-0 bg-slate-100 text-slate-600 border-slate-200"
-            >
-              Manager
-            </Badge>
-          </div>
+      <header className="h-14 flex items-center justify-between px-6 bg-card border-b border-border shrink-0 z-10">
+        <div className="flex items-center gap-3">
+          <BarChart3 className="h-5 w-5 text-primary" />
+          <span className="font-extrabold text-[16px] tracking-tight text-foreground">
+            ClearSurvey Admin
+          </span>
+          <Badge variant="outline" className="ml-1 text-[10px] px-1.5 py-0">
+            Manager
+          </Badge>
+        </div>
 
-          <div className="flex items-center gap-4">
-            {!api.isBackendAlive ? (
-              <Badge variant="destructive" className="text-xs">
-                서버 오프라인
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-300">
-                서버 온라인
-              </Badge>
-            )}
-            <div className="h-6 w-px bg-border mx-2" />
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-2 text-muted-foreground hover:text-foreground"
-              onClick={() => window.open("/", "_blank")}
-            >
-              <ExternalLink className="h-4 w-4" /> 공개 대시보드
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-2 text-muted-foreground hover:text-destructive"
-              onClick={handleSignOut}
-            >
-              <LogOut className="h-4 w-4" /> 로그아웃
-            </Button>
-          </div>
-        </header>
-      )}
+        <div className="flex items-center gap-2">
+          {view !== "list" && (
+            <div className="flex items-center gap-3 mr-4">
+              <StepIndicator step={1} currentView={view} label="파일 업로드" targetView="new" />
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+              <StepIndicator step={2} currentView={view} label="설정 편집" targetView="config" />
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+              <StepIndicator step={3} currentView={view} label="파이프라인 실행" targetView="run" />
+            </div>
+          )}
+          {!api.isBackendAlive ? (
+            <Badge variant="destructive" className="text-xs">
+              서버 오프라인
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-300 dark:border-emerald-700 dark:text-emerald-400">
+              서버 온라인
+            </Badge>
+          )}
+          <div className="h-5 w-px bg-border mx-1" />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-2 text-muted-foreground hover:text-foreground h-8 px-3 text-xs"
+            onClick={() => setGuideOpen(true)}
+          >
+            <BookOpen className="h-4 w-4" /> 가이드
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-2 text-muted-foreground hover:text-foreground h-8 px-3 text-xs"
+            onClick={() => window.open("/", "_blank")}
+          >
+            <ExternalLink className="h-4 w-4" /> 공개 대시보드
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-2 text-muted-foreground hover:text-destructive h-8 px-3 text-xs"
+            onClick={handleSignOut}
+          >
+            <LogOut className="h-4 w-4" /> 로그아웃
+          </Button>
+        </div>
+      </header>
 
       {/* ── Main content ─────────────────────────────────────────────────────── */}
       <main className="flex-1 overflow-hidden flex flex-col relative">
         {view === "list" ? (
-          <div className="flex-1 overflow-y-auto p-6 md:p-10 bg-[#f8fafc]">
+          <div className="flex-1 overflow-y-auto p-6 md:p-10 bg-background">
             <div className="max-w-[1400px] mx-auto space-y-8">
               <ProjectListView
                 projects={api.projects}
@@ -338,8 +352,7 @@ function AdminDashboard({ user }: { user: User }) {
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col h-full bg-[#f3f4f6] overflow-hidden">
-            {/* Step Content */}
+          <div className="flex-1 flex flex-col h-full bg-background overflow-hidden">
             <div className="flex-1 overflow-y-auto">
               {view === "new" && (
                 <div className="max-w-6xl mx-auto py-8 px-4">
@@ -347,7 +360,7 @@ function AdminDashboard({ user }: { user: User }) {
                     <Button variant="ghost" onClick={() => setView("list")} className="gap-2">
                       <ChevronLeft className="h-4 w-4" /> 뒤로가기
                     </Button>
-                    <h1 className="text-xl font-bold">새 프로젝트 생성</h1>
+                    <h1 className="text-xl font-bold text-foreground">새 프로젝트 생성</h1>
                   </div>
                   <Step1_ProjectUpload
                     isBackendAlive={api.isBackendAlive}
@@ -372,8 +385,8 @@ function AdminDashboard({ user }: { user: User }) {
                     loading={api.loading}
                   />
                 ) : (
-                  <div className="p-12 text-center text-muted-foreground bg-white border rounded-xl shadow-sm animate-pulse max-w-6xl mx-auto mt-8">
-                    ⏳ 프로젝트 설정을 안전하게 불러오는 중입니다...
+                  <div className="p-12 text-center text-muted-foreground bg-card border border-border rounded-xl shadow-sm animate-pulse max-w-6xl mx-auto mt-8">
+                    프로젝트 설정을 안전하게 불러오는 중입니다...
                   </div>
                 ))}
               {view === "run" && (
@@ -382,7 +395,7 @@ function AdminDashboard({ user }: { user: User }) {
                     <Button variant="ghost" onClick={() => setView("config")} className="gap-2">
                       <ChevronLeft className="h-4 w-4" /> 설정으로 돌아가기
                     </Button>
-                    <h1 className="text-xl font-bold">파이프라인 실행</h1>
+                    <h1 className="text-xl font-bold text-foreground">파이프라인 실행</h1>
                   </div>
                   <Step3_RunDeploy
                     projectName={selectedProject}
@@ -494,10 +507,10 @@ function ProjectListView({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between bg-white p-6 md:p-8 border border-slate-200 rounded-2xl shadow-sm">
+      <div className="flex items-center justify-between bg-card p-6 md:p-8 border border-border rounded-xl shadow-sm">
         <div>
-          <h1 className="text-xl font-extrabold text-slate-800">프로젝트 관리</h1>
-          <p className="text-sm text-slate-500 mt-1.5 font-medium">
+          <h1 className="text-xl font-extrabold text-foreground">프로젝트 관리</h1>
+          <p className="text-sm text-muted-foreground mt-1.5 font-medium">
             등록된 프로젝트 목록과 웹 게시 상태를 관리합니다.
           </p>
         </div>
@@ -505,7 +518,6 @@ function ProjectListView({
           size="sm"
           onClick={onNew}
           disabled={!isBackendAlive}
-          className="bg-primary hover:bg-primary/90"
         >
           <Plus className="h-4 w-4 mr-1.5" />새 프로젝트 등록
         </Button>
@@ -527,74 +539,74 @@ function ProjectListView({
 
       {/* Backend offline notice */}
       {!isBackendAlive && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          ⚠ 백엔드 서버 오프라인. 설정 변경 및 파이프라인 실행이 제한됩니다.
+        <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900/40 p-4 text-sm text-amber-800 dark:text-amber-400">
+          백엔드 서버 오프라인. 설정 변경 및 파이프라인 실행이 제한됩니다.
         </div>
       )}
 
       {/* Project table */}
       {projects.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center border rounded-xl bg-white shadow-sm">
-          <FolderOpen className="h-10 w-10 text-slate-300 mb-4" />
-          <p className="text-[13px] font-medium text-slate-500">등록된 프로젝트가 없습니다</p>
+        <div className="flex flex-col items-center justify-center py-20 text-center border border-border rounded-xl bg-card shadow-sm">
+          <FolderOpen className="h-10 w-10 text-muted-foreground/40 mb-4" />
+          <p className="text-[13px] font-medium text-muted-foreground">등록된 프로젝트가 없습니다</p>
         </div>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50/80 text-slate-500 font-semibold border-b border-slate-200">
+            <thead className="bg-muted/50 text-muted-foreground font-semibold border-b border-border">
               <tr>
-                <th className="px-6 py-4 text-left">프로젝트명</th>
-                <th className="px-6 py-4 text-left">마지막 업데이트</th>
-                <th className="px-6 py-4 text-center">게시 상태</th>
-                <th className="px-6 py-4 text-right">작업 액션</th>
+                <th className="px-6 py-3.5 text-left text-xs">프로젝트명</th>
+                <th className="px-6 py-3.5 text-left text-xs">마지막 업데이트</th>
+                <th className="px-6 py-3.5 text-center text-xs">게시 상태</th>
+                <th className="px-6 py-3.5 text-right text-xs">작업 액션</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-border">
               {projects.map((p) => {
                 const isPublished = p.published !== false;
                 return (
-                  <tr key={p.id} className="hover:bg-slate-50/80 transition-colors group">
-                    <td className="px-6 py-5">
+                  <tr key={p.id} className="hover:bg-muted/50 transition-colors group">
+                    <td className="px-6 py-4">
                       <div
                         className="flex items-center gap-3 cursor-pointer w-fit"
                         onClick={() => isBackendAlive && onOpenConfig(p.id)}
                       >
-                        <div className="p-2 bg-slate-100 rounded-lg group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                          <Settings className="h-4 w-4 text-slate-500 group-hover:text-blue-600 transition-colors" />
+                        <div className="p-2 bg-muted rounded-lg group-hover:bg-primary/10 transition-colors">
+                          <Settings className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                         </div>
-                        <span className="font-bold text-[15px] text-slate-700 group-hover:text-blue-700 transition-colors">
+                        <span className="font-bold text-[15px] text-foreground group-hover:text-primary transition-colors">
                           {p.name}
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-5 text-slate-500 font-medium">{p.updated || "—"}</td>
-                    <td className="px-6 py-5">
+                    <td className="px-6 py-4 text-muted-foreground font-medium text-[13px]">{p.updated || "—"}</td>
+                    <td className="px-6 py-4">
                       <div className="flex items-center justify-center gap-2">
                         <Switch
                           checked={isPublished}
                           disabled={!isBackendAlive || toggling === p.id}
                           onCheckedChange={() => handleToggle(p.id, isPublished)}
-                          className="data-[state=checked]:bg-blue-600 scale-90"
+                          className="scale-90"
                         />
                         {isPublished ? (
-                          <span className="text-[11px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                          <span className="text-[11px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
                             공개
                           </span>
                         ) : (
-                          <span className="text-[11px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                          <span className="text-[11px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                             비공개
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-5">
+                    <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2 flex-wrap">
                         <Button
                           size="sm"
                           variant="outline"
                           disabled={!isBackendAlive || deleting === p.id}
                           onClick={() => onOpenConfig(p.id)}
-                          className="h-8 text-xs px-3 font-semibold border-slate-200 hover:bg-slate-50 text-slate-600"
+                          className="h-8 text-xs px-3 font-semibold"
                         >
                           설정 편집
                         </Button>
@@ -602,7 +614,7 @@ function ProjectListView({
                           size="sm"
                           disabled={!isBackendAlive || deleting === p.id}
                           onClick={() => onOpenRun(p.id)}
-                          className="h-8 text-xs px-3 font-semibold bg-slate-800 hover:bg-slate-700 text-white"
+                          className="h-8 text-xs px-3 font-semibold"
                         >
                           엔진 가동
                         </Button>
@@ -613,7 +625,7 @@ function ProjectListView({
                           onClick={() => {
                             window.location.href = api.getExportHtmlUrl(p.id);
                           }}
-                          className="h-8 text-xs px-3 font-semibold bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100"
+                          className="h-8 text-xs px-3 font-semibold"
                           title="정적 HTML 보고서 다운로드"
                         >
                           HTML 내보내기
@@ -623,7 +635,7 @@ function ProjectListView({
                           variant="ghost"
                           disabled={!isBackendAlive || deleting === p.id}
                           onClick={() => handleDelete(p.id, p.name)}
-                          className="h-8 text-xs px-3 font-semibold text-red-500 hover:text-red-600 hover:bg-red-50"
+                          className="h-8 text-xs px-3 font-semibold text-destructive hover:text-destructive hover:bg-destructive/10"
                         >
                           삭제
                         </Button>
@@ -642,15 +654,13 @@ function ProjectListView({
 
 function StatCard({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
   return (
-    <div
-      className={`bg-white border rounded-2xl p-6 shadow-sm flex flex-col justify-center ${accent ? "border-blue-200" : "border-slate-200"}`}
-    >
-      <div className="text-[13px] font-bold text-slate-500 mb-1.5">{label}</div>
-      <div
-        className={`text-3xl font-black tracking-tight ${accent ? "text-blue-600" : "text-slate-800"}`}
-      >
-        {value}
-      </div>
-    </div>
+    <Card className={`shadow-sm ${accent ? "border-primary/40" : "border-border/60"}`}>
+      <CardContent className="px-5 py-4 flex flex-col justify-center">
+        <div className="text-[13px] font-medium text-muted-foreground mb-1.5">{label}</div>
+        <div className={`text-3xl font-bold tracking-tight ${accent ? "text-primary" : "text-foreground"}`}>
+          {value}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
