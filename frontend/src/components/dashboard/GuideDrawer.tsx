@@ -1,6 +1,12 @@
 import React from "react";
-import { X, BookOpen, Terminal, CheckCircle } from "lucide-react";
+import { BookOpen, Terminal, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Table,
   TableBody,
@@ -95,55 +101,24 @@ const GROUP_COLORS: Record<string, string> = {
 };
 
 export const GuideDrawer: React.FC<GuideDrawerProps> = ({ isOpen, onClose }) => {
-  if (!isOpen) return null;
-
   return (
-    <>
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: "rgba(0, 0, 0, 0.4)",
-          backdropFilter: "blur(4px)",
-          zIndex: 899,
-        }}
-        onClick={onClose}
-      />
-
-      <div
-        style={{
-          position: "fixed",
-          top: "56px",
-          right: 0,
-          width: "min(480px, 100vw)",
-          height: "calc(100vh - 56px)",
-          zIndex: 900,
-          display: "flex",
-          flexDirection: "column",
-        }}
-        className="bg-card border-l border-border shadow-2xl overflow-y-auto"
-      >
-        <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
-          <div className="flex items-center gap-2">
+    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent className="w-[480px] sm:w-[480px] max-w-full overflow-y-auto flex flex-col p-0">
+        <SheetHeader className="px-5 py-4 border-b border-border bg-muted/30 shrink-0">
+          <SheetTitle className="flex items-center gap-2 text-base">
             <BookOpen className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-base text-foreground">설문 정제 가이드</h2>
-          </div>
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+            설문 정제 가이드
+          </SheetTitle>
+        </SheetHeader>
 
-        <div className="flex-1 p-5 overflow-y-auto">
+        <div className="flex-1 px-5 py-4 overflow-y-auto">
           <Tabs defaultValue="transform" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-4">
               <TabsTrigger value="transform" className="text-xs">
-                🔄 정제 규칙 (Transform)
+                정제 규칙 (Transform)
               </TabsTrigger>
               <TabsTrigger value="cli" className="text-xs">
-                💻 CLI 명령어
+                CLI 명령어
               </TabsTrigger>
             </TabsList>
 
@@ -210,7 +185,6 @@ export const GuideDrawer: React.FC<GuideDrawerProps> = ({ isOpen, onClose }) => 
               </p>
 
               <div className="space-y-3">
-                {/* 1. analyze */}
                 <div className="p-3 bg-muted rounded-md space-y-1.5">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
                     <Terminal className="h-3.5 w-3.5" />
@@ -227,7 +201,6 @@ export const GuideDrawer: React.FC<GuideDrawerProps> = ({ isOpen, onClose }) => 
                   </p>
                 </div>
 
-                {/* 2. run */}
                 <div className="p-3 bg-muted rounded-md space-y-1.5">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
                     <Terminal className="h-3.5 w-3.5" />
@@ -243,7 +216,6 @@ export const GuideDrawer: React.FC<GuideDrawerProps> = ({ isOpen, onClose }) => 
                   </p>
                 </div>
 
-                {/* 3. export */}
                 <div className="p-3 bg-muted rounded-md space-y-1.5">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
                     <Terminal className="h-3.5 w-3.5" />
@@ -258,7 +230,6 @@ export const GuideDrawer: React.FC<GuideDrawerProps> = ({ isOpen, onClose }) => 
                   </p>
                 </div>
 
-                {/* validate */}
                 <div className="p-3 bg-muted rounded-md space-y-1.5">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
                     <Terminal className="h-3.5 w-3.5" />
@@ -273,7 +244,6 @@ export const GuideDrawer: React.FC<GuideDrawerProps> = ({ isOpen, onClose }) => 
                   </p>
                 </div>
 
-                {/* 백엔드 서버 */}
                 <div className="p-3 rounded-md space-y-1.5 bg-green-50/40 border border-green-200/60 dark:bg-green-950/10 dark:border-green-900/30">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-green-700 dark:text-green-400">
                     <CheckCircle className="h-3.5 w-3.5" />
@@ -289,7 +259,6 @@ export const GuideDrawer: React.FC<GuideDrawerProps> = ({ isOpen, onClose }) => 
                   </p>
                 </div>
 
-                {/* 프론트엔드 서버 */}
                 <div className="p-3 bg-muted rounded-md space-y-1.5">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
                     <Terminal className="h-3.5 w-3.5" />웹 프론트엔드 개발 서버
@@ -307,7 +276,7 @@ export const GuideDrawer: React.FC<GuideDrawerProps> = ({ isOpen, onClose }) => 
             </TabsContent>
           </Tabs>
         </div>
-      </div>
-    </>
+      </SheetContent>
+    </Sheet>
   );
 };

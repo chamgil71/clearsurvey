@@ -435,15 +435,19 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
                         <label className="text-[10px] font-semibold text-muted-foreground block">
                           중복 제거 전략 (Dedup)
                         </label>
-                        <select
+                        <Select
                           value={dedupStrategy}
-                          onChange={(e) => setDedupStrategy(e.target.value as any)}
-                          className="w-full text-xs p-1 border rounded-md bg-background"
+                          onValueChange={(v) => setDedupStrategy(v as "first" | "last" | "none")}
                         >
-                          <option value="none">전체 행 허용 (strategy: none)</option>
-                          <option value="first">첫 행 보존 (strategy: first)</option>
-                          <option value="last">마지막 행 보존 (strategy: last)</option>
-                        </select>
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none" className="text-xs">전체 행 허용 (strategy: none)</SelectItem>
+                            <SelectItem value="first" className="text-xs">첫 행 보존 (strategy: first)</SelectItem>
+                            <SelectItem value="last" className="text-xs">마지막 행 보존 (strategy: last)</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       <div className="space-y-1">
