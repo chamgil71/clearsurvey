@@ -10,38 +10,34 @@ test.describe("공개 대시보드 (/)", () => {
   });
 
   test("헤더가 렌더링된다", async ({ page }) => {
-    const header = page.locator(".header");
-    await expect(header).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("header")).toBeVisible({ timeout: 10_000 });
   });
 
   test("프로젝트 선택 드롭다운이 존재한다", async ({ page }) => {
-    const select = page.locator("select.project-select");
-    await expect(select).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("header select")).toBeVisible({ timeout: 10_000 });
   });
 
   test("대시보드/목록 탭 네비게이션이 존재한다", async ({ page }) => {
     // 로딩 완료 대기 (#loading 이 사라질 때까지)
     await page.waitForSelector("#loading", { state: "detached", timeout: 15_000 }).catch(() => {});
-    const tabNav = page.locator(".tab-nav");
-    await expect(tabNav).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("nav")).toBeVisible({ timeout: 10_000 });
   });
 
   test("대시보드 탭 클릭 시 차트 영역이 보인다", async ({ page }) => {
-    await page.waitForSelector(".tab-nav", { timeout: 15_000 });
-    await page.locator(".tab-btn").first().click();
-    const chartGrid = page.locator(".chart-grid, .no-data");
-    await expect(chartGrid).toBeVisible({ timeout: 5_000 });
+    await page.locator("nav").waitFor({ timeout: 15_000 });
+    await page.locator("nav button").first().click();
+    await expect(page.locator("section").first()).toBeVisible({ timeout: 5_000 });
   });
 
   test("목록 탭 클릭 시 테이블이 보인다", async ({ page }) => {
-    await page.waitForSelector(".tab-nav", { timeout: 15_000 });
-    await page.locator(".tab-btn").nth(1).click();
-    await expect(page.locator(".tab-panel").nth(1)).toBeVisible();
+    await page.locator("nav").waitFor({ timeout: 15_000 });
+    await page.locator("nav button").nth(1).click();
+    await expect(page.locator("section").nth(1)).toBeVisible({ timeout: 5_000 });
   });
 
   test("다크모드 토글 버튼이 동작한다", async ({ page }) => {
-    await page.waitForSelector(".theme-toggle", { timeout: 10_000 });
-    const toggle = page.locator(".theme-toggle");
+    const toggle = page.locator("button[title='다크모드 전환']");
+    await expect(toggle).toBeVisible({ timeout: 10_000 });
     await toggle.click();
     const isDark = await page.evaluate(() => document.documentElement.classList.contains("dark"));
     expect(isDark).toBe(true);
@@ -50,7 +46,7 @@ test.describe("공개 대시보드 (/)", () => {
   });
 
   test("가이드 버튼 클릭 시 드로어가 열린다", async ({ page }) => {
-    await page.waitForSelector(".header", { timeout: 10_000 });
+    await page.locator("header").waitFor({ timeout: 10_000 });
     await page.getByText("가이드").first().click();
     // 가이드 패널이 열렸는지 — 제목 heading 이 노출되면 성공
     await expect(page.getByRole("heading", { name: /가이드/ })).toBeVisible({
