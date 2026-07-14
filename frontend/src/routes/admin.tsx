@@ -318,7 +318,7 @@ function AdminDashboard({ user }: { user: User }) {
       <main className="flex-1 overflow-hidden flex flex-col relative">
         {view === "list" ? (
           <div className="flex-1 overflow-y-auto p-6 md:p-10 bg-background">
-            <div className="max-w-[1400px] mx-auto space-y-8">
+            <div className="max-w-5xl mx-auto space-y-8">
               <ProjectListView
                 projects={api.projects}
                 isBackendAlive={api.isBackendAlive}
@@ -378,7 +378,8 @@ function AdminDashboard({ user }: { user: User }) {
                     config={loadedConfig}
                     onSaveConfig={handleSaveConfig}
                     onBack={() => setView("list")}
-                    onNext={() => {
+                    onNext={() => setView("run")}
+                    onNextAndRun={() => {
                       setView("run");
                       setTimeout(() => handleRunWithPolling(), 100);
                     }}

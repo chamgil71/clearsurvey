@@ -25,6 +25,25 @@ _DERIVED_SUFFIXES: dict[str, list[str]] = {
 }
 
 
+def _suffixes_for(col_def: ColumnDef) -> list[str]:
+    """다중 출력 transform의 파생 접미사 목록을 반환한다. "" = 본 컬럼."""
+    if col_def.transform == "split_binary" and col_def.flag_keyword:
+        kws = [k.strip() for k in col_def.flag_keyword.split(",") if k.strip()]
+        return [""] + [f"_{kw}" for kw in kws]
+    return _DERIVED_SUFFIXES.get(col_def.transform or "", [""])
+
+
+def expanded_output_col_names(col_defs: list[ColumnDef]) -> list[str]:
+    """파생열 확장 후 실제로 쓰여지는 출력 컬럼명 전체 목록을 반환한다.
+
+    addr_split/norm_date_parts/split_binary처럼 컬럼 하나가 여러 출력 컬럼으로
+    확장되는 경우까지 포함하므로, output_col 기본 이름만으로는 잡히지 않는
+    파생열 간 이름 충돌(예: 생년월일_년 이라는 별도 컬럼과 생년월일의 파생열
+    생년월일_년)을 검증할 때 사용한다.
+    """
+    return [col_def.output_col + sfx for col_def in col_defs for sfx in _suffixes_for(col_def)]
+
+
 def _resolve_val(row: pd.Series, col_def: ColumnDef) -> Any:
     if col_def.source_cols is not None:
         return [
@@ -78,12 +97,7 @@ class CleanedSheetWriter:
         """
         expanded: list[tuple[ColumnDef, str]] = []
         for cd in col_defs:
-            if cd.transform == "split_binary" and cd.flag_keyword:
-                kws = [k.strip() for k in cd.flag_keyword.split(",") if k.strip()]
-                suffixes = [""] + [f"_{kw}" for kw in kws]
-            else:
-                suffixes = _DERIVED_SUFFIXES.get(cd.transform or "", [""])
-            for sfx in suffixes:
+            for sfx in _suffixes_for(cd):
                 expanded.append((cd, sfx))
         return expanded
 

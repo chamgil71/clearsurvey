@@ -84,6 +84,28 @@ def _write_raw_sheet(out_wb: Workbook, src_wb: openpyxl.Workbook | None,
     ws.freeze_panes = "A2"
 
 
+def enrich_config_with_patterns(cfg: SurveyConfig, proj_dir: Path | None) -> None:
+    """patterns_file 기반 공용 설정(address_parsing, transform_kwargs)을 cfg에 주입한다.
+
+    run()과 미리보기(preview) 양쪽 경로가 이 함수를 공유해야 한다. 그렇지 않으면
+    미리보기가 address_parsing 없이 addr_split을 실행해 항상 빈 값을 반환하는
+    문제가 재발한다 — 실제로 발생했던 회귀 버그다.
+    """
+    patterns = load_patterns(cfg.patterns_file, proj_dir)
+
+    # address_parsing: 프로젝트 config.yaml 우선, 없으면 patterns_file 사용
+    if cfg.address_parsing is None and patterns.address_parsing:
+        from engine.config import AddressParsingConfig
+        cfg.address_parsing = AddressParsingConfig.model_validate(
+            patterns.address_parsing
+        )
+        if cfg.address_parsing.sido_patterns:
+            print(f"주소 패턴 로드: {cfg.patterns_file} ({len(cfg.address_parsing.sido_patterns)}개 시도)")
+
+    # company/phone/brn 패턴을 transform_kwargs에 주입
+    inject_into_kwargs(cfg.transform_kwargs, patterns)
+
+
 def _build_registry(cfg: SurveyConfig) -> TransformRegistry:
     """파이프라인 실행마다 독립된 TransformRegistry 인스턴스를 생성합니다.
 
@@ -162,19 +184,7 @@ class SurveyPipeline:
                 cfg.style_file = str(proj_dir / sf)
 
         # ── load shared patterns (patterns_file) ──────────────────────────────
-        patterns = load_patterns(cfg.patterns_file, proj_dir)
-
-        # address_parsing: 프로젝트 config.yaml 우선, 없으면 patterns_file 사용
-        if cfg.address_parsing is None and patterns.address_parsing:
-            from engine.config import AddressParsingConfig
-            cfg.address_parsing = AddressParsingConfig.model_validate(
-                patterns.address_parsing
-            )
-            if cfg.address_parsing.sido_patterns:
-                print(f"주소 패턴 로드: {cfg.patterns_file} ({len(cfg.address_parsing.sido_patterns)}개 시도)")
-
-        # company/phone/brn 패턴을 transform_kwargs에 주입
-        inject_into_kwargs(cfg.transform_kwargs, patterns)
+        enrich_config_with_patterns(cfg, proj_dir)
 
         # ── input: merger or direct file ──────────────────────────────────────
         src_wb: openpyxl.Workbook | None = None

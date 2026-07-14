@@ -135,11 +135,11 @@ sequenceDiagram
 ### 환경 준비 (최초 1회)
 
 ```bash
-# Python 의존성
-pip install -r requirements.txt
+# Python 의존성 (backend/pyproject.toml 기준)
+cd backend && uv sync && cd ..
 
 # 웹 의존성 (start_web.bat 또는 직접 설치)
-cd frontend && npm install && cd ..
+cd frontend && bun install && cd ..
 ```
 
 ### 1단계: CLI 모드 (백엔드 없이)
@@ -222,11 +222,12 @@ start_web.bat       # → http://localhost:5173
 
 ```bash
 # 웹 대시보드 (Vite 개발 서버)
-cd web
-npm install      # 최초 1회
-npm run dev      # → http://localhost:5173
+cd frontend
+bun install      # 최초 1회
+bun run dev      # → http://localhost:5173
 
 # FastAPI 백엔드
+cd backend
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 # API 문서: http://localhost:8000/docs
 ```
@@ -637,25 +638,33 @@ columns:
 
 ## 10. 상세 가이드 문서
 
-> 문서 전체 인덱스: [docs/README.md](docs/README.md)
+> 문서 전체 인덱스: [docs/INDEX.md](docs/INDEX.md)
 
-### 설계 가이드
+### 운영 가이드
 
 | 문서 | 내용 |
 |------|------|
-| [docs/workflow_guide.md](docs/workflow_guide.md) | 전체 운영 워크플로우 (처음부터 끝까지) |
-| [docs/config_guide.md](docs/config_guide.md) | config.yaml + Excel Config 시트 상세 |
-| [docs/project_config_guide.md](docs/project_config_guide.md) | 프로젝트 폴더 구성 및 설정 스키마 |
-| [docs/analyze_and_merge.md](docs/analyze_and_merge.md) | 분석·병합 상세 설계 |
-| [docs/python_guide.md](docs/python_guide.md) | Python 정제 엔진 상세 |
-| [docs/backend_guide.md](docs/backend_guide.md) | FastAPI 백엔드 API 레퍼런스 |
-| [docs/frontend_guide.md](docs/frontend_guide.md) | React 웹 프론트엔드 구조 |
-| [docs/integrated_guide.md](docs/integrated_guide.md) | 전체 시스템 연계 데이터 플로우 |
+| [docs/guides/integrated_guide.md](docs/guides/integrated_guide.md) | 전체 시스템 연계 데이터 플로우 (백엔드 API, 프론트엔드 연동, 정제 워크플로우 통합) |
+| [docs/guides/config_guide.md](docs/guides/config_guide.md) | config.yaml + Excel Config 시트 상세 |
+| [docs/guides/project_config_guide.md](docs/guides/project_config_guide.md) | 프로젝트 폴더 구성 및 설정 스키마 |
+| [docs/guides/project_files_lifecycle.md](docs/guides/project_files_lifecycle.md) | 프로젝트 폴더 내 각 파일의 역할·생성 시점 |
+| [docs/guides/admin_auth_guide.md](docs/guides/admin_auth_guide.md) | Admin 화면 Supabase 인증(JWT) 동작 방식 |
+| [docs/guides/cli_vs_web_guide.md](docs/guides/cli_vs_web_guide.md) | CLI 모드와 웹 마법사 모드의 차이·선택 기준 |
+| [docs/guides/vercel_deploy_guide.md](docs/guides/vercel_deploy_guide.md) | Vercel 정적 대시보드 배포 가이드 |
+| [docs/guides/multi_pc_data_sync.md](docs/guides/multi_pc_data_sync.md) | 여러 PC 작업 시 데이터 동기화·Vercel 충돌 방지 |
+
+### 설계 및 기획서 (구버전 개별 가이드는 `docs/archive/`에 있음)
+
+| 문서 | 내용 |
+|------|------|
+| [docs/plan/prd.md](docs/plan/prd.md) | 제품 요구사항 정의서(PRD) |
+| [docs/plan/remaining_improvements.md](docs/plan/remaining_improvements.md) | 잔여 개선 사항 기획서 |
+| [docs/plan/transform_test_plan.md](docs/plan/transform_test_plan.md) | 정제 규칙 테스트 커버리지 보강 계획 |
 
 ### 작업 로그
 
 | 문서 | 내용 |
 |------|------|
-| [docs/log/worklog.md](docs/log/worklog.md) | 개발 작업 로그 (마일스톤 이력) |
-| [docs/log/qna.md](docs/log/qna.md) | 운영 Q&A 및 설계 결정 내역 |
+| [docs/logs/worklog.md](docs/logs/worklog.md) | 개발 작업 로그 (마일스톤 이력) |
+| [docs/logs/qna.md](docs/logs/qna.md) | 운영 Q&A 및 설계 결정 내역 |
 | [docs/archive/system_analysis_2026-05-27.md](docs/archive/system_analysis_2026-05-27.md) | 시스템 분석 보고서 (아카이브) |

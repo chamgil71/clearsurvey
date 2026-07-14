@@ -25,33 +25,61 @@ export interface ColumnDef {
 }
 
 export const TRANSFORM_RULES = [
-  { value: "", label: "기본 통과 (변경 없음)" },
-  { value: "copy", label: "copy — 원본 값 그대로" },
-  { value: "exclude", label: "출력에서 제외" },
-  { value: "norm_date", label: "norm_date — 날짜 표준화" },
-  { value: "norm_date_parts", label: "norm_date_parts — 날짜 연/월/일" },
-  { value: "date_year", label: "date_year — 연도만 추출" },
-  { value: "norm_phone", label: "norm_phone — 전화번호 규격화" },
-  { value: "norm_company", label: "norm_company — 회사명 규격화" },
-  { value: "norm_text", label: "norm_text — 공백 제거" },
-  { value: "norm_num", label: "norm_num — 숫자만 추출" },
-  { value: "norm_position", label: "norm_position — 직함 규격화" },
-  { value: "val_email", label: "val_email — 이메일 검증" },
-  { value: "val_url", label: "val_url — URL 검증" },
-  { value: "val_brn", label: "val_brn — 사업자번호 검증" },
-  { value: "mask_name", label: "mask_name — 이름 마스킹" },
-  { value: "mask_rrn", label: "mask_rrn — 주민번호 마스킹" },
-  { value: "to_binary", label: "to_binary — 키워드 이진화" },
-  { value: "split_binary", label: "split_binary — 복수 선택 이진 분리" },
-  { value: "to_pct", label: "to_pct — 퍼센트 변환" },
-  { value: "addr_split", label: "addr_split — 주소 시/군/구" },
-  { value: "group_sum", label: "group_sum — 다중 열 합산" },
+  { value: "", label: "기본 통과 (변경 없음)", group: "기본" },
+  { value: "copy", label: "copy — 원본 값 그대로", group: "기본" },
+  { value: "exclude", label: "출력에서 제외", group: "기본" },
+  { value: "norm_date", label: "norm_date — 날짜 표준화", group: "정규화" },
+  { value: "norm_date_parts", label: "norm_date_parts — 날짜 연/월/일", group: "정규화" },
+  { value: "date_year", label: "date_year — 연도만 추출", group: "정규화" },
+  { value: "norm_phone", label: "norm_phone — 전화번호 규격화", group: "정규화" },
+  { value: "norm_company", label: "norm_company — 회사명 규격화", group: "정규화" },
+  { value: "norm_text", label: "norm_text — 공백 제거", group: "정규화" },
+  { value: "norm_num", label: "norm_num — 숫자만 추출", group: "정규화" },
+  { value: "norm_position", label: "norm_position — 직함 규격화", group: "정규화" },
+  { value: "val_email", label: "val_email — 이메일 검증", group: "검증" },
+  { value: "val_url", label: "val_url — URL 검증", group: "검증" },
+  { value: "val_brn", label: "val_brn — 사업자번호 검증", group: "검증" },
+  { value: "mask_name", label: "mask_name — 이름 마스킹", group: "마스킹" },
+  { value: "mask_rrn", label: "mask_rrn — 주민번호 마스킹", group: "마스킹" },
+  { value: "to_binary", label: "to_binary — 키워드 이진화", group: "변환" },
+  { value: "split_binary", label: "split_binary — 복수 선택 이진 분리", group: "변환" },
+  { value: "to_pct", label: "to_pct — 퍼센트 변환", group: "변환" },
+  { value: "addr_split", label: "addr_split — 주소 시/군/구", group: "주소" },
+  { value: "group_sum", label: "group_sum — 다중 열 합산", group: "집계" },
+  { value: "jang", label: "jang — 주열+보조열 병합", group: "집계" },
 ];
+
+const TRANSFORM_GROUP_ORDER = ["기본", "정규화", "검증", "마스킹", "변환", "주소", "집계"];
 
 export const NEEDS_FLAG_KEYWORD = new Set(["to_binary", "o_binary", "split_binary"]);
 export const NEEDS_BACKUP_COL = new Set(["jang"]);
 export const NEEDS_SOURCE_COLS = new Set(["group_sum"]);
 export const DERIVES_COLUMNS = new Set(["norm_date_parts", "addr_split", "split_binary"]);
+
+/**
+ * "3,5,7" 콤마 목록과 "3-7" 범위 문법을 모두 지원한다.
+ * Excel 설정 가져오기(config_excel.py의 _source_cols_or_none)와 동일한 문법을 사용해
+ * 웹 UI와 Excel 가이드 간 입력 문법 불일치를 없앤다.
+ */
+export function parseSourceColsInput(raw: string): number[] {
+  const result: number[] = [];
+  for (const part of raw.replace(/;/g, ",").split(",")) {
+    const token = part.trim();
+    if (!token) continue;
+    if (token.includes("-")) {
+      const [startS, endS] = token.split("-", 2);
+      const start = parseInt(startS.trim(), 10);
+      const end = parseInt(endS.trim(), 10);
+      if (isNaN(start) || isNaN(end)) continue;
+      const [lo, hi] = start <= end ? [start, end] : [end, start];
+      for (let n = lo; n <= hi; n++) result.push(n);
+    } else {
+      const n = parseInt(token, 10);
+      if (!isNaN(n)) result.push(n);
+    }
+  }
+  return Array.from(new Set(result));
+}
 
 export const COL_TYPES = [
   { value: "category", label: "category" },
@@ -200,8 +228,13 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
                         onChange={(e) => onTransformChange(index, e.target.value)}
                         className="w-full h-8 px-2 text-[13px] border border-slate-200 bg-white rounded-md text-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 hover:border-slate-300 transition-all shadow-sm"
                       >
-                        {TRANSFORM_RULES.map((r) => (
-                          <option key={r.value} value={r.value}>{r.label}</option>
+                        <option value="">기본 통과 (변경 없음)</option>
+                        {TRANSFORM_GROUP_ORDER.map((group) => (
+                          <optgroup key={group} label={group}>
+                            {TRANSFORM_RULES.filter((r) => r.group === group && r.value !== "").map((r) => (
+                              <option key={r.value} value={r.value}>{r.label}</option>
+                            ))}
+                          </optgroup>
                         ))}
                       </select>
                     </TableCell>
@@ -218,10 +251,10 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
                         )}
                         {NEEDS_SOURCE_COLS.has(transform) && (
                           <Input
-                            placeholder="원본 열 (예: 1, 2, 3)"
+                            placeholder="원본 열 (예: 1, 2, 3 또는 3-7)"
                             value={(col.source_cols || []).join(", ")}
                             onChange={(e) => {
-                              const nums = e.target.value.split(",").map((v) => parseInt(v.trim(), 10)).filter((n) => !isNaN(n));
+                              const nums = parseSourceColsInput(e.target.value);
                               onColumnChange(index, { source_cols: nums });
                             }}
                             className="h-8 px-2 text-[13px] font-mono border-slate-200 bg-white hover:border-slate-300 focus-visible:ring-1 focus-visible:ring-blue-500 rounded-md transition-all shadow-sm"

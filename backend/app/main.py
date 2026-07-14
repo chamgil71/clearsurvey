@@ -159,11 +159,13 @@ def _update_projects_manifest(project_name: str, file_name: str) -> None:
         except Exception:
             projects = []
             
+    # 기존 published 값을 먼저 조회해둔다 (제거보다 먼저 해야 값을 잃지 않는다)
+    existing = next((p for p in projects if p.get("id") == project_name), {})
+
     # 기존 항목이 있으면 제거 (업데이트 대상)
     projects = [p for p in projects if p.get("id") != project_name]
-    
+
     # 새 항목 추가 (기존 published 값 유지)
-    existing = next((p for p in projects if p.get("id") == project_name), {})
     projects.append({
         "id": project_name,
         "name": project_name,
@@ -716,58 +718,67 @@ async def preview_project_config(name: str, user: dict = Depends(verify_supabase
         
     try:
         import pandas as pd
-        from engine.pipeline import SurveyPipeline, _build_registry
-        
+        from engine.pipeline import _build_registry, enrich_config_with_patterns
+        from engine.writer import _apply_transform, _resolve_val, _suffixes_for
+
+        # 실제 파이프라인(run)과 동일하게 patterns_file 기반 address_parsing 등을
+        # cfg에 보강한다. 이걸 건너뛰면 addr_split 등 파생열 transform이
+        # address_parsing 없이 실행되어 항상 빈 값을 반환한다.
+        enrich_config_with_patterns(cfg, proj_dir)
+
         # header_row (1-based to 0-based)
         header_row = cfg.source.header_row - 1
         if header_row < 0:
             header_row = 0
-            
+
         sheet_to_read = cfg.source.sheet if cfg.source.sheet is not None else 0
         df_raw = pd.read_excel(
-            input_file, 
+            input_file,
             sheet_name=sheet_to_read,
             header=header_row
         ).head(5)
         df_raw = df_raw.fillna("")
-        
-        pipeline = SurveyPipeline(cfg, config_path=config_path)
+
         registry = _build_registry(cfg)
+        extra_kw = dict(cfg.transform_kwargs)
+        if cfg.jang_extraction:
+            extra_kw["jang_cfg"] = cfg.jang_extraction.model_dump()
         preview_rows = []
-        
+
         for _, row in df_raw.iterrows():
             raw_vals = {}
             cleaned_vals = {}
             for col_def in cfg.columns:
                 out_col = col_def.output_col
-                
-                source_val = ""
-                if col_def.source_col is not None:
-                    s_idx = col_def.source_col - 1
-                    if 0 <= s_idx < len(row):
-                        source_val = row.iloc[s_idx]
-                
-                raw_vals[out_col] = str(source_val)
-                
+
                 if col_def.transform == "exclude":
+                    raw_vals[out_col] = ""
                     cleaned_vals[out_col] = "(출력 제외됨)"
                     continue
-                    
-                cleaned_val = source_val
-                if col_def.transform:
-                    tf_fn = registry.get(col_def.transform)
-                    if tf_fn:
-                        kwargs = {}
-                        if col_def.flag_keyword:
-                            kwargs["flag_keyword"] = col_def.flag_keyword
-                        if col_def.backup_col is not None:
-                            b_idx = col_def.backup_col - 1
-                            if 0 <= b_idx < len(row):
-                                kwargs["backup_val"] = row.iloc[b_idx]
-                        cleaned_val = tf_fn(source_val, **kwargs)
-                
-                cleaned_vals[out_col] = str(cleaned_val) if cleaned_val is not None else ""
-                
+
+                source_val = _resolve_val(row, col_def)
+                raw_display = (
+                    ", ".join(str(v) for v in source_val)
+                    if isinstance(source_val, list)
+                    else str(source_val) if source_val is not None else ""
+                )
+
+                # write.py의 실제 정제 로직과 동일한 경로를 태워
+                # addr_split/norm_date_parts/split_binary 같은 다중 출력
+                # transform도 run()과 똑같이 동작하도록 한다.
+                cleaned_val = _apply_transform(col_def, row, registry, extra_kw)
+
+                for sfx in _suffixes_for(col_def):
+                    col_key = out_col + sfx
+                    if isinstance(cleaned_val, dict):
+                        cell_val = cleaned_val.get(sfx)
+                    elif sfx == "":
+                        cell_val = cleaned_val
+                    else:
+                        cell_val = None
+                    raw_vals[col_key] = raw_display
+                    cleaned_vals[col_key] = str(cell_val) if cell_val is not None else ""
+
             preview_rows.append({
                 "raw": raw_vals,
                 "cleaned": cleaned_vals
@@ -1065,405 +1076,49 @@ def export_project_html(name: str, token: str | None = None, user: dict = Depend
     )
 
 
+
+
+
+_REPORT_ASSETS_DIR = Path(__file__).parent / "report_assets"
+_REPORT_TEMPLATE_PATH = Path(__file__).parent / "templates" / "report_template.html"
+
+
 def _build_single_html_template(project_name: str, data: dict) -> str:
+    """오프라인 단독 실행형 HTML 리포트를 생성합니다.
+
+    Tailwind CSS·Chart.js·xlsx.js를 CDN이 아니라 report_assets/의 로컬 번들
+    (버전 고정)에서 읽어 그대로 인라인 삽입하므로, 생성된 리포트는 인터넷
+    연결 없이도 완전히 동작합니다 — 프로젝트를 타인에게 비공개로 공유하기
+    위한 필수 요구사항입니다.
+    """
+    import html as html_lib
     import json
+
     data_json = json.dumps(data, ensure_ascii=False)
-    
-    html = f"""<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{project_name} - 설문 데이터 정제 보고서</title>
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- SheetJS (XLSX) -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@300;400;600;700&display=swap');
-    body {{
-      font-family: 'Inter', 'Outfit', -apple-system, sans-serif;
-      background-color: #f8fafc;
-    }}
-  </style>
-</head>
-<body class="p-6 md:p-8">
-  <div class="max-w-7xl mx-auto space-y-6">
-    <!-- 헤더 -->
-    <header class="flex flex-col md:flex-row md:items-center justify-between bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm gap-4">
-      <div>
-        <div class="flex items-center gap-2">
-          <span class="text-xs font-bold bg-primary/10 text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">독립 보고서</span>
-          <span class="text-xs text-slate-400">오프라인 구동 가능</span>
-        </div>
-        <h1 class="text-2xl font-extrabold text-slate-800 mt-1">{project_name} 대시보드 리포트</h1>
-        <p class="text-xs text-slate-500 mt-0.5">정제 일시: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
-      </div>
-      <div>
-        <button onclick="exportToCSV()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm hover:shadow transition-all flex items-center gap-1.5">
-          💾 현재 필터링 목록 다운로드 (CSV)
-        </button>
-      </div>
-    </header>
+    # <script> 컨텍스트 탈출(XSS) 방지: 정제 데이터 값에 "</script>" 등이 섞여 있어도
+    # 스크립트 태그를 조기 종료시켜 임의 HTML/JS를 주입할 수 없도록 이스케이프한다.
+    # (Django의 json_script 필터와 동일한 접근)
+    data_json = (
+        data_json
+        .replace("&", "\\u0026")
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+    )
 
-    <!-- KPI 스탯 영역 -->
-    <div id="kpi-container" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+    template = _REPORT_TEMPLATE_PATH.read_text(encoding="utf-8")
+    tailwind_css = (_REPORT_ASSETS_DIR / "tailwind.min.css").read_text(encoding="utf-8")
+    chartjs_js = (_REPORT_ASSETS_DIR / "chart.umd.min.js").read_text(encoding="utf-8")
+    xlsx_js = (_REPORT_ASSETS_DIR / "xlsx.full.min.js").read_text(encoding="utf-8")
 
-    <!-- 필터 및 검색바 -->
-    <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4">
-      <div class="flex flex-col md:flex-row md:items-center gap-4">
-        <!-- 키워드 전체 검색 -->
-        <div class="flex-1">
-          <label class="block text-xs font-bold text-slate-500 mb-1.5">🔍 키워드 검색 (기관명, GPU종류, 지역 등)</label>
-          <input type="text" id="search-input" oninput="handleFilterChange()" placeholder="검색어를 입력하세요..." class="w-full h-10 px-3 border border-slate-200 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none transition-all">
-        </div>
-        <!-- 동적 필터바 영역 -->
-        <div id="filters-container" class="flex flex-wrap items-center gap-3"></div>
-      </div>
-    </div>
-
-    <!-- 차트 그리드 영역 -->
-    <div id="charts-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
-
-    <!-- 데이터 목록 뷰 -->
-    <div class="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-4">
-      <div class="flex items-center justify-between border-b pb-4">
-        <h2 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-          📋 데이터 목록 표 <span id="table-count" class="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full font-medium">0건</span>
-        </h2>
-      </div>
-      <div class="overflow-x-auto border border-slate-100 rounded-xl">
-        <table class="w-full text-xs text-left">
-          <thead class="bg-slate-50 text-slate-500 uppercase font-semibold border-b border-slate-100" id="table-head"></thead>
-          <tbody class="divide-y divide-slate-100 text-slate-700" id="table-body"></tbody>
-        </table>
-      </div>
-      <!-- 페이지네이션 -->
-      <div class="flex items-center justify-between text-xs pt-2">
-        <span id="pagination-info" class="text-slate-400"></span>
-        <div class="flex items-center gap-2">
-          <button onclick="prevPage()" id="prev-btn" class="px-3 py-1.5 border rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent">이전</button>
-          <button onclick="nextPage()" id="next-btn" class="px-3 py-1.5 border rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent">다음</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 데이터 및 자바스크립트 로직 주입 -->
-  <script>
-    const data = {data_json};
-    let currentFilters = {{}};
-    let searchTerm = "";
-    let filteredRows = [...data.rows];
-    let currentPage = 1;
-    const pageSize = 15;
-    let chartInstances = [];
-
-    // 초기화 함수
-    window.onload = function() {{
-      initFilters();
-      updateDashboard();
-    }};
-
-    // 1. 필터바 생성
-    function initFilters() {{
-      const container = document.getElementById("filters-container");
-      container.innerHTML = "";
-      
-      const filterCols = data.dashboard?.list?.filter_cols || [];
-      filterCols.forEach(col => {{
-        const uniqueVals = data.aggregates?.[col] ? Object.keys(data.aggregates[col]) : [];
-        if (uniqueVals.length === 0) return;
-        
-        const div = document.createElement("div");
-        div.className = "flex flex-col min-w-[140px]";
-        
-        const label = document.createElement("label");
-        label.className = "text-[10px] font-bold text-slate-400 mb-1";
-        label.innerText = col;
-        
-        const select = document.createElement("select");
-        select.className = "h-10 px-3 border border-slate-200 rounded-xl text-xs bg-white outline-none cursor-pointer focus:ring-1 focus:ring-blue-500 shadow-sm";
-        select.onchange = (e) => {{
-          if (e.target.value) {{
-            currentFilters[col] = e.target.value;
-          }} else {{
-            delete currentFilters[col];
-          }}
-          handleFilterChange();
-        }};
-        
-        const defOpt = document.createElement("option");
-        defOpt.value = "";
-        defOpt.innerText = `— 전체 —`;
-        select.appendChild(defOpt);
-        
-        uniqueVals.forEach(val => {{
-          const opt = document.createElement("option");
-          opt.value = val;
-          opt.innerText = val;
-          select.appendChild(opt);
-        }});
-        
-        div.appendChild(label);
-        div.appendChild(select);
-        container.appendChild(div);
-      }});
-    }}
-
-    // 2. 필터/검색 변경 이벤트 핸들러
-    function handleFilterChange() {{
-      searchTerm = document.getElementById("search-input").value.trim().toLowerCase();
-      
-      filteredRows = data.rows.filter(row => {{
-        // 전체 텍스트 검색 검증
-        if (searchTerm) {{
-          const matchesSearch = Object.values(row).some(v => 
-            v !== null && String(v).toLowerCase().includes(searchTerm)
-          );
-          if (!matchesSearch) return false;
-        }}
-        
-        // 드롭다운 필터 검증
-        for (const [col, filterVal] of Object.entries(currentFilters)) {{
-          const rowVal = String(row[col] ?? "").trim();
-          if (rowVal !== filterVal) return false;
-        }}
-        
-        return true;
-      }});
-      
-      currentPage = 1;
-      updateDashboard();
-    }}
-
-    // 3. 대시보드 통합 리렌더링
-    function updateDashboard() {{
-      renderKPIs();
-      renderCharts();
-      renderTable();
-    }}
-
-    // 4. KPI 요약 카드 렌더링
-    function renderKPIs() {{
-      const container = document.getElementById("kpi-container");
-      container.innerHTML = "";
-      
-      const kpis = data.dashboard?.kpi || [];
-      kpis.forEach(k => {{
-        let value = 0;
-        let unit = "건";
-        
-        if (k.type === "total_rows") {{
-          value = filteredRows.length;
-        }} else if (k.type === "count_value") {{
-          const valPattern = String(k.value ?? "").trim();
-          value = filteredRows.filter(r => {{
-            const cellStr = String(r[k.col] ?? "").trim();
-            if (valPattern.startsWith("<>") || valPattern.startsWith("!=")) {{
-              const clean = valPattern.replace("<>", "").replace("!=", "").trim();
-              return cellStr !== clean;
-            }}
-            if (valPattern.startsWith("*") && valPattern.endsWith("*")) {{
-              return cellStr.includes(valPattern.slice(1, -1));
-            }}
-            return cellStr === valPattern;
-          }}).length;
-        }} else if (k.type === "sum") {{
-          value = filteredRows.reduce((acc, r) => acc + (Number(r[k.col]) || 0), 0);
-          unit = "";
-        }}
-        
-        const card = document.createElement("div");
-        card.className = "bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm";
-        card.innerHTML = `
-          <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">${{k.label}}</div>
-          <div class="text-xl font-extrabold text-slate-800 mt-2">${{value.toLocaleString()}} <span class="text-xs font-semibold text-slate-500">${{unit}}</span></div>
-        `;
-        container.appendChild(card);
-      }});
-    }}
-
-    // 5. Chart.js 시각화 렌더링
-    function renderCharts() {{
-      const grid = document.getElementById("charts-grid");
-      
-      // 차트가 최초 생성되는 시점에만 Canvas 세팅
-      if (grid.innerHTML === "") {{
-        const charts = data.dashboard?.charts || [];
-        charts.forEach((c, idx) => {{
-          const card = document.createElement("div");
-          card.className = "bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-3";
-          card.innerHTML = `
-            <h3 class="text-xs font-bold text-slate-500">${{c.title || c.col}}</h3>
-            <div class="h-60 flex items-center justify-center">
-              <canvas id="chart-canvas-${{idx}}"></canvas>
-            </div>
-          `;
-          grid.appendChild(card);
-          
-          // Chart.js 인스턴스 생성
-          const ctx = document.getElementById(`chart-canvas-${{idx}}`).getContext("2d");
-          const chartInst = new Chart(ctx, {{
-            type: c.type === "donut" ? "doughnut" : "bar",
-            data: {{ labels: [], datasets: [{{ data: [], backgroundColor: ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"] }}] }},
-            options: {{
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: {{ legend: {{ display: c.type === "donut" }} }},
-              indexAxis: c.type === "hbar" ? "y" : "x"
-            }}
-          }});
-          chartInstances.push({{ inst: chartInst, cfg: c }});
-        }});
-      }}
-      
-      // 데이터 업데이트
-      chartInstances.forEach(item => {{
-        const c = item.cfg;
-        const inst = item.inst;
-        const sortBy = c.sort_by || "value_desc";
-        
-        let chartData = [];
-        
-        if (c.type === "multibar") {{
-          const cols = c.cols || [];
-          cols.forEach(colObj => {{
-            const colName = colObj.col;
-            const label = colObj.label || colName;
-            const sumVal = filteredRows.reduce((acc, r) => acc + (Number(r[colName]) || 0), 0);
-            chartData.push([label, sumVal]);
-          }});
-        }} else {{
-          let counts = {{}};
-          const valCol = c.value_col;
-          filteredRows.forEach(r => {{
-            const grp = String(r[c.col] ?? "").trim() || "미입력";
-            const val = valCol ? (Number(r[valCol]) || 0) : 1;
-            counts[grp] = (counts[grp] || 0) + val;
-          }});
-          chartData = Object.entries(counts);
-        }}
-        
-        // 정렬 규칙 적용
-        if (sortBy === "value_desc") {{
-          chartData.sort((a, b) => b[1] - a[1]);
-        }} else if (sortBy === "value_asc") {{
-          chartData.sort((a, b) => a[1] - b[1]);
-        }} else if (sortBy === "name_asc") {{
-          chartData.sort((a, b) => a[0].localeCompare(b[0], "ko"));
-        }}
-        
-        const limit = c.max_items !== undefined ? c.max_items : 20;
-        const sliced = limit > 0 ? chartData.slice(0, limit) : chartData;
-        
-        inst.data.labels = sliced.map(x => x[0]);
-        inst.data.datasets[0].data = sliced.map(x => x[1]);
-        inst.data.datasets[0].label = (c.type === "multibar" || c.value_col) ? "합계" : "건수";
-        inst.update();
-      }});
-    }}
-
-    // 6. 데이터 테이블 렌더링
-    function renderTable() {{
-      let visibleCols = data.dashboard?.list?.visible_cols || [];
-      if (visibleCols.length === 0 && data.columns && data.columns.length > 0) {{
-        visibleCols = data.columns.slice(0, 10).map(c => c.key);
-      }}
-      const thead = document.getElementById("table-head");
-      const tbody = document.getElementById("table-body");
-      const countEl = document.getElementById("table-count");
-      
-      countEl.innerText = `${{filteredRows.length}}건`;
-      
-      // 테이블 헤더
-      thead.innerHTML = "";
-      const trHead = document.createElement("tr");
-      visibleCols.forEach(col => {{
-        const th = document.createElement("th");
-        th.className = "px-4 py-3 text-slate-500";
-        th.innerText = col;
-        trHead.appendChild(th);
-      }});
-      thead.appendChild(trHead);
-      
-      // 테이블 바디 (페이징 적용)
-      tbody.innerHTML = "";
-      const start = (currentPage - 1) * pageSize;
-      const end = start + pageSize;
-      const paged = filteredRows.slice(start, end);
-      
-      if (paged.length === 0) {{
-        tbody.innerHTML = `<tr><td colspan="${{visibleCols.length}}" class="px-4 py-8 text-center text-slate-400">표시할 데이터가 없습니다.</td></tr>`;
-      }} else {{
-        paged.forEach(row => {{
-          const tr = document.createElement("tr");
-          tr.className = "hover:bg-slate-50/50 transition-colors";
-          visibleCols.forEach(col => {{
-            const td = document.createElement("td");
-            td.className = "px-4 py-3 text-slate-700 truncate max-w-[200px]";
-            td.innerText = row[col] ?? "—";
-            tr.appendChild(td);
-          }});
-          tbody.appendChild(tr);
-        }});
-      }}
-      
-      // 페이지네이션 제어
-      const totalPages = Math.ceil(filteredRows.length / pageSize) || 1;
-      document.getElementById("pagination-info").innerText = `${{currentPage}} / ${{totalPages}} 페이지 (총 ${{filteredRows.length}}건)`;
-      document.getElementById("prev-btn").disabled = currentPage === 1;
-      document.getElementById("next-btn").disabled = currentPage === totalPages;
-    }}
-
-    function prevPage() {{
-      if (currentPage > 1) {{
-        currentPage--;
-        renderTable();
-      }}
-    }}
-    
-    function nextPage() {{
-      const totalPages = Math.ceil(filteredRows.length / pageSize) || 1;
-      if (currentPage < totalPages) {{
-        currentPage++;
-        renderTable();
-      }}
-    }}
-
-    // 7. CSV 다운로드 기능
-    function exportToCSV() {{
-      const visibleCols = data.dashboard?.list?.visible_cols || [];
-      if (visibleCols.length === 0) return alert("출력할 컬럼이 없습니다.");
-      
-      // CSV 문자열 조립
-      let csvContent = "\\uFEFF"; // UTF-8 BOM
-      csvContent += visibleCols.join(",") + "\\n";
-      
-      filteredRows.forEach(row => {{
-        const rowData = visibleCols.map(col => {{
-          let val = String(row[col] ?? "").replace(/"/g, '""');
-          if (val.includes(",") || val.includes("\\n") || val.includes('"')) {{
-            val = `"${{val}}"`;
-          }}
-          return val;
-        }});
-        csvContent += rowData.join(",") + "\\n";
-      }});
-      
-      const blob = new Blob([csvContent], {{ type: "text/csv;charset=utf-8;" }});
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.setAttribute("download", `${{data.project}}_filtered_list.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }}
-  </script>
-</body>
-</html>
-"""
-    return html
-
+    # __PROJECT_NAME__(사용자 입력, 영문/숫자/한글/_/- 허용)은 반드시 마지막에
+    # 치환한다. 먼저 치환하면 project_name에 우연히 다른 토큰과 같은 문자열
+    # (예: "__DATA_JSON__")이 포함된 경우 뒤이은 치환에서 그 부분까지 다시
+    # 치환 대상으로 잡혀 페이지가 깨질 수 있다.
+    html_doc = template
+    html_doc = html_doc.replace("__TAILWIND_CSS__", tailwind_css)
+    html_doc = html_doc.replace("__CHARTJS_JS__", chartjs_js)
+    html_doc = html_doc.replace("__XLSX_JS__", xlsx_js)
+    html_doc = html_doc.replace("__DATA_JSON__", data_json)
+    html_doc = html_doc.replace("__GENERATED_AT__", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    html_doc = html_doc.replace("__PROJECT_NAME__", html_lib.escape(project_name))
+    return html_doc

@@ -335,7 +335,8 @@ function AdminDashboard({ user }: { user: User }) {
                   config={loadedConfig}
                   onSaveConfig={handleSaveConfig}
                   onBack={() => setView("list")}
-                  onNext={() => {
+                  onNext={() => setView("run")}
+                  onNextAndRun={() => {
                     setView("run");
                     setTimeout(() => {
                       handleRunWithPolling();

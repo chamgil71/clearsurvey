@@ -7,6 +7,7 @@ import openpyxl
 
 from engine.config import SummarySection, SurveyConfig
 from engine.patterns import load_patterns
+from engine.writer import expanded_output_col_names
 
 
 @dataclass
@@ -157,6 +158,25 @@ def validate_config(
                 dups.add(name)
             seen.add(name)
         report.error(f"output_col 중복: {', '.join(dups)}")
+
+    # addr_split/norm_date_parts/split_binary 등 파생열 확장 후의 실제 출력
+    # 컬럼명까지 포함해 충돌을 검사한다. output_col 기본 이름만 검사하면
+    # 예: "생년월일"(norm_date_parts, 파생열 "생년월일_년" 자동 생성)과
+    # 별도 컬럼 "생년월일_년"이 조용히 같은 이름으로 충돌해도 잡히지 않는다.
+    expanded_names = expanded_output_col_names(active_columns)
+    if len(expanded_names) != len(set(expanded_names)):
+        seen_expanded: set[str] = set()
+        expanded_dups: set[str] = set()
+        for name in expanded_names:
+            if name in seen_expanded:
+                expanded_dups.add(name)
+            seen_expanded.add(name)
+        report.error(
+            "파생열 확장 후 출력 컬럼명이 충돌합니다: "
+            f"{', '.join(sorted(expanded_dups))} "
+            "(addr_split/norm_date_parts/split_binary가 자동 생성하는 파생열 이름이 "
+            "다른 컬럼의 output_col과 같습니다. output_col을 변경하세요.)"
+        )
 
     fill_labels = {rule.output_label for rule in cfg.preprocess.fill_down}
     for i, rule in enumerate(cfg.preprocess.fill_down, 1):

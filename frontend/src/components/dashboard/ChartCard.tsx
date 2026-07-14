@@ -28,10 +28,13 @@ export function ChartCard({
   chart,
   rows,
   data,
+  onSelect,
 }: {
   chart: ChartItem;
   rows: Row[];
   data: ProjectData;
+  /** 교차필터: 조각/막대 클릭 시 (컬럼, 값) 전달 */
+  onSelect?: (col: string, value: string) => void;
 }) {
   const [mounted, setMounted] = useState(false);
 
@@ -56,7 +59,9 @@ export function ChartCard({
       } else if (sortBy === "value_asc") {
         list.sort((a, b) => a.value - b.value);
       } else if (sortBy === "name_asc") {
-        list.sort((a, b) => a.name.localeCompare(b.name, "ko"));
+        list.sort((a, b) => a.name.localeCompare(b.name, "ko", { numeric: true }));
+      } else if (sortBy === "name_desc") {
+        list.sort((a, b) => b.name.localeCompare(a.name, "ko", { numeric: true }));
       }
       return limit > 0 ? list.slice(0, limit) : list;
     }
@@ -87,7 +92,9 @@ export function ChartCard({
     } else if (sortBy === "value_asc") {
       result.sort((a, b) => a.value - b.value);
     } else if (sortBy === "name_asc") {
-      result.sort((a, b) => a.name.localeCompare(b.name, "ko"));
+      result.sort((a, b) => a.name.localeCompare(b.name, "ko", { numeric: true }));
+    } else if (sortBy === "name_desc") {
+      result.sort((a, b) => b.name.localeCompare(a.name, "ko", { numeric: true }));
     }
     return limit > 0 ? result.slice(0, limit) : result;
   }, [chart, rows, data]);
@@ -103,6 +110,17 @@ export function ChartCard({
   const hasData = items.length > 0 && items.some((item) => item.value > 0);
   const title = chart.title || (chart.type === "multibar" ? "" : chart.col);
   const unit = (chart as any).value_col ? "" : "건";
+
+  // 교차필터 대상: 카테고리형 donut/bar/hbar만 (histogram/multibar, 수치형 컬럼 제외)
+  const catCol =
+    (chart.type === "donut" || chart.type === "bar" || chart.type === "hbar") &&
+    data.meta.columns.find((c) => c.key === chart.col)?.type !== "numeric"
+      ? chart.col
+      : null;
+  const handleChartClick = (d: { name?: string | number }) => {
+    if (catCol && onSelect && d?.name != null) onSelect(catCol, String(d.name));
+  };
+  const clickable = !!(catCol && onSelect);
 
   const formatTooltip = (v: number, name: string) => {
     if (!chart.show_percent) {
@@ -140,7 +158,17 @@ export function ChartCard({
 
   return (
     <div className={cardClassName}>
-      <div className="text-xs font-semibold text-foreground mb-2">{title || "Untitled Chart"}</div>
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-xs font-semibold text-foreground">{title || "Untitled Chart"}</div>
+        {clickable && (
+          <span
+            className="text-[10px] text-muted-foreground bg-muted/50 border border-border/60 px-1.5 py-0.5 rounded cursor-help"
+            title="차트를 클릭하면 해당 값으로 전체 필터가 적용됩니다."
+          >
+            클릭=필터
+          </span>
+        )}
+      </div>
       <div
         className="relative"
         style={{
@@ -172,6 +200,8 @@ export function ChartCard({
                   outerRadius={pieOuterRadius}
                   label={renderPieLabel}
                   labelLine={false}
+                  onClick={handleChartClick}
+                  cursor={clickable ? "pointer" : undefined}
                 >
                   {items.map((_, i) => (
                     <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
@@ -186,7 +216,7 @@ export function ChartCard({
                 <XAxis type="number" tick={{ fontSize: 11 }} />
                 <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
                 <Tooltip formatter={formatTooltip} />
-                <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} onClick={handleChartClick} cursor={clickable ? "pointer" : undefined}>
                   {items.map((_, i) => (
                     <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
                   ))}
@@ -198,7 +228,7 @@ export function ChartCard({
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip formatter={formatTooltip} />
-                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                <Bar dataKey="value" radius={[4, 4, 0, 0]} onClick={handleChartClick} cursor={clickable ? "pointer" : undefined}>
                   {items.map((_, i) => (
                     <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
                   ))}

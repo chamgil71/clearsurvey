@@ -29,7 +29,7 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
     sys.path.insert(0, str(_PROJECT_ROOT / "app"))
 
-from app.main import app, _job_set, _pipeline_jobs
+from app.main import app, _job_set, _pipeline_jobs, _build_single_html_template
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -468,3 +468,142 @@ class TestDeleteProject:
             updated_manifest = json.load(f)
         assert len(updated_manifest) == 1
         assert updated_manifest[0]["id"] == "other_proj"
+
+
+class TestUpdateProjectsManifest:
+    """_update_projects_manifest()가 기존 published 값을 유지하는지 검증.
+
+    회귀 버그: 기존 항목을 리스트에서 먼저 제거한 뒤 같은 리스트에서 재검색해
+    existing이 항상 {}가 되어, 호출할 때마다 published가 무조건 False로
+    리셋되던 문제(main.py:163-172).
+    """
+
+    def test_preserves_published_true_on_repeated_calls(self, tmp_path, monkeypatch):
+        import app.main as main_module
+        monkeypatch.setattr(main_module, "FRONTEND_ROOT", tmp_path / "frontend")
+
+        manifest_path = tmp_path / "frontend" / "public" / "data" / "projects.json"
+        manifest_path.parent.mkdir(parents=True)
+        manifest_path.write_text(
+            json.dumps([{"id": "mumhwa", "name": "mumhwa", "file": "mumhwa_data.json",
+                         "updated": "2026-07-01 00:00", "published": True}]),
+            encoding="utf-8",
+        )
+
+        # 파이프라인을 다시 실행/내보내기할 때마다 호출되는 상황을 재현
+        main_module._update_projects_manifest("mumhwa", "mumhwa_data.json")
+        main_module._update_projects_manifest("mumhwa", "mumhwa_data.json")
+
+        with open(manifest_path, encoding="utf-8") as f:
+            projects = json.load(f)
+        entry = next(p for p in projects if p["id"] == "mumhwa")
+        assert entry["published"] is True
+
+    def test_new_project_defaults_to_unpublished(self, tmp_path, monkeypatch):
+        import app.main as main_module
+        monkeypatch.setattr(main_module, "FRONTEND_ROOT", tmp_path / "frontend")
+
+        main_module._update_projects_manifest("new_proj", "new_proj_data.json")
+
+        manifest_path = tmp_path / "frontend" / "public" / "data" / "projects.json"
+        with open(manifest_path, encoding="utf-8") as f:
+            projects = json.load(f)
+        entry = next(p for p in projects if p["id"] == "new_proj")
+        assert entry["published"] is False
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POST /api/projects/{name}/preview — 정제 규칙 미리보기
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestPreviewProjectConfig:
+    """미리보기가 실제 파이프라인(run)과 동일하게 addr_split 같은 다중 출력
+    transform을 처리하는지 검증한다. 회귀 버그: address_parsing이 주입되지
+    않아 addr_split이 항상 빈 값을 반환하고, 파생열(_시도 등)이 미리보기에
+    아예 나타나지 않던 문제(main.py의 preview_project_config)."""
+
+    def test_addr_split_produces_derived_columns_with_values(self, client, tmp_path):
+        proj_dir = tmp_path / "storage" / "projects" / "demo"
+        proj_dir.mkdir(parents=True)
+
+        data_xlsx = tmp_path / "주소원본.xlsx"
+        wb = Workbook()
+        ws = wb.active
+        ws.cell(1, 1, "주소")
+        ws.cell(2, 1, "서울특별시 강남구 테헤란로 123")
+        wb.save(data_xlsx)
+
+        cfg = {
+            "project": "demo",
+            "source": {
+                "file": str(data_xlsx),
+                "sheet": None,
+                "header_row": 1,
+                "data_start_row": 2,
+            },
+            "paths": {"output_dir": "output", "output_file": "result.xlsx"},
+            "sheets": {"cleaned": "Cleaned", "summary": "Summary"},
+            "address_parsing": {
+                "sido_patterns": [["서울", ["서울", "서울특별시"]]],
+                "seoul_gu": ["강남구"],
+            },
+            "columns": [
+                {"output_col": "주소", "source_col": 1, "transform": "addr_split"},
+            ],
+        }
+        (proj_dir / "config.yaml").write_text(yaml.dump(cfg, allow_unicode=True), encoding="utf-8")
+
+        resp = client.post("/api/projects/demo/preview")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        row = body["preview"][0]
+        assert row["cleaned"]["주소_시도"] == "서울"
+        assert row["cleaned"]["주소_시군구"] == "강남구"
+        # 파생열이 raw 쪽에도 같은 키로 존재해야 프론트 렌더링(raw/cleaned 동일 키 순회)과 맞는다
+        assert "주소_시도" in row["raw"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# _build_single_html_template — 독립 실행형 HTML 리포트
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestBuildSingleHtmlTemplate:
+    """단독 HTML 리포트가 실제로 오프라인에서 동작하는지(CDN 미의존) 및
+    XSS(스크립트 컨텍스트 탈출)로부터 안전한지 검증한다."""
+
+    def _sample_data(self) -> dict:
+        return {
+            "project": "demo",
+            "rows": [{"이름": "홍길동", "부서": "개발팀"}],
+            "columns": [{"key": "이름"}, {"key": "부서"}],
+            "dashboard": {"kpi": [], "charts": [], "list": {"visible_cols": ["이름", "부서"], "filter_cols": []}},
+        }
+
+    def test_no_external_cdn_references(self):
+        html_doc = _build_single_html_template("demo", self._sample_data())
+        for banned in ("cdn.tailwindcss.com", "cdn.jsdelivr.net", "fonts.googleapis.com"):
+            assert banned not in html_doc
+
+    def test_embeds_vendored_libraries(self):
+        html_doc = _build_single_html_template("demo", self._sample_data())
+        assert "Chart.js v4.5.1" in html_doc
+        assert "SheetJS" in html_doc
+        assert "tailwindcss" in html_doc.lower()
+
+    def test_project_name_is_html_escaped(self):
+        html_doc = _build_single_html_template("<img src=x onerror=alert(1)>", self._sample_data())
+        assert "<img src=x onerror=alert(1)>" not in html_doc
+        assert "&lt;img src=x onerror=alert(1)&gt;" in html_doc
+
+    def test_data_containing_script_close_tag_cannot_break_out(self):
+        data = self._sample_data()
+        data["rows"] = [{"이름": "</script><script>alert(1)</script>", "부서": "개발팀"}]
+        html_doc = _build_single_html_template("demo", data)
+        assert "</script><script>alert(1)</script>" not in html_doc
+        assert "u003c/script" in html_doc
+
+    def test_produces_well_formed_document(self):
+        html_doc = _build_single_html_template("demo", self._sample_data())
+        assert html_doc.startswith("<!DOCTYPE html>")
+        assert html_doc.rstrip().endswith("</html>")

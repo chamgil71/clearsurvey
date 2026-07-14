@@ -81,6 +81,36 @@ def test_validator_reports_duplicate_output_col():
     assert any("output_col 중복" in msg for msg in report.errors)
 
 
+def test_validator_reports_derived_suffix_collision():
+    """norm_date_parts가 자동 생성하는 '_년' 파생열 이름이 별도 컬럼의
+    output_col과 충돌하면, output_col 기본 이름만 보는 검사로는 잡히지
+    않으므로 파생열 확장까지 포함한 별도 검증이 필요하다."""
+    cfg = SurveyConfig(
+        columns=[
+            ColumnDef(output_col="생년월일", source_col=1, transform="norm_date_parts"),
+            ColumnDef(output_col="생년월일_년", source_col=2, transform="copy"),
+        ]
+    )
+
+    report = validate_config(cfg)
+
+    assert not report.ok
+    assert any("파생열" in msg and "생년월일_년" in msg for msg in report.errors)
+
+
+def test_validator_accepts_non_colliding_derived_suffixes():
+    cfg = SurveyConfig(
+        columns=[
+            ColumnDef(output_col="생년월일", source_col=1, transform="norm_date_parts"),
+            ColumnDef(output_col="가입일", source_col=2, transform="copy"),
+        ]
+    )
+
+    report = validate_config(cfg)
+
+    assert report.ok
+
+
 def test_validator_allows_exclude_transform():
     cfg = SurveyConfig(
         columns=[

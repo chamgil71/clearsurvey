@@ -31,8 +31,9 @@ const TRANSFORM_RULES = [
   {
     rule: "norm_date_parts",
     group: "정규화",
-    desc: "날짜 + 연/월/일/요일 파생열 4개를 자동 생성합니다.",
+    desc: "날짜 + 연/월/일 파생열 4개를 자동 생성합니다.",
   },
+  { rule: "date_year", group: "정규화", desc: "날짜에서 연도만 추출합니다." },
   {
     rule: "norm_phone",
     group: "정규화",
@@ -75,6 +76,11 @@ const TRANSFORM_RULES = [
     group: "변환",
     desc: "flag_keyword 포함 시 1, 아니면 0으로 변환합니다. flag_keyword 인수 필수.",
   },
+  {
+    rule: "split_binary",
+    group: "변환",
+    desc: "복수 선택 응답을 키워드별로 여러 개의 이진(0/1) 파생열로 분리합니다. flag_keyword 인수 필수.",
+  },
   { rule: "to_pct", group: "변환", desc: '퍼센트 문자열("85%")을 float(0.85)으로 변환합니다.' },
   // 주소
   {
@@ -87,6 +93,11 @@ const TRANSFORM_RULES = [
     rule: "group_sum",
     group: "집계",
     desc: "복수 원본 컬럼 값을 합산합니다. source_cols 인수 필요.",
+  },
+  {
+    rule: "jang",
+    group: "집계",
+    desc: "주 열 값이 비어 있을 때 보조 열 값으로 대체합니다(주+보조 병합). backup_col 인수 필요.",
   },
 ];
 
@@ -171,9 +182,26 @@ export const GuideDrawer: React.FC<GuideDrawerProps> = ({ isOpen, onClose }) => 
                   </li>
                   <li>
                     <code className="bg-muted px-1 rounded font-mono">group_sum</code> —
-                    source_cols: 합산할 원본 열번호 목록
+                    source_cols: 합산할 원본 열번호 목록 (예: 1,2,3 또는 1-3)
+                  </li>
+                  <li>
+                    <code className="bg-muted px-1 rounded font-mono">jang</code> — backup_col:
+                    주 열이 비었을 때 대신 사용할 보조 열번호
                   </li>
                 </ul>
+              </div>
+
+              <div className="p-3 bg-muted/40 border border-border rounded-md">
+                <p className="text-[11px] text-foreground font-semibold mb-1">
+                  Excel 설정 가져오기 전용 규칙
+                </p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  <code className="bg-muted px-1 rounded font-mono">budget_level</code>,{" "}
+                  <code className="bg-muted px-1 rounded font-mono">map_category</code>,{" "}
+                  <code className="bg-muted px-1 rounded font-mono">map_division</code>은 예산
+                  데이터 전용 규칙으로, 위 웹 편집기 드롭다운에는 포함되어 있지 않습니다. 이
+                  규칙이 필요하면 설정 Excel 파일의 transform 열에 직접 입력해 가져오세요.
+                </p>
               </div>
             </TabsContent>
 

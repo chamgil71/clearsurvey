@@ -116,6 +116,53 @@ describe("ChartCard — 차트 타입", () => {
   });
 });
 
+// ── 클릭 → 필터 (교차필터) ───────────────────────────────────────────────────
+
+describe("ChartCard — 클릭=필터 배지", () => {
+  it("onSelect가 있고 카테고리형 컬럼(bar)이면 '클릭=필터' 배지가 표시된다", () => {
+    render(
+      <ChartCard
+        chart={{ type: "bar", col: "지역", title: "지역" }}
+        rows={rows}
+        data={data}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("클릭=필터")).toBeInTheDocument();
+  });
+
+  it("onSelect가 없으면 배지가 표시되지 않는다", () => {
+    render(<ChartCard chart={{ type: "bar", col: "지역", title: "지역" }} rows={rows} data={data} />);
+    expect(screen.queryByText("클릭=필터")).toBeNull();
+  });
+
+  it("수치형 컬럼이면 onSelect가 있어도 배지가 표시되지 않는다", () => {
+    const numericData: ProjectData = {
+      meta: { project: "test", total_rows: 3, columns: [{ key: "점수", label: "점수", type: "numeric" }] },
+      rows,
+    };
+    render(
+      <ChartCard
+        chart={{ type: "bar", col: "점수", title: "점수" }}
+        rows={rows}
+        data={numericData}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText("클릭=필터")).toBeNull();
+  });
+
+  it("multibar는 onSelect가 있어도 배지가 표시되지 않는다", () => {
+    const chart: ChartItem = {
+      type: "multibar",
+      title: "멀티바",
+      cols: [{ col: "점수", label: "점수 합계" }],
+    };
+    render(<ChartCard chart={chart} rows={rows} data={data} onSelect={vi.fn()} />);
+    expect(screen.queryByText("클릭=필터")).toBeNull();
+  });
+});
+
 // ── 레이아웃 클래스 ───────────────────────────────────────────────────────────
 
 describe("ChartCard — 레이아웃 클래스", () => {

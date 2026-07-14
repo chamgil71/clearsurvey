@@ -202,7 +202,7 @@ export default defineConfig({
 * **실사용 중인 정제 규칙 목록**: `copy`, `exclude`, `norm_num`(normalize_number), `normalize_date`, `name_blind`(mask_name), `norm_company`/`normalize_company`, `norm_phone`/`normalize_phone`, `val_email`(validate_email), `norm_position`/`normalize_title`, `group_sum`, `date_year`, `addr_split`, `norm_date_parts`.
 * **테스트 커버리지 점검**: `backend/tests/test_transforms.py`(102개, 전체 통과)를 기준으로 각 함수의 실제 테스트 여부를 확인한 결과, 아래 **5개 규칙 + 1개 통합 지점이 자동 테스트 없이(또는 부분적으로만) 운영 중**임을 확인함.
   * `normalize_date` — cli_gpu_test/survey/mumhwa 등에서 사용, 테스트 0건
-  * `name_blind`(마스킹, mask_name) — cli_gpu_test/gpu_3/gpu_test/survey에서 사용, 테스트 0건 (import조차 안 됨). **개인정보 마스킹 기능이라 회귀 시 파급력이 가장 큼**
+  * `name_blind`(마스킹, mask_name) — cli_gpu_test/gpu_3/gpu_test/survey에서 사용. **개인정보 마스킹 기능이라 회귀 시 파급력이 가장 큼** → ✅ 완료: `TestCase19_NameBlind`(`backend/tests/test_transforms.py`) 7케이스 추가.
   * `normalize_company` — cli_gpu_test/gpu_3/gpu_test/mumhwa에서 사용, 테스트 0건 (함수는 import만 되어 있고 검증 코드 없음)
   * `normalize_phone` — cli_gpu_test/mumhwa에서 사용, 테스트 0건 (동일)
   * `norm_date_parts` — mumhwa/수의계약정보에서 사용, 테스트 0건

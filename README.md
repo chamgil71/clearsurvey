@@ -50,7 +50,7 @@ flowchart TD
 
     subgraph Dashboard_Deploy [4단계: 결과 다운로드 및 대시보드 배포]
         H -->|download API| I[cleaned_result.xlsx 다운로드 버튼 활성화]
-        H -->|export API| J[web/public/data/project_data.json 최신화 배포]
+        H -->|export API| J[frontend/public/data/project_data.json 최신화 배포]
         J -->|Vite/React Client| K[📈 100% 최신 정밀 대시보드 즉시 확인]
     end
 ```
@@ -61,8 +61,8 @@ flowchart TD
 sequenceDiagram
     autonumber
     actor User as 사용자 (브라우저)
-    participant Client as React 프론트엔드 (web/)
-    participant API as FastAPI 백엔드 (app/main.py)
+    participant Client as React 프론트엔드 (frontend/)
+    participant API as FastAPI 백엔드 (backend/app/main.py)
     participant Engine as Python 정제 엔진 (engine/)
 
     User->>Client: 1단계: 엑셀 파일 업로드
@@ -92,7 +92,7 @@ sequenceDiagram
     API-->>Client: 상태 완료 (status = "done")
     Client->>API: POST /api/projects/{name}/export
     API->>Engine: export_to_json()
-    API-->>Client: web/public/data/{project}_data.json 배포 완료
+    API-->>Client: frontend/public/data/{project}_data.json 배포 완료
     Client-->>User: 결과 다운로드 및 대시보드 이동 활성화
 ```
 
@@ -102,35 +102,31 @@ sequenceDiagram
 
 ```
 ClearSurvey/
-├── main.py                     # CLI 데이터 정제 및 내보내기 조율 스크립트
 ├── GUIDE.md                    # ★ 메인 통합 가이드 (시작점)
+├── README.md                   # 이 문서 — 프로젝트 개요
+├── docker-compose.yml          # backend + frontend 컨테이너 오케스트레이션
 ├── start_web.bat               # 프론트엔드 Vite 개발 서버 배치 스크립트
 ├── start_backend.bat           # FastAPI 백엔드 서버 배치 스크립트
-├── pyproject.toml / uv.lock    # 파이썬 의존성 패키지 명세
-├── storage/                    # [Git 제외] 업로드된 설문 원본 엑셀(Raw Data) 임시 보관소
-├── backup/                     # 과거 백업 문서 및 분석 자료 보존 폴더
-├── engine/                     # 핵심 정제 파이프라인 코어 엔진 모듈
-├── transforms/                 # 날짜/주소/마스킹 등 개별 변환 함수 레지스트리
-├── projects/                   # 서브프로젝트별 yaml, json 설정 및 output 보관소
-├── app/                        # FastAPI 백엔드 서버 (main.py)
-├── tests/                      # pytest 단위·통합·API 테스트
-├── docs/                       # 설계 가이드 문서 보관 폴더
-│   ├── workflow_guide.md       # 전체 운영 워크플로우 (처음부터 끝까지)
-│   ├── config_guide.md         # config.yaml + Excel Config 시트 10열 구조
-│   ├── project_config_guide.md # 프로젝트 폴더 구성 및 설정 스키마
-│   ├── analyze_and_merge.md    # 사전 분석 및 다중 소스 병합 설계
-│   ├── python_guide.md         # Python 정제 엔진 (transforms, pipeline)
-│   ├── backend_guide.md        # FastAPI 백엔드 API 엔드포인트 명세
-│   ├── frontend_guide.md       # React/Vite 웹 프론트엔드 컴포넌트 구조
-│   ├── integrated_guide.md     # 전체 시스템 연계 데이터 플로우
-│   ├── log/                    # 작업 로그 및 분석 보고서
-│   │   ├── worklog.md          # 개발 작업 로그 (마일스톤 이력)
-│   │   └── qna.md              # 운영 Q&A 및 설계 결정 내역
-│   ├── plan/                   # 구현 계획 및 상세 설계서
-│   │   └── pending/            # 보류 중인 선택적 기획 문서 (GUI 앱, 지도 탭)
-│   ├── archive/                # 완료된 과거 기획 계획서 및 분석 보고서 아카이브
-│   └── project/                # 프로젝트별 참고 문서
-└── web/                        # React / Vite 웹 대시보드 및 3단계 마법사
+├── start_all.bat               # 백엔드+프론트엔드 동시 기동
+├── backend/                    # Python 정제 엔진 + FastAPI 서버
+│   ├── main.py                 # CLI 데이터 정제 및 내보내기 조율 스크립트
+│   ├── pyproject.toml          # 파이썬 의존성 패키지 명세 (uv)
+│   ├── app/                    # FastAPI 백엔드 서버 (main.py)
+│   ├── engine/                 # 핵심 정제 파이프라인 코어 엔진 모듈
+│   ├── transforms/             # 날짜/주소/마스킹 등 개별 변환 함수 레지스트리
+│   └── tests/                  # pytest 단위·통합·API 테스트
+├── frontend/                   # React / Vite / Tailwind+shadcn 웹 대시보드 및 3단계 마법사
+│   ├── src/                    # components/dashboard, components/manager, hooks, routes 등
+│   ├── public/data/            # 발행된 대시보드 JSON (git 추적됨 — Vercel이 서빙하는 대상)
+│   └── tests/e2e/              # Playwright e2e 테스트
+├── storage/                    # [Git 제외 — raw/backup] 프로젝트 레시피(config.yaml/dashboard.json)와
+│   │                           #   업로드 원본 엑셀을 함께 보관 (projects/{name}/, raw/, backup/)
+│   └── projects/{name}/        # 프로젝트별 config.yaml, dashboard.json, output/
+└── docs/                       # 설계·가이드·로그 문서 보관 폴더 — 인덱스: docs/INDEX.md
+    ├── plan/                   # 설계/기획서 (완료 여부 무관하게 보관), plan/pending/ = 미착수
+    ├── guides/                 # 운영/사용 가이드 (살아있는 참조 문서)
+    ├── logs/                   # 작업 이력·테스트 결과 (append-only)
+    └── archive/                # 현재 아키텍처와 맞지 않는 구버전 문서
 ```
 
 ---
@@ -145,7 +141,7 @@ ClearSurvey/
   - 로컬 개발 및 CI 테스트 환경에서는 가짜 Supabase URL 설정을 감지하여 자동으로 바이패스하도록 설계되어 있습니다.
 
 ### 2) 로컬 환경 설정
-`web/.env.local` 파일(프론트엔드용)을 생성하고 Supabase 프로젝트 정보를 기입합니다 (git 무시 처리됨).
+`frontend/.env.local` 파일(프론트엔드용)을 생성하고 Supabase 프로젝트 정보를 기입합니다 (git 무시 처리됨).
 ```env
 VITE_SUPABASE_URL=https://<your-project>.supabase.co
 VITE_SUPABASE_ANON_KEY=<your-anon-key>
@@ -170,30 +166,36 @@ SUPABASE_ANON_KEY=<your-anon-key>
 # 컨테이너 빌드 및 백그라운드 구동
 docker compose up --build -d
 ```
-* **backend (포트 8000)**: FastAPI 서버가 가동되며 Supabase 원격 서버를 통해 JWT를 실시간 검증합니다. `projects/`, `storage/`, `web/public/data/` 디렉토리를 마운트하여 영속 데이터를 유지하고 프론트엔드와 공유합니다.
+* **backend (포트 8000)**: FastAPI 서버가 가동되며 Supabase 원격 서버를 통해 JWT를 실시간 검증합니다. `storage/`, `frontend/public/data/` 디렉토리를 마운트하여 영속 데이터를 유지하고 프론트엔드와 공유합니다.
 * **frontend (포트 80)**: React/Vite 빌드 자산이 Nginx를 통해 서빙되며, Nginx가 `/api`를 백엔드로 투명하게 프록싱합니다. SSE logs stream 전송용 버퍼링 제거 설정이 내장되어 있습니다.
 
 ---
 
 ## 🧪 테스트
 
-### Python 단위 테스트 (211개)
+### Python 단위 테스트
 ```bash
-pip install -e ".[dev]"
-pytest tests/ -v
+cd backend
+uv sync
+pytest -v
 ```
 
 ### TypeScript 타입 체크
 ```bash
-cd web && npx tsc --noEmit
+cd frontend && bun install && npx tsc --noEmit
 ```
 
-### Playwright E2E 테스트 (20개)
+### 프론트엔드 단위 테스트 (vitest)
 ```bash
-cd web
+cd frontend && bun run test
+```
+
+### Playwright E2E 테스트
+```bash
+cd frontend
 npx playwright install --with-deps chromium
 npx playwright test
-# 결과는 docs/logs/ 에 저장됨
+# 결과는 docs/logs/ 에 저장됨 (gitignore)
 ```
 
 ---
@@ -203,17 +205,18 @@ npx playwright test
 ### 1. 로컬 백엔드 API 서버 가동
 파이썬 환경에 필수 의존성을 설치하고 FastAPI 서버를 가동합니다:
 ```bash
-pip install -e ".[dev]"
-python -m uvicorn app.main:app --reload
+cd backend
+uv sync
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 * 서버 가동이 성공하면 `http://localhost:8000/api/health` 핑을 통해 백엔드가 활성화되어 설정 매니저와 동기화됩니다.
 
 ### 2. 프론트엔드 마법사 및 대시보드 구동
 웹 클라이언트 소스 디렉토리로 이동해 Vite 개발 서버를 구동합니다:
 ```bash
-cd web
-npm install
-npm run dev
+cd frontend
+bun install
+bun run dev
 ```
 * 브라우저에서 `http://localhost:5173/` 경로로 즉시 공개 대시보드에 접속하고, `/admin` 으로 어드민에 접근합니다.
 

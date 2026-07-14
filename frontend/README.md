@@ -1,32 +1,49 @@
 # 💻 ClearSurvey Web Frontend Module
 
-본 폴더는 **ClearSurvey**의 프리미엄 대시보드 화면 및 3단계 설정 매니저 마법사를 가동하는 **React / Vite / shadcn/ui 웹 애플리케이션** 소스 폴더입니다.
+본 폴더는 **ClearSurvey**의 대시보드 화면 및 3단계 설정 매니저 마법사를 가동하는 **React / Vite (TanStack Start) / Tailwind v4 + shadcn/ui** 웹 애플리케이션 소스입니다.
 
-## 📂 3계층 격리형 디렉토리 구조
-사용자 요건에 부합하도록 구조, 디자인, 구현 로직을 완벽하게 쪼개어 격리 설계했습니다:
+> 프로젝트 전체 개요·백엔드 연동 방법은 루트의 [`README.md`](../README.md)와 [`GUIDE.md`](../GUIDE.md), 상세 문서는 [`docs/INDEX.md`](../docs/INDEX.md)를 참고하세요. 이 문서는 `frontend/` 폴더만 다루는 빠른 시작 가이드입니다.
 
-\\\
-[web/src]
- ├── components/ (1. 구조: Structure — 순수 마크업 컴포넌트)
- │    ├── dashboard/ (상세 드로어 DetailPanel, 가이드 드로어 GuideDrawer 등)
- │    └── manager/ (Step 1, 2, 3 단계별 전용 마법사 컴포넌트)
- ├── styles.css / legacy-dashboard.css (2. 디자인: Design — 테마 및 HSL 비주얼 CSS)
- ├── hooks/ (3. 로직: Logic — 비즈니스 상태 캡슐화 훅)
- │    └── useManagerApi.ts (REST 통신, health check, 데모 배너 등 로직 집약)
- └── routes/ (라우트 핸들러 — admin.tsx, index.tsx)
-\\\
+## 📂 디렉토리 구조
 
-## 🚀 로컬 실행 및 컴파일 빌드
-개발을 진행하거나 프로덕션 빌드를 생성하는 방법입니다:
+```
+frontend/src
+ ├── components/
+ │    ├── dashboard/   # 공개 대시보드 화면 (ChartCard, DataTable, KpiRow, FilterBar, DetailPanel, GuideDrawer)
+ │    ├── manager/      # Admin 3단계 마법사 (Step1 업로드, Step2 설정 편집, Step3 실행)
+ │    └── ui/           # shadcn/ui 컴포넌트
+ ├── hooks/
+ │    ├── useDashboardData.ts   # 공개 대시보드 데이터 로딩
+ │    └── useManagerApi.ts      # Admin REST 통신 (인증, 저장/실행/내보내기)
+ ├── lib/                # 집계·필터 등 순수 로직 (aggregate.ts, dashboardConfig.ts)
+ ├── types/dashboard.ts  # ProjectData/ChartItem/DashboardConfig 등 공유 타입
+ └── routes/             # TanStack Router 파일 기반 라우트 (index.tsx, admin.tsx, login.tsx)
+```
 
-\\\ash
-# 1. 의존성 패키지 설치
-npm install
+## 🚀 로컬 실행 및 빌드
 
-# 2. 실시간 개발 서버 가동
-npm run dev
+패키지 매니저는 **bun**을 사용합니다.
 
-# 3. 프로덕션 SSR/CSR 번들 빌드 컴파일
-npm run build
-\\\
-* 빌드가 완료되면 \dist/client/\ 하위에 고도로 최적화된 컴포넌트 조각들이 패키징되어, 백엔드 없이도 완벽하게 작동하는 대시보드 뷰어를 GitHub Pages 등으로 무결히 호스팅 배포할 수 있습니다.
+```bash
+# 1. 의존성 설치
+bun install
+
+# 2. 개발 서버 (http://localhost:5173, /api는 backend:8000으로 프록시)
+bun run dev
+
+# 3. 프로덕션 빌드
+bun run build
+# → dist/client/ 에 정적 산출물 생성
+```
+
+## ✅ 테스트
+
+```bash
+bun run test          # vitest 단위 테스트
+npx playwright test   # e2e 테스트 (tests/e2e/, 최초 1회 `npx playwright install chromium` 필요)
+```
+
+## 배포
+
+- **Vercel**: 백엔드 없이 `frontend/public/data/*.json` 정적 파일만으로 공개 대시보드를 서빙합니다. 자세한 절차와 주의사항(예: 로컬에서 저장/실행만으로는 Vercel이 갱신되지 않음)은 [`docs/guides/vercel_deploy_guide.md`](../docs/guides/vercel_deploy_guide.md) 참고.
+- **Docker**: 루트의 `docker-compose.yml`이 `frontend`(Nginx)와 `backend`(FastAPI)를 함께 빌드·구동합니다.

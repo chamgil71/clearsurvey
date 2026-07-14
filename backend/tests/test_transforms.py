@@ -26,6 +26,7 @@ from transforms.domain.cleansing import (
     normalize_text,
     normalize_phone,
     normalize_company,
+    name_blind,
 )
 from transforms.domain.gpu_survey import (
     parse_gpu_usage,
@@ -537,3 +538,36 @@ class TestCase18_NewTransforms:
             "_데이터": 1,
             "_추론": 0
         }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Set 5 — Case 19: name_blind (mask_name) — 개인정보 마스킹
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestCase19_NameBlind:
+    """이름 중간 글자 마스킹(name_blind / mask_name 별칭).
+
+    docs/plan/transform_test_plan.md 우선순위 1위 — 회귀 시 개인정보가
+    그대로 노출될 수 있어 다른 정제 규칙보다 파급력이 큰 함수.
+    """
+
+    def test_three_chars(self):
+        assert name_blind("홍길동") == "홍*동"
+
+    def test_four_chars_masks_all_middle(self):
+        assert name_blind("신도홍석") == "신**석"
+
+    def test_two_chars(self):
+        assert name_blind("홍길") == "홍*"
+
+    def test_single_char_unmaskable(self):
+        assert name_blind("홍") == "홍"
+
+    def test_none_input(self):
+        assert name_blind(None) is None
+
+    def test_empty_string(self):
+        assert name_blind("") is None
+
+    def test_strips_surrounding_whitespace(self):
+        assert name_blind("  홍길동  ") == "홍*동"

@@ -224,7 +224,15 @@ function DashboardPage() {
           ) : (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] [grid-auto-flow:dense] gap-3">
               {(cfg.charts || []).map((c, i) => (
-                <ChartCard key={i} chart={c} rows={filtered} data={data} />
+                <ChartCard
+                  key={i}
+                  chart={c}
+                  rows={filtered}
+                  data={data}
+                  onSelect={(col, val) =>
+                    setFilters((prev) => ({ ...prev, [col]: prev[col] === val ? "" : val }))
+                  }
+                />
               ))}
             </div>
           )}

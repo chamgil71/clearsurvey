@@ -19,7 +19,8 @@ import {
   ColumnConfigTab,
   ColumnDef,
   NEEDS_FLAG_KEYWORD,
-  NEEDS_BACKUP_COL
+  NEEDS_BACKUP_COL,
+  NEEDS_SOURCE_COLS
 } from "./config/ColumnConfigTab";
 import { ChartConfigCard } from "./config/ChartConfigCard";
 
@@ -51,7 +52,10 @@ interface Step2Props {
   } | null;
   onSaveConfig: (config: ProjectConfig, dashboard: DashboardConfig | null) => Promise<void>;
   onBack: () => void;
+  /** 저장 후 화면만 이동 (파이프라인 실행 없음) — "저장 후 대시보드로" 버튼 */
   onNext: () => void;
+  /** 저장 후 화면 이동 + 파이프라인 실행 — "저장 후 파이프라인 가동" 버튼 */
+  onNextAndRun: () => void;
   loading: boolean;
 }
 
@@ -61,6 +65,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
   onSaveConfig,
   onBack,
   onNext,
+  onNextAndRun,
   loading,
 }) => {
   const [localConfig, setLocalConfig] = useState<ProjectConfig | null>(config?.config ?? null);
@@ -105,6 +110,9 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
       }
       if (!NEEDS_BACKUP_COL.has(transform)) {
         delete col.backup_col;
+      }
+      if (!NEEDS_SOURCE_COLS.has(transform)) {
+        delete col.source_cols;
       }
 
       columns[index] = col;
@@ -359,7 +367,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
         <Tabs
           value={activeSubTab}
           onValueChange={(v) => setActiveSubTab(v as "columns" | "dashboard")}
-          className="w-full max-w-[1400px] mx-auto"
+          className="w-full max-w-5xl mx-auto"
         >
           <TabsList className="flex w-fit bg-transparent gap-2 mb-6 p-0">
             <TabsTrigger 
@@ -415,7 +423,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
 
       {/* ── Sticky Bottom Bar ── */}
       <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center p-6 bg-white border-t border-slate-200 shadow-[0_-10px_30px_rgba(0,0,0,0.03)]">
-        <div className="flex items-center justify-between w-full px-4 max-w-[1400px]">
+        <div className="flex items-center justify-between w-full px-4 max-w-5xl">
           <div className="flex gap-3">
             <Button
               variant="outline"
@@ -471,7 +479,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
             <Button
               onClick={async () => {
                 await handleSave();
-                onNext();
+                onNextAndRun();
               }}
               disabled={loading}
               className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 font-bold h-11 px-8 rounded-lg shadow-sm"
