@@ -111,11 +111,17 @@ export function ChartCard({
   const title = chart.title || (chart.type === "multibar" ? "" : chart.col);
   const unit = (chart as any).value_col ? "" : "건";
 
-  // 교차필터 대상: 카테고리형 donut/bar/hbar만 (histogram/multibar, 수치형 컬럼 제외)
+  // 교차필터 대상: 카테고리형 donut/bar/hbar만 (histogram/multibar 제외).
+  // numeric 컬럼이라도 고유값이 적으면(예: 연도) unique_count가 채워져 있으므로
+  // 이산 카테고리로 보고 클릭 필터를 허용한다 — 연속형 수치(금액 등)만 제외된다.
+  const chartCol = "col" in chart ? chart.col : undefined;
+  const chartColMeta = chartCol ? data.meta.columns.find((c) => c.key === chartCol) : undefined;
+  const isDiscreteNumeric =
+    chartColMeta?.type === "numeric" && (chartColMeta.unique_count ?? Infinity) <= 40;
   const catCol =
     (chart.type === "donut" || chart.type === "bar" || chart.type === "hbar") &&
-    data.meta.columns.find((c) => c.key === chart.col)?.type !== "numeric"
-      ? chart.col
+    (chartColMeta?.type !== "numeric" || isDiscreteNumeric)
+      ? chartCol
       : null;
   const handleChartClick = (d: { name?: string | number }) => {
     if (catCol && onSelect && d?.name != null) onSelect(catCol, String(d.name));
@@ -130,9 +136,9 @@ export function ChartCard({
     return [`${v}${unit} (${pct}%)`, name];
   };
 
-  let chartHeight = 200;
-  let pieOuterRadius = 75;
-  let pieInnerRadius = 45;
+  let chartHeight = 220;
+  let pieOuterRadius = 82;
+  let pieInnerRadius = 50;
 
   let layout = chart.layout;
   if (!layout) {
@@ -144,13 +150,16 @@ export function ChartCard({
   }
 
   if (layout === "2x2") {
-    chartHeight = 540;
-    pieOuterRadius = 180;
-    pieInnerRadius = 110;
+    chartHeight = 560;
+    pieOuterRadius = 185;
+    pieInnerRadius = 115;
   }
 
   const cardClassName = cn(
     "bg-card border border-border/60 rounded-xl p-3 shadow-sm",
+    // 단일 폭 카드(1x1/0.5x1)는 열 개수가 적은 화면에서 지나치게 늘어나지 않도록 최대 폭 제한.
+    // 2x1/2x2/full은 의도적으로 여러 열에 걸쳐 확장되어야 하므로 제한하지 않음.
+    (layout === "1x1" || layout === "0.5x1") && "max-w-[560px]",
     layout === "2x1" && "col-span-2 max-sm:col-span-1",
     layout === "2x2" && "col-span-2 max-sm:col-span-1 row-span-2",
     layout === "full" && "col-span-full",

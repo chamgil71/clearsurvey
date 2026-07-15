@@ -5,6 +5,7 @@ export interface ColumnMeta {
   label: string;
   type: ColumnType;
   unique_values?: string[];
+  unique_count?: number;
 }
 
 export interface DataMeta {
@@ -77,6 +78,8 @@ export interface DashboardLayout {
   useFooter?: boolean;
   footerText?: string;
   listViewMode?: "Drawer" | "Modal" | "Page";
+  /** 차트 그리드 가로 배열 최대 개수 (기본값 4). 화면이 넓어도 이 값을 넘는 열은 생성하지 않음. */
+  maxColumns?: number;
 }
 
 export interface DashboardConfig {

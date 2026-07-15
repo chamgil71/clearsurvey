@@ -26,6 +26,8 @@ from transforms.domain.cleansing import (
     normalize_text,
     normalize_phone,
     normalize_company,
+    normalize_date,
+    norm_date_parts,
     name_blind,
 )
 from transforms.domain.gpu_survey import (
@@ -33,7 +35,7 @@ from transforms.domain.gpu_survey import (
     extract_n_jang,
     clean_ac,
 )
-from transforms.common.address import AddressParser
+from transforms.common.address import AddressParser, build_addr_parts_dict
 
 # ── Set 2: 예산 transforms ───────────────────────────────────────────────────
 
@@ -571,3 +573,190 @@ class TestCase19_NameBlind:
 
     def test_strips_surrounding_whitespace(self):
         assert name_blind("  홍길동  ") == "홍*동"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Set 5 — Case 20: normalize_company — 회사명 정규화
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestCase20_NormalizeCompany:
+    """회사명 정규화 — 기본 폴백 패턴(company_patterns 미지정) 경로."""
+
+    def test_prefix_form_removed(self):
+        assert normalize_company("주식회사 카카오") == "카카오"
+
+    def test_suffix_form_removed(self):
+        assert normalize_company("카카오 주식회사") == "카카오"
+
+    def test_bracket_form_removed(self):
+        assert normalize_company("(주)카카오") == "카카오"
+
+    def test_symbol_form_removed(self):
+        assert normalize_company("㈜카카오") == "카카오"
+
+    def test_bracket_form_jae(self):
+        # mumhwa 실데이터로 이미 수동 확인됨
+        assert normalize_company("(재)서산문화재단") == "서산문화재단"
+
+    def test_prefix_sadan_beopin(self):
+        # mumhwa 실데이터
+        assert normalize_company("사단법인 장수한우랑사과랑축제추진위원회") == "장수한우랑사과랑축제추진위원회"
+
+    def test_none_input(self):
+        assert normalize_company(None) is None
+
+    def test_empty_string(self):
+        assert normalize_company("") is None
+
+    def test_no_corp_form_unchanged(self):
+        assert normalize_company("카카오") == "카카오"
+
+    def test_keep_corp_type_prepends_abbrev(self):
+        # _DEFAULT_ABBREVS["주식회사"] == "(주)" — f"{abbr} {item}" 형태로 공백 포함 조합됨
+        assert normalize_company("주식회사 카카오", keep_corp_type=True) == "(주) 카카오"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Set 5 — Case 21: normalize_phone — 전화번호 정규화
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestCase21_NormalizePhone:
+    """전화번호 정규화 — 지역번호 자리수(2/3자리) 분기 및 국제번호 프리픽스 제거."""
+
+    def test_seoul_with_hyphens(self):
+        assert normalize_phone("02-1234-5678") == "02-1234-5678"
+
+    def test_seoul_without_hyphens_7digit_local(self):
+        assert normalize_phone("021234567") == "02-123-4567"
+
+    def test_mobile_3digit_prefix(self):
+        assert normalize_phone("010-1234-5678") == "010-1234-5678"
+
+    def test_regional_3digit_prefix(self):
+        # mumhwa 실데이터
+        assert normalize_phone("063-430-2392") == "063-430-2392"
+
+    def test_intl_prefix_stripped(self):
+        assert normalize_phone("+82-10-1234-5678") == "010-1234-5678"
+
+    def test_none_input(self):
+        assert normalize_phone(None) is None
+
+    def test_empty_string(self):
+        assert normalize_phone("") is None
+
+    def test_no_digits(self):
+        assert normalize_phone("abc") is None
+
+    def test_unmatched_digit_length(self):
+        assert normalize_phone("1234") is None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Set 5 — Case 22: normalize_date — 날짜 정규화
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestCase22_NormalizeDate:
+    """날짜 정규화 — _DATE_PATTERNS 5종 각각 최소 1케이스."""
+
+    def test_iso_format(self):
+        assert normalize_date("2026-05-15") == "2026-05-15"
+
+    def test_dot_separator_single_digit(self):
+        assert normalize_date("2026.5.15") == "2026-05-15"
+
+    def test_slash_separator(self):
+        assert normalize_date("2026/05/15") == "2026-05-15"
+
+    def test_korean_full(self):
+        assert normalize_date("2026년 5월 15일") == "2026-05-15"
+
+    def test_korean_year_month_only_defaults_to_first_day(self):
+        assert normalize_date("2026년 5월") == "2026-05-01"
+
+    def test_two_digit_year_expands_to_2000s(self):
+        assert normalize_date("26.5.15") == "2026-05-15"
+
+    def test_eight_digit_numeric(self):
+        assert normalize_date("20260515") == "2026-05-15"
+
+    def test_datetime_object(self):
+        from datetime import datetime as _dt
+        assert normalize_date(_dt(2026, 5, 15)) == "2026-05-15"
+
+    def test_none_input(self):
+        assert normalize_date(None) is None
+
+    def test_unparseable_string(self):
+        assert normalize_date("의미없는 문자열") is None
+
+    def test_invalid_calendar_date(self):
+        assert normalize_date("2026-13-45") is None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Set 5 — Case 23: norm_date_parts — 날짜 + 연/월/일 파생열
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestCase23_NormDateParts:
+    """norm_date_parts — normalize_date를 감싸는 딕셔너리 wrapper의 shape 검증."""
+
+    def test_builds_year_month_day_dict(self):
+        assert norm_date_parts("2026-05-15") == {
+            "": "2026-05-15",
+            "_년": 2026,
+            "_월": 5,
+            "_일": 15,
+        }
+
+    def test_none_input(self):
+        assert norm_date_parts(None) is None
+
+    def test_unparseable_string_returns_none(self):
+        assert norm_date_parts("파싱불가") is None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Set 5 — Case 24: build_addr_parts_dict — addr_split 파생열 조립 (통합 지점)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestCase24_AddrSplitPartsDict:
+    """`engine/pipeline.py`의 addr_split 클로저와 `transforms/common/address.py`의
+    폴백 addr_split() 함수가 공통으로 사용하는 dict 조립 순수 함수.
+
+    docs/plan/transform_test_plan.md 2.6절 — 클로저 안에 갇혀 직접 테스트가 어려웠던
+    지점을 순수 함수로 분리(A안)한 뒤의 단위 테스트.
+    """
+
+    def test_builds_dict_from_parsed_parts(self):
+        result = build_addr_parts_dict(
+            "경상북도 구미시 원평동 124-23", "경북", "구미시", "원평동 124-23"
+        )
+        assert result == {
+            "": "경상북도 구미시 원평동 124-23",
+            "_시도": "경북",
+            "_시군구": "구미시",
+            "_상세": "원평동 124-23",
+        }
+
+    def test_empty_parts_become_none(self):
+        result = build_addr_parts_dict("주소불명", "", "", "")
+        assert result == {"": "주소불명", "_시도": None, "_시군구": None, "_상세": None}
+
+    def test_none_val_returns_none(self):
+        assert build_addr_parts_dict(None, "", "", "") is None
+
+    def test_integration_with_address_parser(self):
+        """실제 AddressParser.parse() 출력과 조합했을 때도 정상 동작하는지 확인
+        (파이프라인 클로저가 실제로 수행하는 것과 동일한 조합)."""
+        parser = AddressParser({
+            "sido_patterns": [
+                ["서울", ["서울", "서울특별시"]],
+                ["경북", ["경북", "경상북도"]],
+            ],
+            "seoul_gu": ["강동구"],
+        })
+        sido, sigungu, detail = parser.parse("서울특별시 강동구 올림픽로 875 (암사동)")
+        result = build_addr_parts_dict("서울특별시 강동구 올림픽로 875 (암사동)", sido, sigungu, detail)
+        assert result["_시도"] == "서울"
+        assert result["_시군구"] == "강동구"

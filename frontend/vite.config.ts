@@ -15,7 +15,7 @@ export default defineConfig({
     react(),
   ],
   build: {
-    chunkSizeWarningLimit: 2500,
+    chunkSizeWarningLimit: 1000,
   },
   server: {
     port: 5173,

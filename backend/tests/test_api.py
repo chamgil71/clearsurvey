@@ -134,6 +134,93 @@ class TestGetPipelineStatus:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# GET /api/projects/{name}/freshness
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestGetProjectFreshness:
+    def test_unknown_project_returns_404(self, client):
+        resp = client.get("/api/projects/unknown_proj/freshness")
+        assert resp.status_code == 404
+
+    def test_invalid_name_returns_400(self, client):
+        resp = client.get("/api/projects/../etc/freshness")
+        assert resp.status_code in (400, 404)
+
+    def test_no_output_yet_is_not_stale(self, client, tmp_path):
+        proj_dir = tmp_path / "storage" / "projects" / "demo"
+        proj_dir.mkdir(parents=True)
+        (proj_dir / "output").mkdir()
+        _write_valid_config(proj_dir)
+
+        resp = client.get("/api/projects/demo/freshness")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["has_output"] is False
+        assert body["is_stale"] is False
+        assert body["output_generated_at"] is None
+        assert body["config_updated_at"] is not None
+
+    def test_stale_when_config_newer_than_output(self, client, tmp_path):
+        import os
+
+        proj_dir = tmp_path / "storage" / "projects" / "demo"
+        proj_dir.mkdir(parents=True)
+        (proj_dir / "output").mkdir()
+        config_path = _write_valid_config(proj_dir)
+        output_path = proj_dir / "output" / "result.xlsx"
+        output_path.write_text("dummy")
+
+        now = 1_800_000_000
+        os.utime(output_path, (now - 100, now - 100))
+        os.utime(config_path, (now, now))
+
+        resp = client.get("/api/projects/demo/freshness")
+        body = resp.json()
+        assert body["has_output"] is True
+        assert body["is_stale"] is True
+
+    def test_not_stale_when_output_newer_than_config(self, client, tmp_path):
+        import os
+
+        proj_dir = tmp_path / "storage" / "projects" / "demo"
+        proj_dir.mkdir(parents=True)
+        (proj_dir / "output").mkdir()
+        config_path = _write_valid_config(proj_dir)
+        output_path = proj_dir / "output" / "result.xlsx"
+        output_path.write_text("dummy")
+
+        now = 1_800_000_000
+        os.utime(config_path, (now - 100, now - 100))
+        os.utime(output_path, (now, now))
+
+        resp = client.get("/api/projects/demo/freshness")
+        body = resp.json()
+        assert body["has_output"] is True
+        assert body["is_stale"] is False
+
+    def test_stale_when_dashboard_newer_than_output(self, client, tmp_path):
+        import os
+
+        proj_dir = tmp_path / "storage" / "projects" / "demo"
+        proj_dir.mkdir(parents=True)
+        (proj_dir / "output").mkdir()
+        config_path = _write_valid_config(proj_dir)
+        output_path = proj_dir / "output" / "result.xlsx"
+        output_path.write_text("dummy")
+        dashboard_path = proj_dir / "dashboard.json"
+        dashboard_path.write_text("{}")
+
+        now = 1_800_000_000
+        os.utime(config_path, (now - 100, now - 100))
+        os.utime(output_path, (now - 100, now - 100))
+        os.utime(dashboard_path, (now, now))
+
+        resp = client.get("/api/projects/demo/freshness")
+        body = resp.json()
+        assert body["is_stale"] is True
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # GET /api/projects/{name}/config
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -607,3 +694,102 @@ class TestBuildSingleHtmlTemplate:
         html_doc = _build_single_html_template("demo", self._sample_data())
         assert html_doc.startswith("<!DOCTYPE html>")
         assert html_doc.rstrip().endswith("</html>")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POST /api/projects/create-merge
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestCreateMergeProject:
+    """복수 엑셀 파일 업로드 → 병합 → draft 프로젝트 생성 엔드포인트 검증."""
+
+    def _make_source_xlsx(self, path: Path, rows: list[tuple[str, str]]) -> None:
+        wb = Workbook()
+        ws = wb.active
+        ws.cell(1, 1, "이름")
+        ws.cell(1, 2, "부서")
+        for i, (name, dept) in enumerate(rows, start=2):
+            ws.cell(i, 1, name)
+            ws.cell(i, 2, dept)
+        wb.save(path)
+
+    def _post_merge(
+        self,
+        client,
+        tmp_path: Path,
+        project_name: str = "merged_demo",
+        options: dict | None = None,
+        num_files: int = 2,
+    ):
+        src_paths = []
+        for idx in range(num_files):
+            p = tmp_path / f"source_{idx}.xlsx"
+            self._make_source_xlsx(p, [(f"홍길동{idx}", f"팀{idx}")])
+            src_paths.append(p)
+
+        opts = options if options is not None else {
+            "dedup_strategy": "none",
+            "key_cols": [],
+            "add_source_col": True,
+            "source_col_name": "_출처파일",
+        }
+
+        files = [
+            ("files", (p.name, open(p, "rb"), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+            for p in src_paths
+        ]
+        data = {"name": project_name, "options": json.dumps(options if options is not None else opts)}
+        try:
+            return client.post("/api/projects/create-merge", data=data, files=files)
+        finally:
+            for _, (_, fh, _) in files:
+                fh.close()
+
+    def test_merge_two_files_returns_success(self, client, tmp_path):
+        resp = self._post_merge(client, tmp_path)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "success"
+        assert body["project"] == "merged_demo"
+        assert "draft_path" in body
+        assert "merged_path" in body
+
+    def test_merge_creates_project_draft_and_config(self, client, tmp_path):
+        import app.main as main_module
+        resp = self._post_merge(client, tmp_path, project_name="merged_check")
+        assert resp.status_code == 200
+
+        proj_dir = main_module.STORAGE_ROOT / "projects" / "merged_check"
+        assert (proj_dir / "config.yaml").exists()
+        config_data = yaml.safe_load((proj_dir / "config.yaml").read_text(encoding="utf-8"))
+        assert "merge" in config_data
+        assert len(config_data["merge"]["sources"]) == 2
+
+    def test_single_file_rejected(self, client, tmp_path):
+        resp = self._post_merge(client, tmp_path, num_files=1)
+        assert resp.status_code == 400
+
+    def test_invalid_project_name_rejected(self, client, tmp_path):
+        resp = self._post_merge(client, tmp_path, project_name="../etc")
+        assert resp.status_code == 400
+
+    def test_malformed_options_json_rejected(self, client, tmp_path):
+        src_paths = []
+        for idx in range(2):
+            p = tmp_path / f"source_{idx}.xlsx"
+            self._make_source_xlsx(p, [(f"홍길동{idx}", f"팀{idx}")])
+            src_paths.append(p)
+        files = [
+            ("files", (p.name, open(p, "rb"), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+            for p in src_paths
+        ]
+        try:
+            resp = client.post(
+                "/api/projects/create-merge",
+                data={"name": "bad_opts", "options": "{not valid json"},
+                files=files,
+            )
+        finally:
+            for _, (_, fh, _) in files:
+                fh.close()
+        assert resp.status_code == 400

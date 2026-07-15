@@ -14,13 +14,6 @@
     "published": true
   },
   {
-    "id": "bus",
-    "name": "bus",
-    "file": "bus_data.json",
-    "updated": "2026-07-08 17:42",
-    "published": false
-  },
-  {
     "id": "gpu_4",
     "name": "gpu_4",
     "file": "gpu_4_data.json",
@@ -28,10 +21,23 @@
     "published": false
   },
   {
+    "id": "bus",
+    "name": "bus",
+    "file": "bus_data.json",
+    "updated": "2026-07-15 14:50",
+    "published": true
+  },
+  {
+    "id": "sangga",
+    "name": "sangga",
+    "file": "sangga_data.json",
+    "updated": "2026-07-15 16:44",
+    "published": true
+  },
+  {
     "id": "mumhwa",
     "name": "mumhwa",
     "file": "mumhwa_data.json",
-    "updated": "2026-07-14 17:03",
-    "published": true
+    "updated": "2026-07-15 17:18"
   }
 ]

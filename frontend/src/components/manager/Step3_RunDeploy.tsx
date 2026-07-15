@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useManagerApi } from "@/hooks/useManagerApi";
+import type { ProjectFreshness } from "@/hooks/useManagerApi";
 
 interface Step3Props {
   projectName: string;
@@ -43,6 +44,7 @@ export const Step3_RunDeploy: React.FC<Step3Props> = ({
   const [previewLoading, setPreviewLoading] = useState(false);
   const [activeSampleIdx, setActiveSampleIdx] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
+  const [freshness, setFreshness] = useState<ProjectFreshness | null>(null);
 
   const api = useManagerApi();
 
@@ -50,6 +52,26 @@ export const Step3_RunDeploy: React.FC<Step3Props> = ({
   useEffect(() => {
     terminalEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [logs]);
+
+  const isSuccess = logs.some((l) => l.includes("[SUCCESS] 대시보드 JSON 파일 저장 완료"));
+
+  // 마지막 실행 시각 및 "설정 변경 후 미실행" 여부 조회.
+  // isSuccess(실행 완료 시점)에도 다시 조회하여 방금 생성된 output 시각을 반영.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const f = await api.getProjectFreshness(projectName);
+        if (!cancelled) setFreshness(f);
+      } catch {
+        if (!cancelled) setFreshness(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectName, isSuccess]);
 
   const handleRun = async () => {
     clearLogs();
@@ -74,8 +96,6 @@ export const Step3_RunDeploy: React.FC<Step3Props> = ({
     }
   };
 
-  const isSuccess = logs.some((l) => l.includes("[SUCCESS] 대시보드 JSON 파일 저장 완료"));
-
   return (
     <div className="space-y-6">
       <div className="grid md:grid-cols-3 gap-6">
@@ -90,8 +110,20 @@ export const Step3_RunDeploy: React.FC<Step3Props> = ({
               <CardDescription className="text-xs">
                 정제 시나리오 및 요약 빌드 규칙에 맞춰 원본 데이터를 즉시 정제하고 배포합니다.
               </CardDescription>
+              <p className="text-[10px] text-muted-foreground font-mono pt-1">
+                마지막 실행:{" "}
+                {freshness?.output_generated_at
+                  ? new Date(freshness.output_generated_at).toLocaleString("ko-KR")
+                  : "실행 이력 없음"}
+              </p>
             </CardHeader>
             <CardContent className="space-y-3">
+              {freshness?.is_stale && (
+                <div className="p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-md text-[11px] text-amber-700 dark:text-amber-400 font-semibold flex items-start gap-1.5">
+                  <span>⚠</span>
+                  <span>설정이 변경되었습니다. 최신 결과를 반영하려면 다시 실행해주세요.</span>
+                </div>
+              )}
               <Button
                 variant="outline"
                 onClick={handleLoadPreview}

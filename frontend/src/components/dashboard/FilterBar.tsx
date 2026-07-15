@@ -50,8 +50,30 @@ export function FilterBar({
 
         <div className="flex gap-1.5 flex-wrap flex-1 justify-end">
           {filterCols.map((col) => {
-            const agg = data.aggregates?.[col] || {};
+            const agg = data.aggregates?.[col];
             const shortLabel = col.length > 8 ? col.slice(0, 8) + "…" : col;
+
+            // 고유값이 너무 많아 백엔드가 aggregates를 생략한 컬럼(예: 업종 소분류)은
+            // 드롭다운을 채울 옵션이 없으므로 자유 검색 입력으로 대체한다.
+            // 값은 항상 와일드카드로 감싸 matchesPattern의 부분 일치(*kw*) 경로를 태운다.
+            if (!agg || Object.keys(agg).length === 0) {
+              const raw = filters[col] || "";
+              const displayVal = raw.startsWith("*") && raw.endsWith("*") ? raw.slice(1, -1) : raw;
+              return (
+                <input
+                  key={col}
+                  type="text"
+                  value={displayVal}
+                  onChange={(e) => {
+                    const v = e.target.value.trim();
+                    onFilterChange(col, v ? `*${v}*` : "");
+                  }}
+                  placeholder={`${shortLabel} 검색`}
+                  className="text-xs px-2.5 py-1.5 border border-input rounded-md bg-background text-foreground w-32 focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              );
+            }
+
             return (
               <select
                 key={col}

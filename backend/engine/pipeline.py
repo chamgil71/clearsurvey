@@ -29,11 +29,12 @@ def _sheet_to_dataframe(wb: openpyxl.Workbook, cfg: SurveyConfig) -> pd.DataFram
 
     data_start = cfg.source.data_start_row or (cfg.source.header_row + 1)
     rows: list[list[Any]] = []
-    for r in range(data_start, ws.max_row + 1):
-        row_vals = [ws.cell(r, c).value for c in range(1, ws.max_column + 1)]
+    # iter_rows(values_only=True)로 행 단위 스트리밍 — ws.cell(r, c) 개별 호출 대비
+    # 좌표 조회/Cell 객체 생성 오버헤드가 없어 대용량 시트에서 수백 배 빠르다.
+    for row_vals in ws.iter_rows(min_row=data_start, values_only=True):
         # skip entirely blank rows
         if any(v is not None and str(v).strip() != "" for v in row_vals):
-            rows.append(row_vals)
+            rows.append(list(row_vals))
 
     if not rows:
         return pd.DataFrame()
@@ -128,7 +129,7 @@ def _build_registry(cfg: SurveyConfig) -> TransformRegistry:
     # 클로저가 해당 프로젝트의 address_parsing 설정을 캡처하므로
     # 싱글톤에 등록하면 동시 요청 간 설정이 덮어써집니다.
     if cfg.address_parsing:
-        from transforms.common.address import AddressParser
+        from transforms.common.address import AddressParser, build_addr_parts_dict
         ap     = AddressParser(cfg.address_parsing.model_dump())
         _cache: dict[str, tuple] = {}
 
@@ -148,12 +149,7 @@ def _build_registry(cfg: SurveyConfig) -> TransformRegistry:
             if not val:
                 return None
             sido, sigungu, detail = _parse_cached(val)
-            return {
-                "":      str(val),
-                "_시도":  sido or None,
-                "_시군구": sigungu or None,
-                "_상세":  detail or None,
-            }
+            return build_addr_parts_dict(val, sido, sigungu, detail)
 
         reg.register("address_sido",    _sido)
         reg.register("address_sigungu", _sigungu)

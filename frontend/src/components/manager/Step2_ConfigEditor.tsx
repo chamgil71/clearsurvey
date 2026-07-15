@@ -415,6 +415,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                 onMoveChart={moveChart}
                 onDeleteChart={deleteChart}
                 onUpdateExcelOptions={handleUpdateExcelOptions}
+                onUpdateLayout={updateLayout}
               />
             </div>
           </TabsContent>

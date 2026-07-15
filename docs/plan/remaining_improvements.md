@@ -6,19 +6,37 @@
 
 ## 목차
 1. [다중 엑셀 파일 병합(Merge)의 웹 UI 연동 기획](#1-다중-엑셀-파일-병합merge의-웹-ui-연동-기획)
-2. [클라우드 스토리지 연동 (Railway Ephemeral Filesystem 대응) 기획](#2-클라우드-스토리지-연동-railway-ephemeral-filesystem-대응-기획)
-3. [프론트엔드 번들 크기 최적화 (Chunk Size Warning) 기획](#3-프론트엔드-번들-크기-최적화-chunk-size-warning-기획)
-4. [프론트엔드 Supabase 세션 토큰 획득 방식 개선 기획](#4-프론트엔드-supabase-세션-토큰-획득-방식-개선-기획)
-5. [대시보드 반응형 레이아웃 세밀화 (차트 최대 배열 갯수 제어) 기획](#5-대시보드-반응형-레이아웃-세밀화-차트-최대-배열-갯수-제어-기획)
-6. [결과물의 "정제 규칙 최신 반영 여부" 확인 불가 문제 기획](#6-결과물의-정제-규칙-최신-반영-여부-확인-불가-문제-기획)
-7. [정제 규칙(Transform) 자동 테스트 커버리지 공백](#7-정제-규칙transform-자동-테스트-커버리지-공백)
+2. [프론트엔드 번들 크기 최적화 (Chunk Size Warning) 기획](#2-프론트엔드-번들-크기-최적화-chunk-size-warning-기획)
+3. [대시보드 반응형 레이아웃 세밀화 (차트 최대 배열 갯수 제어) 기획](#3-대시보드-반응형-레이아웃-세밀화-차트-최대-배열-갯수-제어-기획)
+4. [결과물의 "정제 규칙 최신 반영 여부" 확인 불가 문제 기획](#4-결과물의-정제-규칙-최신-반영-여부-확인-불가-문제-기획)
+5. [정제 규칙(Transform) 자동 테스트 커버리지 공백](#5-정제-규칙transform-자동-테스트-커버리지-공백)
+
+> **이관 안내**: 과거 2번(클라우드 스토리지 연동)과 4번(Supabase 세션 토큰 개선) 항목은
+> [plan/pending/cloud_storage_plan.md](pending/cloud_storage_plan.md)로 분리 이관되었습니다.
+> 세션 토큰 항목은 이미 구현 완료 상태이며, 클라우드 스토리지 연동은 보류(미착수) 상태입니다.
+> 아래 번호는 이관 이후 순서로 재부여되었습니다.
+
+순차 진행 순서(2026-07-15 결정): **1 → 2 → 3 → 4 → 5**.
 
 ---
 
-## 1. 다중 엑셀 파일 병합(Merge)의 웹 UI 연동 기획
+## 1. 다중 엑셀 파일 병합(Merge)의 웹 UI 연동 기획 — ✅ 완료 (2026-07-15)
 
-### ① 현상 및 한계점
-* **현황**: 백엔드 엔진([merger.py](file:///c:/ai/clearsurvey/backend/engine/merger.py)) 및 CLI 명령어(`uv run main.py merge`)를 통해서는 여러 파일 병합 설정(yaml)을 처리할 수 있으나, 웹 UI(Step 1 ~ Step 3)의 프로젝트 생성 화면은 오직 단일 파일 업로드만 지원하여 다중 소스 취합 작업을 웹 브라우저에서 수행할 수 없는 한계가 있습니다.
+### ① 현상 및 한계점 (조사 당시 — 이미 대부분 구현되어 있었음)
+* **재조사 결과**: 실제로 확인해보니 백엔드 엔드포인트(`POST /api/projects/create-merge`),
+  `Step1_ProjectUpload`의 병합 업로드 UI(모드 스위치, 드래그앤드롭, 중복제거/출처파일 설정 패널),
+  `useManagerApi.createMergeProject` 훅까지 전부 이미 구현되어 있었음. 실제 공백은 `admin.tsx`가
+  `Step1_ProjectUpload`에 `onCreateMergeProject` prop을 전달하지 않아 화면에서 "병합" 버튼을 눌러도
+  동작하지 않던 **연결 누락 한 줄**이었음.
+* **부수적으로 발견한 실제 버그**: `backend/app/main.py::create_merge_project`에서 `copy_from_project`
+  분기 안에서만 `import yaml`을 호출하고 있어, 그 분기를 타지 않는 (가장 흔한) 일반 병합 경로에서
+  `UnboundLocalError`로 500 에러가 나는 버그가 있었음. 함께 수정.
+* **완료 내역**: `admin.tsx`에 `handleCreateMergeProject` 핸들러 추가 및 prop 연결, `yaml` 버그 수정,
+  `backend/tests/test_api.py::TestCreateMergeProject` 5케이스 추가(239개 전체 통과), 프론트 `tsc`/vitest
+  통과 확인. 상세는 [CHANGELOG.md](../CHANGELOG.md) 2026-07-15 항목 참조.
+
+### 원래 조사 내용 (참고용)
+* **당시 추정 현황**: 백엔드 엔진([merger.py](file:///c:/ai/clearsurvey/backend/engine/merger.py)) 및 CLI 명령어(`uv run main.py merge`)를 통해서는 여러 파일 병합 설정(yaml)을 처리할 수 있으나, 웹 UI(Step 1 ~ Step 3)의 프로젝트 생성 화면은 오직 단일 파일 업로드만 지원하여 다중 소스 취합 작업을 웹 브라우저에서 수행할 수 없는 한계가 있다고 기술되어 있었음(부정확 — 위 재조사 결과 참조).
 
 ### ② 아키텍처 및 구현 설계
 
@@ -49,121 +67,90 @@
 
 ---
 
-## 2. 클라우드 스토리지 연동 (Railway Ephemeral Filesystem 대응) 기획
+## 2. 프론트엔드 번들 크기 최적화 (Chunk Size Warning) 기획 — ✅ 점검 완료 (2026-07-15)
 
-### ① 현상 및 한계점
-* **현황**: GCP Cloud Run, AWS Fargate, Railway 등 무상태(Stateless) 컨테이너 클라우드 환경에서는 컨테이너 롤링 배포 및 인스턴스 재구동 시 로컬 디스크 `/storage` 하위에 적재된 업로드 파일 및 요약 보고서 파일이 전량 소실되는 Ephemeral Filesystem 한계를 가지고 있습니다.
-* **영향**: 사용자 데이터 유실 및 다운로드 에러가 동반됩니다.
+### ① 현상 및 한계점 (조사 당시)
+* **당시 현황 추정**: React 컴파일 및 빌드 시 `html2pdf.js` (약 975kB) 및 `supabase-js` (약 208kB) 등 고용량 외부 라이브러리들로 인해 번들러(Vite/Rollup)가 "Some chunks are larger than 500 kB" 경고를 발생시킨다고 기술되어 있었음.
+* **영향(추정)**: 초기 웹 서비스 접속 시 무거운 벤더 스크립트 파일을 한 번에 내려받아야 하므로 페이지 로딩 성능 저하를 초래한다고 서술.
 
-### ② 아키텍처 및 구현 설계
+### ② 재조사 결과 및 실제 조치 (2026-07-15)
 
-```
-┌────────────────────────────────────────────────────────┐
-│                   StorageEngine (I/F)                  │
-│  + upload_file(path, data)                             │
-│  + download_file(path) -> bytes                        │
-└───────────────────────────┬────────────────────────────┘
-                            │ (구현체 분기)
-            ┌───────────────┴───────────────┐
-            ▼                               ▼
-  LocalStorageEngine              SupabaseStorageEngine
-  (로컬 디스크 보존)              (Supabase Bucket 원격 저장)
-```
+#### 1) `html2pdf.js` 동적 import — 이미 구현되어 있었음
+* `frontend/src/components/dashboard/DetailPanel.tsx:32`에 이미
+  `const { default: html2pdf } = await import("html2pdf.js");` 형태로 PDF 저장 버튼 클릭 시점에만
+  로드하도록 구현되어 있었음. **초기 로딩에는 975kB 청크가 전혀 포함되지 않음** — "무거운 벤더 스크립트를
+  한 번에 내려받는다"는 당시 서술은 사실과 다름(이미 해결됨).
 
-#### 1) 스토리지 추상화 인터페이스 (Storage Engine Interface) 도입
-* 백엔드 내에 파일 IO를 로컬 디스크에 하드코딩하지 않고 추상화된 스토리지 인터페이스인 `StorageEngine`을 수립합니다.
-* 환경 변수 `STORAGE_PROVIDER` (값: `local` 또는 `supabase`)에 따라 구동 시점에 의존성 주입(Dependency Injection)을 처리합니다.
+#### 2) Rollup `manualChunks` 명시 적용 — 시도했으나 역효과 확인, 롤백
+* 계획서 예시대로 `html2pdf.js`/`@supabase`/`recharts`를 각각 벤더 청크로, 나머지 `node_modules`를
+  하나의 `vendor-core`로 묶는 `manualChunks`를 실제로 적용해 빌드해본 결과 오히려 **악화**됨을 확인:
+  기존 최대 청크 `index-*.js` 431kB → 적용 후 811kB로 증가. 원인: Vite/Rollup의 기본 자동 코드 스플리팅이
+  이미 라우트(admin/index/login) 및 동적 import 경계를 기준으로 합리적으로 청크를 나누고 있었는데,
+  `node_modules` 전체를 하나의 `vendor-core` 버킷으로 강제 통합하면서 라우트별 캐싱 경계가 무너지고
+  청크 간 중복 인라인이 발생함. → **`manualChunks` 설정은 적용하지 않고 원복**.
+* **결론**: 이 프로젝트 규모/구조에서는 기본 자동 청크 분할이 이미 수동 설정보다 우수함. 향후 재검토 시
+  반드시 빌드 후 청크 크기를 실측 비교하고 나서 적용할 것 (수동 청크가 항상 개선이라는 보장이 없음).
 
-#### 2) Supabase Storage 연동 프로세스
-* **파일 업로드**: 사용자가 엑셀 파일을 업로드하면, 백엔드는 해당 바이너리를 로컬 디스크가 아닌 Supabase Storage 버킷 `clearsurvey-raw`에 저장합니다.
-* **정제 실행 (Pipeline Run)**: 
-  * 파이프라인 구동 시점에 Supabase Storage로부터 Raw 엑셀 바이너리를 스트림으로 로드하여 `openpyxl` 및 `pandas` 메모리에 이식합니다.
-  * 정제가 끝난 `cleaned.xlsx` 결과물 역시 `clearsurvey-projects/{projectName}/cleaned_result.xlsx` 위치로 직접 업로드(Upload)합니다.
-* **결과 다운로드**: 프론트엔드가 다운로드 요청 시, 백엔드를 경유하지 않고 Supabase Storage의 **보안 다운로드 서명 URL (Presigned URL)**을 직접 발급받아 프론트엔드 브라우저에서 다운로드가 실행되게 설계하여 백엔드 대역폭 부하를 최소화합니다.
+#### 3) 부수 발견 — 죽은 라우트 파일 제거로 실제 번들 감소
+* 조사 중 `frontend/src/routes/admin.backup.tsx`(`/admin/backup` 경로로 실제 라이브 노출되던 `admin.tsx`의
+  구버전 미참조 백업 사본, 16.59kB)를 발견. 어디서도 링크되지 않았고 최신 기능(병합 업로드 등)이 반영되지
+  않은 구버전 코드가 인증 없는 것으로 추정되는 경로로 노출되어 있어 **삭제**. 부수 효과로 `admin.tsx`와
+  중복되던 `Step3_RunDeploy` 공유 청크가 사라지고 admin 번들이 13.35kB+16.59kB(2개 파일) → 131.07kB(1개
+  파일)로 통합되어 총 산출 파일 수와 중복 코드가 줄어듦.
+* `chunkSizeWarningLimit`을 임시방편으로 올려뒀던 `2500` → 실측 기준 합리적인 `1000`으로 조정(초기 로딩과
+  무관한 지연 로드 청크(html2pdf 975kB)는 여전히 조용히 통과하되, 향후 실수로 1MB 넘는 동기 청크가 생기면
+  다시 경고가 뜨도록 신호를 복원).
 
----
-
-## 3. 프론트엔드 번들 크기 최적화 (Chunk Size Warning) 기획
-
-### ① 현상 및 한계점
-* **현황**: React 컴파일 및 빌드 시 `html2pdf.js` (약 975kB) 및 `supabase-js` (약 208kB) 등 고용량 외부 라이브러리들로 인해 번들러(Vite/Rollup)가 "Some chunks are larger than 500 kB" 경고를 발생시킵니다.
-* **영향**: 초기 웹 서비스 접속 시 무거운 벤더 스크립트 파일을 한 번에 내려받아야 하므로 페이지 로딩 성능 저하를 초래합니다.
-
-### ② 아키텍처 및 구현 설계
-
-#### 1) Rollup Manual Chunks 최적화
-* `frontend/vite.config.ts` 파일의 `rollupOptions` 설정을 정교화하여 덩치가 큰 외부 패키지들을 메인 번들 스크립트 `index.js`에서 독립된 별도의 벤더 청크 파일로 물리적 분리 처리를 수행합니다.
-```typescript
-// vite.config.ts 예시
-export default defineConfig({
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('html2pdf.js')) return 'vendor-pdf';
-            if (id.includes('@supabase')) return 'vendor-supabase';
-            return 'vendor-core';
-          }
-        }
-      }
-    }
-  }
-});
-```
-
-#### 2) 동적 import (Lazy Loading) 기법 이식
-* **대시보드 PDF 인쇄 모듈**: `html2pdf.js` 라이브러리는 사용자가 상세 드로어 화면을 열어 **[PDF로 저장]** 단추를 누르는 특정 이벤트 시점에만 활용됩니다.
-* **최적화**: 컴파일 시 최상단에서 정적 `import`를 수행하지 않고, 버튼 클릭 시 실행되는 함수 내에서 `const html2pdf = (await import('html2pdf.js')).default` 형태의 비동기 동적 임포트를 탑재합니다.
-* **효과**: 초기 로딩 청크에서 1MB에 달하는 PDF 변환 스크립트가 완전히 제외되므로 대시보드 로딩 응답 성능이 수백% 가량 향상됩니다.
+**완료 내역**: `vite.config.ts` `chunkSizeWarningLimit` 조정, `admin.backup.tsx` 삭제(+`routeTree.gen.ts`
+자동 재생성), `tsc`/vitest(129개) 재확인. 상세는 [CHANGELOG.md](../CHANGELOG.md) 참조.
 
 ---
 
-## 4. 프론트엔드 Supabase 세션 토큰 획득 방식 개선 기획
+## 3. 대시보드 반응형 레이아웃 세밀화 (차트 최대 배열 갯수 제어) 기획 — ✅ 구현 완료 (2026-07-15, 시각 검증 보류)
 
-### ① 현상 및 한계점
-* **현황**: `useManagerApi.ts`에서 API 인증 헤더에 기입할 Bearer JWT 토큰을 획득하기 위해 브라우저 `localStorage` 전체를 루프 돌며 `"sb-*-auth-token"` 문자열 키를 직접 발굴 및 디코딩하여 파싱하는 우회 방식을 취하고 있습니다.
-* **영향**: Supabase JS SDK 라이브러리의 버전 업그레이드 시 내부 로컬 스토리지 보존 키 포맷이 변경되면, 토큰 획득 메커니즘 전체가 예고 없이 마비될 수 있는 구조적 취약성을 내포합니다.
+### ⚠ 시각 검증 미완료 안내
+`tsc`/vitest(129개)는 통과했으나, 이 작업 세션의 로컬 dev 서버(샌드박스)와 브라우저 확장이 연결된
+Chrome이 서로 다른 네트워크 네임스페이스에 있어 실제 화면에서 렌더링 결과를 육안으로 확인하지 못했음.
+사용자가 `bun dev` 또는 `npm run dev`로 직접 열어 그리드 열 개수·카드 크기가 의도대로 나오는지 확인 필요.
 
-### ② 아키텍처 및 구현 설계
-
-#### 1) 정합적인 세션 구독(Subscription) 체계로의 대전환
-* Supabase SDK가 정형적으로 지원하는 `supabase.auth` 세션 수명 제어 인터페이스를 전면 차용합니다.
-
-#### 2) 구현 메커니즘
-* **세션 상태 및 구독 수립**:
-  * 프론트엔드 진입 최상위 계층(`admin.tsx` 또는 전역 `AuthContext`)에서 Supabase Auth 세션 상태를 리액트 state로 저장 관리합니다.
-  * 마운트 시점에 `supabase.auth.getSession()`을 1회 조회해 세션을 수집하고, `supabase.auth.onAuthStateChange` 이벤트를 구독하여 로그인/로그아웃/토큰 만료 재발급 등의 변화를 유기적으로 리액트 상태에 반영합니다.
-* **인증 래퍼 연동**:
-  * `useManagerApi.ts` 내 `getLocalAccessToken` 함수는 이제 더 이상 `localStorage` 루프를 돌지 않고, 메모리상에 유지되는 Supabase Client 세션 객체(`session.access_token`)를 직접 조회해 헤더에 탑재합니다.
-  * 토큰이 만료(Expired)되어 만료 시간이 지난 경우 Supabase SDK 내부가 제공하는 토큰 자동 갱신(Refresh Token) 기법이 유기적으로 백그라운드 작동하므로, 401 인증 유실 없이 지속적인 API 어드민 연동이 보장됩니다.
-
----
-
-## 5. 대시보드 반응형 레이아웃 세밀화 (차트 최대 배열 갯수 제어) 기획
-
-### ① 현상 및 한계점
+### ① 현상 및 한계점 (조사 당시)
 * **현황**: 대시보드의 차트 그리드(`.chart-grid`)가 CSS Grid의 `auto-fill` 속성과 최소 가로 길이(`minmax(320px, 1fr)`)에 의존하여 모니터 크기가 커질수록 끝없이 우측으로 새로운 열(Column)을 생성하는 구조로 되어 있습니다.
 * **영향**:
   * 데이터가 적은 경우 화면 우측에 커다란 빈 공간(유령 열)이 발생하는 현상이 관찰됩니다.
   * 울트라 와이드 모니터(21:9 등) 환경에서는 차트가 한 줄에 6~8개씩 과도하게 늘어서서 시각적인 밀도가 떨어지고 가독성이 저하될 수 있습니다.
 
-### ② 아키텍처 및 구현 설계
+### ② 실제 구현 내용 (2026-07-15)
 
-#### 1) CSS 레이아웃 교정 (`auto-fill` -> `auto-fit`) 및 무한 팽창 방어
-* **문제 정의**: 우측 빈 공간 문제 해결을 위해 단순히 `.chart-grid`의 속성을 `repeat(auto-fit, minmax(320px, 1fr))`로 수정할 경우, 등록된 차트가 1~2개뿐일 때 화면 전체 폭(예: 1920px)으로 1개의 차트가 거대하게 늘어나는(Gigantic Chart) 치명적인 부작용이 발생합니다.
-* **하이브리드 해결책**: 
-  1. `auto-fit`을 사용하여 우측의 불필요한 유령 여백을 제거하고 남는 공간을 꽉 채우도록 유도합니다.
-  2. 동시에 개별 차트 카드(`.chart-card`)에 `max-width: 500px;` 와 같은 최대 팽창 한계치를 부여합니다.
-  3. 이를 통해 차트가 부드럽게 팽창하여 빈 공간을 메우다가도 한계치(500px)에 도달하면 성장을 멈추고 중앙 정렬 및 여백을 자연스럽게 형성하도록 세밀하게 제어합니다.
+#### 1) `frontend/src/routes/index.tsx` — CSS 레이아웃 교정 (`auto-fill` → `auto-fit`) 및 무한 팽창 방어
+* 그리드 트랙을 `repeat(auto-fill, minmax(280px, 1fr))` → `repeat(auto-fit, minmax(320px, 1fr))`로 변경
+  (최소 카드 폭도 280→320px로 소폭 확대).
+* 컨테이너(그리드 자체)에 `mx-auto` + 인라인 `maxWidth` 스타일을 부여해 "가로 배열 최대 개수"
+  (기본 4개, `cfg.layout?.maxColumns`)를 넘는 열이 생성되지 않도록 제한:
+  `maxWidth = maxColumns * 320 + (maxColumns - 1) * 12`(gap-3=12px) px.
+* **1400px 고정값 대신 `maxColumns` 기반 동적 계산을 채택** — 계획서의 "옵션화"(§2)를 별도 구현하는 대신
+  처음부터 설정 가능한 값으로 구현하여 "고정 → 옵션화" 2단계를 1단계로 합침.
 
-#### 2) 가로 배열 최대치 강제 (전체 컨테이너 제한 및 옵션화)
-* **컨테이너 제한법**: 화면이 무한정 넓어져도 차트 그리드가 들어가는 메인 탭 패널 컨테이너(`.tab-panel` 또는 `.chart-grid`) 자체에 `max-width: 1400px; margin: 0 auto;`를 부여하여 한 줄에 최대 3~4개의 차트만 고정 배열되도록 제어합니다.
-* **옵션 제공**: 차후 `dashboard.json` 설정 파일에 `max_columns: 3` 등의 속성을 추가 주입받아, 리액트 컴포넌트(`DashboardViewer.tsx`)에서 인라인 스타일로 `gridTemplateColumns: repeat(3, 1fr)` 등을 동적 적용하는 방안을 고려합니다.
+#### 2) `frontend/src/components/dashboard/ChartCard.tsx` — 카드 높이/폭 확대 및 개별 최대 폭
+* `chartHeight` 200→220px, `2x2` 레이아웃 540→560px로 소폭 확대(파이 반지름도 비례 확대).
+* `1x1`/`0.5x1`(단일 폭) 카드에 한해 `max-w-[560px]` 적용 — 열이 1~2개뿐이라 auto-fit이 카드를
+  거대하게 늘리려 할 때의 방어선. `2x1`/`2x2`/`full`은 의도적으로 여러 열에 걸쳐야 하므로 제한하지 않음.
+
+#### 3) 설정에서 조절 가능하도록 UI 추가 (기존에는 실제로 조절 UI 자체가 없었음)
+* **재조사 발견**: `theme`/`layout` 편집을 위해 이미 작성돼 있던 `DashboardThemeCard.tsx`와
+  `Step2_ConfigEditor.tsx`의 `updateTheme`/`updateLayout` 함수가 **어디에서도 실제로 연결되어 있지
+  않은 죽은 코드**였음. 즉 지금까지 대시보드 테마/레이아웃을 어드민 화면에서 조절할 방법 자체가 없었음.
+* `types/dashboard.ts`의 `DashboardLayout`에 `maxColumns?: number` 필드 추가.
+* `ChartConfigCard.tsx`(Step2의 실제 "차트 구성" 카드, 라이브 컴포넌트)에 "가로 배열 최대 개수"
+  드롭다운(2~6개, 기본 4개) 추가, `onUpdateLayout` prop으로 `Step2_ConfigEditor`의 기존
+  `updateLayout` 함수와 연결.
+* 따라서 사용자는 Admin Step2 "대시보드" 탭 → "차트 구성" 카드 우측 상단에서 즉시 조절 가능.
+
+**완료 내역**: `types/dashboard.ts`, `ChartCard.tsx`, `ChartConfigCard.tsx`, `Step2_ConfigEditor.tsx`,
+`routes/index.tsx` 수정. `tsc`/vitest(129개) 통과 확인. **단, 브라우저 시각 검증은 미완료**(위 안내 참조).
 
 ---
 
-## 6. 결과물의 "정제 규칙 최신 반영 여부" 확인 불가 문제 기획
+## 4. 결과물의 "정제 규칙 최신 반영 여부" 확인 불가 문제 기획
 
 ### ① 현상 및 한계점
 
@@ -175,30 +162,45 @@ export default defineConfig({
   * `output/*_cleaned.xlsx`가 **몇 시에 마지막으로 생성**되었는지
   * 그래서 사용자는 지금 보고 있는 결과가 "최신 설정으로 만든 결과"인지 "예전에 만들어두고 잊고 있던 결과"인지 화면만 봐서는 구분할 방법이 없습니다.
 
-### ② 아키텍처 및 구현 설계
+### ② 실제 구현 내용 — ✅ 완료 (2026-07-15)
 
-#### 1) 백엔드 — 최신성 판정 API
-* `GET /api/projects/{name}/status`(또는 신규 `/freshness` 엔드포인트)에 다음 필드를 추가합니다.
-  * `config_updated_at`: `config.yaml` 파일의 mtime
-  * `dashboard_updated_at`: `dashboard.json` 파일의 mtime
-  * `output_generated_at`: `output/{name}_cleaned.xlsx` 파일의 mtime (이미 `_job_get()`의 `finished_at`으로 일부 커버되나, 서버 재시작 시 `_pipeline_jobs` 인메모리 상태가 초기화되므로 파일 mtime 기반으로 별도 판정 필요)
-  * `is_stale`: `config_updated_at`/`dashboard_updated_at`이 `output_generated_at`보다 최신이면 `true`
+#### 1) 백엔드 — `GET /api/projects/{name}/freshness` 신규 엔드포인트
+* `/status`(기존 인메모리 잡 상태)를 변경하지 않고 **별도 엔드포인트**로 추가(레이어 분리 원칙 준수,
+  기존 프론트 코드의 `/status` 의존을 건드리지 않기 위함).
+* 응답 필드: `config_updated_at`/`dashboard_updated_at`/`output_generated_at`(모두 파일 mtime 기반 ISO
+  문자열, 파일 없으면 `null`) · `has_output`(bool) · `is_stale`(bool).
+* `is_stale` 판정은 문자열 비교가 아니라 **원본 `mtime` 부동소수점 타임스탬프끼리 비교**한 뒤 ISO
+  문자열로 변환(isoformat은 마이크로초 유무에 따라 문자열 길이가 달라져 문자열 비교가 부정확할 수 있음).
+* `output_generated_at`은 `config.yaml`의 `paths.output_dir`/`paths.output_file`을 읽어 실제 출력
+  파일 경로를 계산 — 서버 재시작으로 `_pipeline_jobs` 인메모리 상태가 초기화되어도 항상 정확.
+* `backend/tests/test_api.py::TestGetProjectFreshness` 6케이스 추가(245개 전체 통과).
 
 #### 2) 프론트엔드 — 시각적 경고 배지
-* **프로젝트 목록 화면(`ProjectListView`)**: 각 프로젝트 행에 "⚠ 설정 변경 후 미실행" 배지를 추가로 노출.
-* **Step3(정제 실행 화면)**: 정제 성공 카드 상단에 "마지막 실행: YYYY-MM-DD HH:mm" 타임스탬프를 상시 표기하고, `is_stale`이 true면 "설정이 변경되었습니다. 다시 실행해주세요" 안내 문구를 강조 표시.
-* **공개 대시보드**: 게시된 대시보드 하단 푸터에 데이터 생성 시각을 이미 일부 프로젝트에서 표기하고 있다면 그대로 재사용하고, 없다면 `meta.generated_at`(이미 `exporter.py`가 기록 중)을 노출.
+* **`useManagerApi.ts`**: `getProjectFreshness(name)` 함수 및 `ProjectFreshness` 타입 추가.
+* **프로젝트 목록 화면(`ProjectListView`, `admin.tsx`)**: 프로젝트 목록 로드 시 전체 프로젝트의
+  freshness를 병렬 조회해 `is_stale`인 행의 프로젝트명 옆에 "⚠ 설정 변경 후 미실행" 배지 노출.
+* **Step3(`Step3_RunDeploy.tsx`)**: 카드 헤더에 "마지막 실행: YYYY-MM-DD HH:mm:ss" 타임스탬프를
+  상시 표기(파이프라인 실행 성공 시점에 재조회하여 갱신), `is_stale`이면 실행 버튼 위에 "설정이
+  변경되었습니다. 다시 실행해주세요" 경고 배너 표시.
+* **공개 대시보드**: `frontend/src/routes/index.tsx:132`에 `data.meta.generated_at`이 **이미
+  헤더 바에 표기되어 있음을 확인** — 별도 작업 불필요(계획서가 예상한 "이미 표기 중인 경우 재사용"
+  케이스에 해당).
 
 #### 3) 기대 효과
 * "정제 규칙이 안 되는 것 같다"는 오탐 문의를 줄이고, 실제 결함과 단순 미실행(stale) 상태를 사용자 스스로 구분할 수 있게 합니다.
 
+**완료 내역**: `backend/app/main.py`(`_mtime_info`, `get_project_freshness`), `test_api.py`(6케이스),
+`useManagerApi.ts`, `admin.tsx`(`ProjectListView`), `Step3_RunDeploy.tsx` 수정. 백엔드 245개 전체 통과,
+프론트 `tsc`/vitest(129개) 통과. **브라우저 시각 검증은 미완료**(항목 3과 동일한 샌드박스 네트워크
+제약 — 사용자가 `bun dev`로 직접 확인 필요).
+
 ---
 
-## 7. 정제 규칙(Transform) 자동 테스트 커버리지 공백
+## 5. 정제 규칙(Transform) 자동 테스트 커버리지 공백 — ✅ 완료 (2026-07-15)
 
 ### ① 현상 및 한계점
 
-* **조사 배경**: 6번 항목 조사 도중 "실제로 다른 정제 규칙들도 검증됐는가"를 확인하기 위해, 현재 `storage/projects/` 하위 **모든 프로젝트**(`bus`, `cli_gpu_test`, `gpu_3`, `gpu_test`, `mumhwa`, `survey`, `수의계약정보`)의 `config.yaml`에 실제로 지정된 `transform` 값을 전수 수집함.
+* **조사 배경**: 4번 항목 조사 도중 "실제로 다른 정제 규칙들도 검증됐는가"를 확인하기 위해, 현재 `storage/projects/` 하위 **모든 프로젝트**(`bus`, `cli_gpu_test`, `gpu_3`, `gpu_test`, `mumhwa`, `survey`, `수의계약정보`)의 `config.yaml`에 실제로 지정된 `transform` 값을 전수 수집함.
 * **실사용 중인 정제 규칙 목록**: `copy`, `exclude`, `norm_num`(normalize_number), `normalize_date`, `name_blind`(mask_name), `norm_company`/`normalize_company`, `norm_phone`/`normalize_phone`, `val_email`(validate_email), `norm_position`/`normalize_title`, `group_sum`, `date_year`, `addr_split`, `norm_date_parts`.
 * **테스트 커버리지 점검**: `backend/tests/test_transforms.py`(102개, 전체 통과)를 기준으로 각 함수의 실제 테스트 여부를 확인한 결과, 아래 **5개 규칙 + 1개 통합 지점이 자동 테스트 없이(또는 부분적으로만) 운영 중**임을 확인함.
   * `normalize_date` — cli_gpu_test/survey/mumhwa 등에서 사용, 테스트 0건
@@ -210,9 +212,18 @@ export default defineConfig({
   * ~~`norm_position`(normalize_title)~~ **(정정)** 최초 조사 시 테스트 파일이 `norm_position as normalize_title` 별칭으로 import하는 걸 놓쳐서 "테스트 없음"으로 잘못 보고했음. 실제로는 `TestCase05_NormalizeTitle`에 5개 케이스로 이미 검증되어 있어 **공백 목록에서 제외**.
 * **수동 검증 결과**: 위 항목 전부 실제 프로젝트 원본 데이터(mumhwa, gpu_3, survey)로 직접 함수를 호출해 결과값을 대조함. 예를 들어 `name_blind('성윤미') → '성*미'`, `normalize_company('(재)서산문화재단') → '서산문화재단'`, `validate_url('www.imsilfestival.com') → 'https://www.imsilfestival.com'` 등 전부 정상 동작 확인. **현재 시점 기준으로는 코드 결함이 발견되지 않았으나, 자동 테스트가 없어 향후 회귀(regression) 발생 시 pytest로는 잡히지 않고 실사용 중에야 발견될 위험**이 있음.
 
-### ② 아키텍처 및 구현 설계
+### ② 실제 구현 내용 (2026-07-15)
 
-구체적인 테스트 케이스 설계와 우선순위, 파일 구조는 별도 계획서
-[transform_test_plan.md](transform_test_plan.md)에 정리함. 요약:
-* 우선순위는 **`name_blind`(개인정보 마스킹) → `_addr_split` 통합 지점/`norm_date_parts`(파생열, 최근 버그 이력 있음) → `normalize_company`/`normalize_phone`/`normalize_date`** 순으로 제안.
-* `_addr_split` 통합 지점은 현재 `engine/pipeline.py`의 클로저 안에 로직이 갇혀 있어 직접 단위 테스트가 어려운 구조라, 순수 함수로 분리하는 리팩터링을 선행할지 여부를 먼저 결정해야 함.
+구체적인 테스트 케이스 설계와 실제 구현 결과는 별도 계획서 [transform_test_plan.md](transform_test_plan.md)에
+정리함. 요약:
+* `_addr_split` 통합 지점은 **A안(리팩터링)을 채택** — `transforms/common/address.py`에
+  `build_addr_parts_dict(val, sido, sigungu, detail)` 순수 함수를 신설해 `engine/pipeline.py`의
+  클로저와 `address.py`의 폴백 함수 양쪽이 공유하도록 리팩터링, 캐시 동작은 그대로 보존.
+- `TestCase20_NormalizeCompany`(10) · `TestCase21_NormalizePhone`(9) · `TestCase22_NormalizeDate`(11) ·
+  `TestCase23_NormDateParts`(3) · `TestCase24_AddrSplitPartsDict`(4) — 총 37케이스 추가.
+* 테스트 작성 중 계획서 표와 실제 코드가 다른 부분(`normalize_company(keep_corp_type=True)`의 공백
+  포함 출력 등)을 발견해 실동작 기준으로 정정함. 상세는 `transform_test_plan.md` §3 참조.
+
+**완료 내역**: `transforms/common/address.py`(`build_addr_parts_dict` 추가, `addr_split` 리팩터링),
+`engine/pipeline.py`(`_addr_split` 클로저 리팩터링), `tests/test_transforms.py`(37케이스 추가).
+**백엔드 전체 테스트 스위트 282개 전부 통과** (`uv run pytest`).

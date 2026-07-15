@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useManagerApi } from "@/hooks/useManagerApi";
-import type { LoadedProjectConfig, ProjectConfig } from "@/hooks/useManagerApi";
+import type { LoadedProjectConfig, ProjectConfig, ProjectFreshness } from "@/hooks/useManagerApi";
 import type { DashboardConfig, ProjectListItem } from "@/types/dashboard";
 import { Step1_ProjectUpload } from "@/components/manager/Step1_ProjectUpload";
 import { Step2_ConfigEditor } from "@/components/manager/Step2_ConfigEditor";
@@ -180,8 +180,26 @@ function AdminDashboard({ user }: { user: User }) {
     setView("config");
   };
 
-  const handleCreateProject = async (name: string, file: File) => {
-    const data = await api.createProject(name, file);
+  const handleCreateProject = async (name: string, file: File, copyFromProject?: string) => {
+    const data = await api.createProject(name, file, copyFromProject);
+    if (data?.status === "success") {
+      setSelectedProject(name);
+      setView("config");
+    }
+  };
+
+  const handleCreateMergeProject = async (
+    name: string,
+    files: File[],
+    options: {
+      dedup_strategy: "first" | "last" | "none";
+      key_cols: string[];
+      add_source_col: boolean;
+      source_col_name: string;
+    },
+    copyFromProject?: string,
+  ) => {
+    const data = await api.createMergeProject(name, files, options, copyFromProject);
     if (data?.status === "success") {
       setSelectedProject(name);
       setView("config");
@@ -367,6 +385,7 @@ function AdminDashboard({ user }: { user: User }) {
                     projects={api.projects}
                     onSelectProject={handleSelectProject}
                     onCreateProject={handleCreateProject}
+                    onCreateMergeProject={handleCreateMergeProject}
                     loading={api.loading}
                   />
                 </div>
@@ -479,7 +498,34 @@ function ProjectListView({
 }) {
   const [toggling, setToggling] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [freshness, setFreshness] = useState<Record<string, ProjectFreshness>>({});
   const api = useManagerApi();
+
+  // 프로젝트별 "설정 변경 후 미실행(stale)" 여부를 조회해 배지로 표시.
+  useEffect(() => {
+    if (!isBackendAlive || projects.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const results = await Promise.all(
+        projects.map(async (p) => {
+          try {
+            return [p.id, await api.getProjectFreshness(p.id)] as const;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      if (cancelled) return;
+      const next: Record<string, ProjectFreshness> = {};
+      for (const r of results) {
+        if (r) next[r[0]] = r[1];
+      }
+      setFreshness(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projects, isBackendAlive]);
 
   const handleDelete = async (id: string, name: string) => {
     if (
@@ -578,6 +624,14 @@ function ProjectListView({
                         <span className="font-bold text-[15px] text-foreground group-hover:text-primary transition-colors">
                           {p.name}
                         </span>
+                        {freshness[p.id]?.is_stale && (
+                          <span
+                            className="text-[11px] font-bold text-amber-700 bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400 px-1.5 py-0.5 rounded"
+                            title="config.yaml 또는 dashboard.json이 마지막 정제 실행 이후에 수정되었습니다. 다시 실행해주세요."
+                          >
+                            ⚠ 설정 변경 후 미실행
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-muted-foreground font-medium text-[13px]">{p.updated || "—"}</td>

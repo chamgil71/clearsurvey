@@ -18,6 +18,14 @@ export const Route = createFileRoute("/")({
   component: DashboardPage,
 });
 
+// 차트 그리드 트랙 최소 폭. ChartCard.tsx의 단일 폭 카드 max-w-[560px]와는 별개로,
+// 그리드 컬럼이 이보다 좁아지지 않도록 하는 하한선(반응형 auto-fit의 기준값).
+const CHART_GRID_MIN_CARD_PX = 320;
+// Tailwind `gap-3` = 0.75rem = 12px. 아래 클래스에서 gap-3을 바꾸면 이 값도 함께 바꿔야 함.
+const CHART_GRID_GAP_PX = 12;
+// dashboard.json에 layout.maxColumns가 없을 때 기본 가로 배열 개수.
+const DEFAULT_MAX_COLUMNS = 4;
+
 function DashboardPage() {
   const initialUrl =
     typeof window !== "undefined"
@@ -104,10 +112,15 @@ function DashboardPage() {
       <div className="flex flex-col min-h-screen bg-background">
         {/* Header */}
         <header className="bg-card border-b border-border px-6 h-14 flex items-center gap-4 sticky top-0 z-50 shadow-sm">
-          <span className="font-bold text-base text-primary flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            title="새로고침"
+            className="font-bold text-base text-primary flex items-center gap-1.5 bg-transparent border-none p-0 cursor-pointer"
+          >
             <BarChart3 className="h-4 w-4" />
-            Survey
-          </span>
+            ClearSurvey
+          </button>
 
           <select
             title="프로젝트 선택"
@@ -222,7 +235,18 @@ function DashboardPage() {
               필터 조건에 해당하는 데이터가 없습니다.
             </div>
           ) : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] [grid-auto-flow:dense] gap-3">
+            <div
+              className="grid [grid-auto-flow:dense] gap-3 mx-auto"
+              style={{
+                gridTemplateColumns: `repeat(auto-fit, minmax(${CHART_GRID_MIN_CARD_PX}px, 1fr))`,
+                // 가로 배열 최대 개수(기본 4열)를 넘지 않도록 컨테이너 폭을 제한.
+                // auto-fit이라 실제 열 수는 화면 폭에 맞춰 이보다 적게 줄어들 수 있음(반응형 유지).
+                maxWidth: `${
+                  (cfg.layout?.maxColumns ?? DEFAULT_MAX_COLUMNS) * CHART_GRID_MIN_CARD_PX +
+                  ((cfg.layout?.maxColumns ?? DEFAULT_MAX_COLUMNS) - 1) * CHART_GRID_GAP_PX
+                }px`,
+              }}
+            >
               {(cfg.charts || []).map((c, i) => (
                 <ChartCard
                   key={i}

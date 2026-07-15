@@ -26,6 +26,7 @@ interface ChartConfigCardProps {
   onDeleteChart: (index: number) => void;
 
   onUpdateExcelOptions: (options: { include_slicers?: boolean; include_charts?: boolean }) => void;
+  onUpdateLayout?: (patch: Partial<DashboardConfig["layout"]>) => void;
 }
 
 export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
@@ -42,6 +43,7 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
   onMoveChart,
   onDeleteChart,
   onUpdateExcelOptions,
+  onUpdateLayout,
 }) => {
 
   const handleDeleteKpi = (i: number) => {
@@ -132,9 +134,28 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
       {/* 2. 차트 구성 */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
         <div className="mb-4">
-          <div className="flex items-center gap-2 mb-1.5">
-            <BarChart2 className="h-5 w-5 text-amber-500 fill-amber-500" />
-            <h3 className="text-[15px] font-bold text-slate-800">차트 구성 <span className="text-slate-400 font-normal text-[13px] ml-1">(드래그로 순서 변경)</span></h3>
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <div className="flex items-center gap-2">
+              <BarChart2 className="h-5 w-5 text-amber-500 fill-amber-500" />
+              <h3 className="text-[15px] font-bold text-slate-800">차트 구성 <span className="text-slate-400 font-normal text-[13px] ml-1">(드래그로 순서 변경)</span></h3>
+            </div>
+            {onUpdateLayout && (
+              <div className="flex items-center gap-2 shrink-0">
+                <label className="text-[12px] font-semibold text-slate-500">가로 배열 최대 개수</label>
+                <select
+                  value={dashboard.layout?.maxColumns ?? 4}
+                  title="화면이 넓어도 한 줄에 표시할 차트 개수의 최대치입니다."
+                  onChange={(e) => onUpdateLayout({ maxColumns: Number(e.target.value) })}
+                  className="h-8 px-2 rounded-md border border-slate-200 bg-white text-[12px] font-medium text-slate-700 outline-none focus:border-blue-400"
+                >
+                  <option value={2}>최대 2개</option>
+                  <option value={3}>최대 3개</option>
+                  <option value={4}>최대 4개 (기본값)</option>
+                  <option value={5}>최대 5개</option>
+                  <option value={6}>최대 6개</option>
+                </select>
+              </div>
+            )}
           </div>
           <p className="text-[12px] text-slate-400">
             donut - 도넛 차트 (category) | bar - 세로막대 | hbar - 가로막대 | histogram - 분포도 (numeric) | multibar - 여러 0/1 응답 비교 (0, * 목적 등)

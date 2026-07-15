@@ -1,6 +1,6 @@
 # 정제 규칙(Transform) 테스트 커버리지 보강 계획
 
-`docs/plan/remaining_improvements.md` 7번 항목("정제 규칙 자동 테스트 커버리지 공백")의 후속 계획서입니다.
+`docs/plan/remaining_improvements.md` 5번 항목("정제 규칙 자동 테스트 커버리지 공백")의 후속 계획서입니다.
 `agents.md` §4(단위 테스트 무결성 정책)가 "모든 정제 규칙(transforms)에 tests/ 디렉토리에 전용 단위
 테스트를 100% 기입"하도록 강제하고 있는데, 실제로는 실사용 중인 규칙 중 일부가 이 규칙을 지키지
 못하고 있어 이를 메우기 위한 계획입니다.
@@ -141,19 +141,32 @@
 
 ---
 
-## 3. 구현 방식
+## 3. 구현 방식 — ✅ 완료 (2026-07-15)
 
-* 위치: 기존 `tests/test_transforms.py`에 `TestCase19_NameBlind`, `TestCase20_NormalizeCompany`,
-  `TestCase21_NormalizePhone`, `TestCase22_NormalizeDate`, `TestCase23_NormDateParts`,
-  `TestCase24_AddrSplitIntegration` 순서로 이어서 추가 (기존 넘버링/네이밍 컨벤션 그대로 따름).
-* 2.6(주소 통합 지점)은 먼저 A안(리팩터링) 여부를 결정해야 순서가 정해짐 — 이 부분만 별도 확인 필요.
+* 위치: 기존 `tests/test_transforms.py`에 `TestCase20_NormalizeCompany`, `TestCase21_NormalizePhone`,
+  `TestCase22_NormalizeDate`, `TestCase23_NormDateParts`, `TestCase24_AddrSplitPartsDict` 순서로
+  이어서 추가(기존 넘버링/네이밍 컨벤션 그대로 따름). 총 37케이스.
+* **2.6(주소 통합 지점)은 A안(리팩터링)을 채택**: `transforms/common/address.py`에
+  `build_addr_parts_dict(val, sido, sigungu, detail) -> dict | None` 순수 함수를 신설하고,
+  `engine/pipeline.py`의 `_addr_split` 클로저와 `address.py`의 폴백 `addr_split()` 함수 양쪽 모두
+  이 함수로 dict 조립 로직을 위임하도록 리팩터링. (계획서가 제안했던 `(val, parser)` 시그니처
+  대신 이미 파싱된 `(sido, sigungu, detail)` 파츠를 받는 시그니처를 채택 — `AddressParser`/
+  `SurveyConfig` 객체 없이도 리터럴 문자열만으로 테스트 가능해 더 순수하고, 클로저의 기존 파싱
+  캐시(`_parse_cached`)도 그대로 보존됨.)
+* `norm_date_parts`/`normalize_date`/`normalize_company`/`normalize_phone` 테스트 케이스는 계획서
+  §2의 표를 기준으로 작성하되, **실제 구현 코드를 재확인해 표와 다른 부분은 실동작 기준으로 정정**함:
+  `normalize_company(..., keep_corp_type=True)`의 실제 출력은 약어와 항목 사이에 공백이 들어가는
+  `"(주) 카카오"`(계획서 표기 `"(주)카카오"`와 다름 — `f"{abbr} {item}"` 코드 확인 결과 반영).
 
 ## 4. 완료 기준 (`agents.md` §4 기준)
 
 * `uv run --extra dev pytest` 전체 스위트가 100% 통과.
 * 최초 베이스라인: 217개 통과 (본 계획 작성 시점).
-* 진행 상황: `name_blind` 7케이스 추가 후 **234개 전부 통과** 확인 (2026-07-14). 나머지 항목(`normalize_company`/`normalize_phone`/`normalize_date`/`norm_date_parts`/`_addr_split` 통합 지점)은 아직 미착수.
+* 진행 상황: `name_blind` 7케이스 추가 후 234개 통과 확인 (2026-07-14).
+* **최종**: 나머지 5개 항목(`normalize_company`/`normalize_phone`/`normalize_date`/`norm_date_parts`/
+  `addr_split` 통합 지점) 37케이스 추가 완료, **백엔드 전체 282개 전부 통과** (2026-07-15).
 
 ---
 
-**진행 중 — 우선순위 1(`name_blind`)만 구현 완료. 나머지 항목은 여전히 계획 단계이며 코드 작성/실행 전입니다.**
+**✅ 완료 (2026-07-15) — 계획서의 6개 공백 항목(5개 함수 + 1개 통합 지점) 전부 테스트 추가 완료.
+백엔드 전체 테스트 스위트 282개 전부 통과.**

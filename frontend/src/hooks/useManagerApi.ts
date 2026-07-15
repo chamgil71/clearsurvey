@@ -57,6 +57,15 @@ export interface LoadedProjectConfig {
   dashboard: DashboardConfig | null;
 }
 
+/** GET /api/projects/{name}/freshness 응답 구조 */
+export interface ProjectFreshness {
+  config_updated_at: string | null;
+  dashboard_updated_at: string | null;
+  output_generated_at: string | null;
+  has_output: boolean;
+  is_stale: boolean;
+}
+
 export function useManagerApi() {
   const [isBackendAlive, setIsBackendAlive] = useState<boolean>(false);
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
@@ -325,6 +334,15 @@ export function useManagerApi() {
     }
   };
 
+  /** 정제 결과물이 최신 설정을 반영 중인지 조회 — GET /api/projects/{name}/freshness */
+  const getProjectFreshness = async (name: string): Promise<ProjectFreshness> => {
+    const res = await fetchWithAuth(`${API_BASE}/api/projects/${name}/freshness`);
+    if (!res.ok) {
+      throw new Error("최신성 정보 조회에 실패했습니다.");
+    }
+    return await res.json();
+  };
+
   /** 로그 메시지 한 줄 추가 (폴링 로직에서 사용) */
   const addLog = (msg: string) => setLogs((prev) => [...prev, msg]);
 
@@ -490,6 +508,7 @@ export function useManagerApi() {
     previewProjectConfig,
     runPipeline,
     getPipelineStatus,
+    getProjectFreshness,
     exportDashboard,
     togglePublish,
     deleteProject,

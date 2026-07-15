@@ -52,14 +52,31 @@ class AddressParser:
         return sido or "", sigungu or "", detail or ""
 
 
-def addr_split(val, *, address_parsing: dict | None = None, **kw) -> dict | None:
-    """주소를 시도/시군구/상세주소 3단계 파생열 dict로 반환.
+def build_addr_parts_dict(val: object, sido: str, sigungu: str, detail: str) -> dict | None:
+    """이미 파싱된 (시도, 시군구, 상세) 3-tuple을 addr_split 파생열 dict로 조립합니다.
 
-    addr_split 선택 시 writer.py가 자동으로 4열 생성:
+    writer.py가 이 dict를 보고 4열을 자동 생성합니다:
       output_col      → 원본 주소 그대로
       output_col_시도  → 시/도
       output_col_시군구 → 시/군/구
       output_col_상세  → 시군구 이하 상세주소
+
+    파이프라인(`engine/pipeline.py`)의 `addr_split` 클로저와 아래 `addr_split()` 폴백 함수가
+    (매 값마다 새 파서를 만들지, 프로젝트 단위로 캐시된 파서를 재사용할지와 무관하게) 공통으로
+    사용하는 순수 함수 — 단위 테스트가 `AddressParser`/`SurveyConfig` 없이도 직접 검증 가능합니다.
+    """
+    if not val:
+        return None
+    return {
+        "":     str(val),
+        "_시도": sido or None,
+        "_시군구": sigungu or None,
+        "_상세":  detail or None,
+    }
+
+
+def addr_split(val, *, address_parsing: dict | None = None, **kw) -> dict | None:
+    """주소를 시도/시군구/상세주소 3단계 파생열 dict로 반환.
 
     address_parsing: config/patterns.yaml > address_parsing 섹션.
     미설정 시 None 반환.
@@ -68,12 +85,7 @@ def addr_split(val, *, address_parsing: dict | None = None, **kw) -> dict | None
         return None
     parser = AddressParser(address_parsing)
     sido, sigungu, detail = parser.parse(str(val))
-    return {
-        "":     str(val),
-        "_시도": sido or None,
-        "_시군구": sigungu or None,
-        "_상세":  detail or None,
-    }
+    return build_addr_parts_dict(val, sido, sigungu, detail)
 
 
 _TRANSFORMS: dict = {

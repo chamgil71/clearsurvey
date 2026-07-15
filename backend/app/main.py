@@ -95,7 +95,7 @@ sys.path.append(str(BACKEND_ROOT))
 STORAGE_ROOT = BACKEND_ROOT.parent / "storage"
 FRONTEND_ROOT = BACKEND_ROOT.parent / "frontend"
 
-from engine.config import SurveyConfig
+from engine.config import SurveyConfig, PathsConfig
 from engine.pipeline import SurveyPipeline
 from engine.analyzer import ExcelAnalyzer
 from engine.config_excel import read_config_from_excel
@@ -540,7 +540,6 @@ async def create_merge_project(
             copy_dir = _get_project_dir(copy_from_project)
             if copy_dir.exists() and (copy_dir / "config.yaml").exists():
                 shutil.copy2(copy_dir / "config.yaml", config_path)
-                import yaml
                 with open(config_path, "r", encoding="utf-8") as f:
                     cfg_yaml = yaml.safe_load(f)
                 if "source" not in cfg_yaml:
@@ -839,6 +838,63 @@ def get_pipeline_status(name: str, user: dict = Depends(verify_supabase_token)):
     """
     _validate_project_name(name)
     return _job_get(name)
+
+
+def _mtime_info(path: Path) -> tuple[Optional[float], Optional[str]]:
+    """파일의 mtime을 (비교용 타임스탬프, ISO 문자열) 형태로 반환합니다. 없으면 (None, None)."""
+    if not path.exists():
+        return None, None
+    ts = path.stat().st_mtime
+    return ts, datetime.fromtimestamp(ts).isoformat()
+
+
+@app.get("/api/projects/{name}/freshness")
+def get_project_freshness(name: str, user: dict = Depends(verify_supabase_token)):
+    """정제 결과물이 최신 설정을 반영하고 있는지 판정합니다.
+
+    config.yaml/dashboard.json이 마지막 정제 실행(output 파일 생성) 이후에 수정되었다면
+    is_stale=True를 반환합니다. 서버 재시작으로 인메모리 잡 상태(_pipeline_jobs)가 초기화되어도
+    파일 mtime 기반이라 항상 정확합니다.
+    """
+    _validate_project_name(name)
+    proj_dir = _get_project_dir(name)
+    if not proj_dir.exists():
+        raise HTTPException(status_code=404, detail="프로젝트를 찾을 수 없습니다.")
+
+    config_path = proj_dir / "config.yaml"
+    dashboard_path = proj_dir / "dashboard.json"
+
+    config_ts, config_updated_at = _mtime_info(config_path)
+    dashboard_ts, dashboard_updated_at = _mtime_info(dashboard_path)
+
+    output_ts, output_generated_at = None, None
+    if config_path.exists():
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                cfg_dict = yaml.safe_load(f) or {}
+            paths = cfg_dict.get("paths") or {}
+            _paths_defaults = PathsConfig()
+            out_dir = paths.get("output_dir", _paths_defaults.output_dir)
+            out_file = paths.get("output_file", _paths_defaults.output_file)
+            output_ts, output_generated_at = _mtime_info(proj_dir / out_dir / out_file)
+        except Exception:
+            pass
+
+    is_stale = False
+    if output_ts is not None:
+        newest_config_ts = max(
+            (t for t in (config_ts, dashboard_ts) if t is not None), default=None
+        )
+        if newest_config_ts is not None and newest_config_ts > output_ts:
+            is_stale = True
+
+    return {
+        "config_updated_at": config_updated_at,
+        "dashboard_updated_at": dashboard_updated_at,
+        "output_generated_at": output_generated_at,
+        "has_output": output_ts is not None,
+        "is_stale": is_stale,
+    }
 
 
 @app.post("/api/projects/{name}/export")

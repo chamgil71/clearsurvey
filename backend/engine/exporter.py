@@ -164,6 +164,11 @@ def export_to_json(
                 entry["min"] = min(nums)
                 entry["max"] = max(nums)
                 entry["sum"] = sum(nums)
+            # 연도처럼 정수값이지만 실질적으로는 이산 카테고리인 numeric 컬럼을
+            # 프론트(ChartCard)가 구분할 수 있도록 고유값 개수가 적을 때만 부가.
+            distinct = {str(v).strip() for v in vals if str(v).strip()}
+            if 0 < len(distinct) <= 40:
+                entry["unique_count"] = len(distinct)
         columns.append(entry)
 
     # ── dashboard config 조기 로드 (aggregates 계산에 filter_cols 필요) ────────
@@ -269,7 +274,10 @@ def export_to_json(
     if output_path:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(result, f, ensure_ascii=False, indent=2)
+            # 프론트엔드가 그대로 fetch해서 파싱하는 정적 데이터 파일이라 사람이 읽을
+            # 필요가 없다. indent + 여분 공백을 없애면 파일 크기가 크게 줄어든다
+            # (15k행 데이터셋 기준 약 15~20%).
+            json.dump(result, f, ensure_ascii=False, separators=(",", ":"))
         print(f"내보내기 완료: {output_path} ({len(rows)}행, {len(columns)}컬럼)")
         _update_manifest(output_path, cfg)
 

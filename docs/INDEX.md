@@ -21,13 +21,14 @@
 * **[plan/excel_chart_plan.md](plan/excel_chart_plan.md)** — ✅ 완료: 엑셀 요약 시트에 네이티브 차트(Bar/Pie/Line)를 삽입하는 구현 기획안 (`engine/summarizer.py`).
 * **[plan/design-migration-plan.md](plan/design-migration-plan.md)** — ✅ 완료: legacy-dashboard.css → Tailwind v4 + shadcn/ui 전환 계획 (Admin/Index 전체).
 * **[plan/chart_grid_spanning_plan.md](plan/chart_grid_spanning_plan.md)** — ✅ 완료: 차트 카드 2D 그리드 레이아웃 확장(`layout: 1x1/2x1/2x2/0.5x1/full`) 계획.
-* **[plan/remaining_improvements.md](plan/remaining_improvements.md)** — 진행 중: 다중 엑셀 병합 웹 UI(✅ 완료)·클라우드 스토리지 연동(미착수)·번들 최적화(부분 완료)·Supabase 세션 개선(✅ 완료)·차트 그리드 auto-fit(미착수)·"정제 규칙 최신 반영 여부" 배지(미착수)·transform 테스트 공백(→ transform_test_plan.md) 등 잔여 개선 사항 기획서.
-* **[plan/transform_test_plan.md](plan/transform_test_plan.md)** — 진행 중: 정제 규칙(transform) 함수별 단위테스트 커버리지 공백 및 보강 계획서.
+* **[plan/remaining_improvements.md](plan/remaining_improvements.md)** — ✅ 5개 항목 전부 완료(2026-07-15): 1.다중 엑셀 병합 웹 UI·2.번들 최적화·3.차트 그리드 auto-fit/가로 4열+설정 UI(브라우저 시각검증 보류)·4."정제 규칙 최신 반영 여부" 배지(브라우저 시각검증 보류)·5.transform 테스트 공백(→ transform_test_plan.md, ✅ 완료). 클라우드 스토리지 연동 및 Supabase 세션 개선(완료)은 [plan/pending/cloud_storage_plan.md](plan/pending/cloud_storage_plan.md)로 분리 이관.
+* **[plan/transform_test_plan.md](plan/transform_test_plan.md)** — ✅ 완료(2026-07-15): 정제 규칙(transform) 함수별 단위테스트 커버리지 공백 및 보강 계획서. 전체 282개 테스트 통과.
 
 ### 착수하지 않은 계획 (`docs/plan/pending/`)
 
 확정되지 않았거나 우선순위가 낮아 보류 중인 계획입니다. 실제 요구가 확정되면 이 문서를 기준으로 착수합니다.
 
+* **[plan/pending/cloud_storage_plan.md](plan/pending/cloud_storage_plan.md)**: 클라우드 스토리지 연동(Supabase Storage, `StorageEngine` 추상화) 계획. (참고: Supabase 세션 토큰 개선 항목은 이미 구현 완료 상태로 §4에 기록됨). 상태: 검토 중(미착수).
 * **[plan/pending/gui_plan.md](plan/pending/gui_plan.md)**: 오프라인 데스크탑 GUI(Gradio → CustomTkinter → PyQt6) 구현 계획.
 * **[plan/pending/map_plan.md](plan/pending/map_plan.md)**: 지도(Leaflet + GeoJSON) 탭 확장 계획. ⚠️ React 전환 이전의 vanilla-JS 구조를 전제로 작성되어 재검토 필요.
 * **[plan/pending/railway_migration_plan.md](plan/pending/railway_migration_plan.md)**: 어드민 API 서버(FastAPI)를 Railway로 이전하는 계획. 상태: 검토 중.
