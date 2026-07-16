@@ -7,6 +7,12 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# 패키지 매니저는 bun으로 통일한다 (bun.lock이 정본).
+# 다른 락파일이 함께 커밋되면 서로 다른 의존성 트리를 고정하게 된다.
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
 node_modules
 dist
 dist-ssr
