@@ -5,6 +5,9 @@ import react from "@vitejs/plugin-react";
 
 import tailwindcss from "@tailwindcss/vite";
 
+// vite 8은 빌드 시 resolve.tsconfigPaths 네이티브 옵션으로 이 플러그인을 대체하라고 안내하지만,
+// vitest 4는 아직 그 옵션을 해석하지 못해 테스트에서 @/* 임포트가 전부 깨진다.
+// 빌드와 테스트가 같은 방식으로 경로를 풀도록 당분간 플러그인을 유지한다.
 export default defineConfig({
   plugins: [
     tailwindcss(),
