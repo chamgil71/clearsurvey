@@ -2,6 +2,60 @@
 
 All notable changes to the ClearSurvey project will be documented in this file.
 
+## [2026-07-17] 프론트엔드 패키지 업그레이드 (recharts 3 · lucide 1 · vite 8)
+
+계획: [plan/package_upgrade_plan.md](plan/package_upgrade_plan.md). 메이저는 각각 별도 커밋으로 진행했다.
+
+### Changed
+- **`recharts` 2.15.4 → 3.9.2**: `<Cell />`이 deprecated(4.0 제거 예정)되어 걷어냈다. 공식 권장
+  대체재는 `shape` prop이나, 적용해보니 **범례 payload에 색이 실리지 않아 범례 견본이 전부
+  회색(`#808080`)으로 죽는 회귀**가 발생했다(타입·테스트·빌드는 모두 통과해 브라우저로만 발견됨).
+  → 데이터에 `fill`을 싣는 방식으로 선회 — 조각·막대·범례가 한 번에 같은 색을 쓰고 커스텀 shape
+  컴포넌트도 불필요하다. 타입 시그니처 변경 2건 대응(`PieLabelRenderProps`의 optional `name`/
+  `percent`, Tooltip `Formatter`가 value를 number로 좁혀주지 않음).
+- **`lucide-react` 0.575.0 → 1.24.0**: 1.0에서 상표 문제로 브랜드 아이콘이 전면 제거됐다. 사용 중인
+  37종 중 `<Github />` 1건만 해당됐고 나머지 36종은 무영향. 로그인 화면의 GitHub OAuth 버튼은
+  아이콘 하나 때문에 패키지를 들이는 대신 로컬 SVG 컴포넌트(`login.tsx::GithubMark`)로 대체했다.
+- **`vite` 7.3.2 → 8.1.4**: 번들러가 Rollup/esbuild → Rolldown/Oxc로 교체됐으나 설정 영향은 없었다
+  (`build.rollupOptions` 미사용, `post-build.js`는 출력 구조에만 의존). `@vitejs/plugin-react`는
+  6.0.3이 `vite ^8.0.0`을 peer로 요구해 5 → 6 동반 상향.
+- **SAFE 등급 일괄 상향**: react/react-dom 19.2.7, tailwindcss 4.3.2, `@tanstack/react-router`
+  1.170.18 · react-start 1.168.28 · router-plugin 1.168.20 · react-query 5.101.2,
+  supabase-js 2.110.5, Radix UI 26종. tailwindcss 4.3.3 등 일부는 `bunfig.toml`의 24시간 공급망
+  가드(`minimumReleaseAge`)에 걸려 **가드를 우회하지 않고 설치 가능한 최신 버전으로** 낮춰 잡았다.
+- **패키지 매니저를 bun으로 일원화**: `bun.lock`(7/9)과 `package-lock.json`(7/16)이 공존해 서로 다른
+  의존성 트리를 고정하고 있었다. npm 락파일을 제거하고 `.gitignore`에 재유입 가드를 추가했다.
+
+### Removed
+- **`frontend/src/components/ui/chart.tsx`**: 어디에서도 import되지 않는 미사용 shadcn 보일러플레이트가
+  recharts 3 타입 에러 10건을 내고 있어 삭제. 계획이 최대 위험으로 지목했던
+  `[&_.recharts-*]` arbitrary 선택자 스타일 깨짐 리스크도 이 파일에만 있었고 **적용 대상이 없어
+  애초에 존재하지 않는 리스크**였다.
+- **`zod`**(미사용 — `src/` import 0건, `@hookform/resolvers`도 peer로 요구하지 않음),
+  **`@tanstack/start`**(`@tanstack/react-start`로 대체된 레거시, 미참조).
+
+### Fixed
+- **`frontend/tests/e2e/dashboard.spec.ts`**: 직전 shadcn 전환이 반영되지 않아 4개가 실패하고 있던
+  스펙을 갱신(패키지 업그레이드와 무관한 선행 문제). native `<select>` → `role=combobox`,
+  `<nav>`/`<nav button>` → `role=tablist`/`tab`/`tabpanel`. 구조 셀렉터를 role 기반으로 바꾸면서
+  의미가 옅던 단언(`section` nth)도 실제 확인 대상(차트 SVG 렌더링 / 테이블 표시)으로 교체했다.
+
+### Notes
+- **`vite-tsconfig-paths`는 유지**: vite 8이 네이티브 `resolve.tsconfigPaths`로 대체하라고 안내하고
+  빌드는 통과하지만, vitest 4가 그 옵션을 해석하지 못해 테스트에서 `@/*` 임포트가 전부 깨진다.
+  경위는 `vite.config.ts` 주석에 남겼다.
+- **`bun run lint`는 회귀 게이트가 아니다**: 기준선부터 315건(301 errors) 실패 중인 기존 부채이며,
+  업그레이드 전후 수치가 동일함만 확인했다.
+- **미검증 1건**: 차트 클릭 교차필터 — 현재 세 프로젝트 어디에도 "클릭=필터"가 켜진 차트 구성이 없어
+  클릭 경로를 태울 수 없었다(`onClick`은 이번 변경에서 손대지 않음).
+- **미해결 1건**: `%APPDATA%\npm\`의 bun 셰임 3종이 이미 삭제된 npm 전역 패키지를 가리켜 `bun` 호출이
+  실패한다(실제 bun은 `~/.bun/bin/bun.exe` v1.3.14에 정상 설치). 전역 환경 변경이라 보류 — 셰임 제거 필요.
+
+**검증**: 프론트 `tsc --noEmit` 통과 · vitest **136개** 통과 · `bun run build` 성공 · e2e **20개**
+통과(콜드 스타트 포함). Playwright로 dev 서버와 Rolldown 프로덕션 번들(`vite preview`) 양쪽을 구동해
+차트 9개 렌더링·팔레트·범례 색상·막대 radius·아이콘(빈 SVG 0)·탭 전환·다크모드·PPT/PDF 내보내기
+(`PK`/`%PDF-` 헤더)까지 확인. 콘솔 에러 0건.
+
 ## [2026-07-16] 대시보드 PPT/PDF 내보내기 신규 + shadcn 전환 마무리
 
 ### Added
