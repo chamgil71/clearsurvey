@@ -198,11 +198,22 @@ arbitrary 선택자(`[&_.recharts-cartesian-grid_line[stroke='#ccc']]` 등)가 �
 
 ```bash
 cd frontend
-npx tsc --noEmit      # 기준선: 통과
-npx vitest run        # 기준선: 136개 통과
-npm run lint
-npm run build         # post-build.js 포함
+bun run --bun tsc --noEmit   # 기준선: 통과
+bun x vitest run             # 기준선: 136개 통과
+bun run build                # 기준선: 성공 (post-build.js 포함)
 ```
+
+> [!NOTE]
+> **`bun run lint`는 회귀 게이트로 쓸 수 없다.** 기준선(`f24ff5c`)에서 이미 **315건
+> (301 errors, 14 warnings)** 으로 실패하며, 대부분 `@typescript-eslint/no-explicit-any` 등
+> 기존 기술 부채다. 업그레이드 전후 수치가 동일한지(315건 유지)만 비교 지표로 삼고, 통과 여부를
+> 조건으로 걸지 않는다. lint 부채 정리는 본 계획의 범위 밖이다.
+
+> [!IMPORTANT]
+> **`bunfig.toml`의 24시간 공급망 가드(`minimumReleaseAge = 86400`)를 우회하지 않는다.**
+> 릴리스 24시간 미만 버전은 설치가 차단되므로, 목표 버전이 막히면 **가드를 통과하는 최신 버전으로
+> 낮춰 잡는다**(예외 등록 금지 — `minimumReleaseAgeExcludes` 추가는 사용자 승인 사항).
+> 이로 인해 일부 패키지는 "최신"이 아닌 "설치 가능한 최신"으로 고정된다.
 
 ### 수동 검증 (Step 3a·3b 이후 필수)
 
