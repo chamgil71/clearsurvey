@@ -1,4 +1,22 @@
-# 📦 패키지 업그레이드 위험성 분석 및 단계별 실행 계획
+# 📦 패키지 업그레이드 위험성 분석 및 단계별 실행 계획 — ✅ 완료 (2026-07-17)
+
+> [!NOTE]
+> **실행 완료.** Step 1 `f24ff5c` · Step 2 `09f0543` · Step 3a `1e91f6e` · Step 3b `1d9996a` ·
+> Step 3c `af9d750`. 기준선은 `2c56435`.
+>
+> 최종 상태: `tsc --noEmit` 통과 · vitest **136개** 통과 · `bun run build` 성공 ·
+> lint 315건(기준선과 동일, [아래](#6-검증-계획) 참조). dev 서버와 Rolldown 프로덕션 번들 양쪽을
+> Playwright로 구동해 차트·아이콘·탭·PPT/PDF 내보내기·다크모드까지 확인.
+>
+> **계획 대비 실제와 달랐던 점** (상세는 각 절):
+> - `ui/chart.tsx`가 **미사용 파일**이었다 → 삭제로 해결. 이 계획의 최대 경고였던
+>   `[&_.recharts-*]` 선택자 스타일 깨짐 리스크는 **애초에 존재하지 않았다**(아무 데도 적용 안 됨).
+> - recharts의 `<Cell />` 공식 대체재인 `shape` prop은 **범례를 회색으로 죽이는 회귀**를 일으켰다
+>   → 데이터에 `fill`을 싣는 방식으로 선회.
+> - lucide 1.0의 실제 파괴는 **브랜드 아이콘 제거**였다(`<Github />` 1건). 나머지 36종은 무영향.
+> - vite 8은 설정 영향이 없었다. 대신 `@vitejs/plugin-react`를 5→6으로 동반 상향해야 했다.
+> - **미해결**: bun 실행 파일 PATH 고장(아래 [Open Questions](#7-open-questions)) — 전역 환경
+>   변경이라 사용자 승인 대기. 현재는 전체 경로 호출로 우회 중.
 
 본 문서는 ClearSurvey 프론트엔드([frontend/package.json](file:///c:/ai/clearsurvey/frontend/package.json))
 의존성을 최신 버전으로 정리·업그레이드하기 위한 위험도 분석과 실행 계획을 정의한다.
@@ -177,18 +195,44 @@ arbitrary 선택자(`[&_.recharts-cartesian-grid_line[stroke='#ccc']]` 등)가 �
 
 ### Step 3 — 메이저 (커밋 분리)
 
-각 항목 착수 직전 릴리스 노트/마이그레이션 가이드를 먼저 확인한다.
-
-* **3a. recharts 3** — 업그레이드 + `<Cell />` → `shape` prop 마이그레이션(3곳)을 함께 수행.
-  이후 `ui/chart.tsx`의 arbitrary 선택자 육안 검증. → 커밋.
-* **3b. lucide-react 1** — 0.x→1.x 릴리스 노트 확인. 아이콘 rename/제거 여부가 관건이며,
-  33개 파일에 영향이 갈 수 있다. → 커밋.
-* **3c. vite 8** — 릴리스 노트 확인. `@vitejs/plugin-react`, `@tailwindcss/vite`,
-  `@tanstack/router-plugin`, `vite-tsconfig-paths`, `vitest`의 vite 8 호환 버전 동반 확인 필요.
-  `scripts/post-build.js`가 빌드 산출물 구조에 의존한다면 함께 점검. → 커밋.
-
 순서 근거: recharts를 먼저 하는 이유는 위험이 가장 크고 UI 검증 범위가 명확해서다. vite를 마지막에
 두는 이유는 빌드 툴체인 변경이 앞선 단계의 검증 결과를 오염시키지 않게 하기 위함이다.
+
+#### 3a. recharts 3 — ✅ `1e91f6e`
+
+2.15.4 → 3.9.2. 타입 에러 14건이 났고 `ChartCard.tsx`·`ui/chart.tsx` 두 파일에 몰려 있었다.
+
+* **`ui/chart.tsx`는 미사용 파일이었다** — 배럴도 없고 import하는 곳이 0건인 shadcn 보일러플레이트가
+  타입 에러 10건을 내고 있었다. 삭제로 해결. 이 계획이 최대 위험으로 지목한
+  `[&_.recharts-*]` 선택자 리스크도 이 파일에만 있었으므로 **함께 소멸**(적용 대상이 없었다).
+* **`<Cell />` → `shape`는 오답이었다.** 공식 권장대로 `shape` prop으로 옮기니 조각/막대는 칠해지나
+  **범례 payload에 색이 실리지 않아 범례 견본이 전부 회색(`#808080`)으로 죽었다.** 브라우저로
+  확인 후 **데이터에 `fill`을 싣는 방식**으로 선회 — 조각·막대·범례가 한 번에 같은 색을 쓰고
+  커스텀 shape 컴포넌트도 불필요하다. (참고: 3.0 마이그레이션 가이드에는 Cell deprecation 언급이
+  아예 없다. 3.x 중간에 deprecated되어 패키지 타입 정의에만 기록돼 있다.)
+* 타입 시그니처 변경 2건 대응: `PieLabelRenderProps`가 `name`/`percent`를 optional로 넘김,
+  Tooltip `Formatter`가 value를 number로 좁혀주지 않음(`ValueType`).
+
+#### 3b. lucide-react 1 — ✅ `1d9996a`
+
+0.575.0 → 1.24.0. **실제 파괴는 브랜드 아이콘 전면 제거**였다(상표 이슈). 사용 중인 37종 중
+`<Github />` **1건만** 해당됐고 나머지 36종은 rename 영향이 없었다. 로그인 화면의 GitHub OAuth
+버튼은 제공자 식별이 필요하므로 아이콘 하나 때문에 패키지를 들이는 대신 로컬 SVG 컴포넌트로 대체.
+
+그 외 1.0 변경(참고): 아이콘 rename, UMD 빌드 제거, `aria-hidden` 기본값 true, 번들 32% 감소.
+
+#### 3c. vite 8 — ✅ `af9d750`
+
+7.3.2 → 8.1.4. 번들러가 Rollup/esbuild → **Rolldown/Oxc**로 교체되는 큰 변경이나 **설정 영향은
+없었다** — `build.rollupOptions`를 쓰지 않아 `rolldownOptions` 리네임 대상이 없고,
+`scripts/post-build.js`도 TanStack Start 출력 구조에만 의존해 그대로 동작한다.
+
+* **`@vitejs/plugin-react` 5 → 6 동반 상향 필수** — 6.0.3이 `vite ^8.0.0`을 peer로 요구한다.
+  `@tailwindcss/vite`(^5~^8)·`vitest`(^6~^8)·`router-plugin`(>=8)·`react-start`(>=7)는 이미 지원.
+* **`vite-tsconfig-paths`는 유지한다.** vite 8이 네이티브 `resolve.tsconfigPaths`로 대체하라고
+  안내하고 빌드는 실제로 통과하지만, **vitest 4가 그 옵션을 해석하지 못해 테스트에서 `@/*` 임포트가
+  전부 깨진다**(9개 스위트 전멸). 빌드와 테스트가 경로를 같은 방식으로 풀도록 플러그인을 유지했다.
+  vitest가 지원하면 그때 제거 — 경위는 `vite.config.ts` 주석에 남겼다.
 
 ---
 
@@ -215,14 +259,33 @@ bun run build                # 기준선: 성공 (post-build.js 포함)
 > 낮춰 잡는다**(예외 등록 금지 — `minimumReleaseAgeExcludes` 추가는 사용자 승인 사항).
 > 이로 인해 일부 패키지는 "최신"이 아닌 "설치 가능한 최신"으로 고정된다.
 
-### 수동 검증 (Step 3a·3b 이후 필수)
+### 수동 검증 — 실행 결과
 
-* 대시보드 차트(Pie/Bar/Line/Area) 렌더링 육안 검사
-* 차트 클릭 필터 동작
-* **다크모드 전환 시 차트 스타일** (`ui/chart.tsx` arbitrary 선택자 회귀 확인 지점)
-* **PPT/PDF 내보내기 결과물** — 기준선 커밋의 신규 기능이므로 회귀 확인 필요.
-  Playwright headless로 버튼 클릭→다운로드까지 구동해 파일 유효성(`PK` / `%PDF-`) 확인
-* Step 3b 이후: 아이콘 누락(빈 사각형/미렌더) 육안 확인
+Playwright로 dev 서버와 Rolldown 프로덕션 번들(`vite preview`) 양쪽에서 확인했다.
+
+| 항목 | 결과 |
+|---|---|
+| 차트 렌더링 (donut/bar) | ✅ 9개 렌더링, 조각·막대가 `var(--chart-1..5)` 순환 |
+| 범례 색상 | ✅ 팔레트 동일 (shape 방식의 회색 회귀를 잡아낸 지점) |
+| 막대 radius | ✅ 유지 (`A 4,4` arc 확인) |
+| 다크모드 전환 | ✅ 차트·범례 모두 다크 팔레트로 전환 |
+| 아이콘 (Step 3b) | ✅ 19개 렌더, 빈 SVG 0개, GitHub 마크 정상 |
+| 탭 전환 | ✅ 목록 탭에서 테이블 표시 |
+| PPT/PDF 내보내기 | ✅ 유효 파일 생성 (`PK` / `%PDF-` 헤더 확인) |
+| 콘솔 에러/경고 | ✅ 0건 (Cell deprecation 경고 포함 없음) |
+
+> [!WARNING]
+> **차트 클릭 교차필터는 실행 검증하지 못했다.** 현재 `storage`의 세 프로젝트(`survey`,
+> `수의계약정보`, `gpu_4`) 중 어느 것도 "클릭=필터" 배지가 뜨는 차트 구성을 갖고 있지 않아
+> 클릭 경로를 태울 수 없었다. 다만 `onClick` 핸들러는 이번 변경에서 손대지 않았고 recharts
+> API도 그대로다. 교차필터가 켜진 프로젝트가 생기면 확인 필요.
+
+> [!NOTE]
+> **`tests/e2e/dashboard.spec.ts`는 이미 낡아 있다** (이번 업그레이드와 무관한 선행 문제).
+> 9개 중 5개가 `header select`·`nav`를 찾다 실패하는데, 직전 shadcn 전환에서 native `<select>` →
+> `<Select>`, 탭 `<nav>` → `<Tabs>`(`role=tablist`)로 바뀐 것이 반영되지 않았다. 브라우저로
+> `nav` 0개 / `[role=tablist]` 1개를 확인해 recharts 회귀가 아님을 확정했다. 스펙 갱신은
+> 본 계획의 범위 밖 — 별도 처리 필요.
 
 ---
 
