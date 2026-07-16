@@ -3,7 +3,6 @@ import {
   ResponsiveContainer,
   PieChart,
   Pie,
-  Cell,
   BarChart,
   Bar,
   XAxis,
@@ -23,6 +22,8 @@ const PALETTE = [
   "var(--chart-4)",
   "var(--chart-5)",
 ];
+
+const paletteColor = (index: number) => PALETTE[index % PALETTE.length];
 
 export function ChartCard({
   chart,
@@ -44,13 +45,23 @@ export function ChartCard({
     setMounted(true);
   }, []);
 
-  const items = useMemo(() => buildChartItems(chart, rows), [chart, rows]);
+  // 팔레트 색을 데이터에 실어 보낸다. recharts는 이 fill로 조각/막대를 칠하고
+  // 범례 payload에도 같은 색을 넣는다.
+  //
+  // <Cell />은 recharts 3에서 deprecated(4.0 제거)라 걷어냈다. 공식 권장 대체재는 shape prop이나,
+  // shape로 칠하면 범례 payload에는 색이 실리지 않아 범례 견본이 전부 회색(#808080)으로 죽는다.
+  // 데이터에 fill을 싣는 방식은 조각·막대·범례가 한 번에 같은 색을 쓰므로 이쪽을 택했다.
+  const items = useMemo(
+    () => buildChartItems(chart, rows).map((item, i) => ({ ...item, fill: paletteColor(i) })),
+    [chart, rows],
+  );
 
   const total = useMemo(() => items.reduce((sum, item) => sum + item.value, 0), [items]);
 
-  const renderPieLabel = ({ name, percent }: { name: string; percent: number }) => {
+  // recharts 3의 PieLabelRenderProps는 name/percent를 optional로 넘긴다.
+  const renderPieLabel = ({ name, percent }: { name?: string | number; percent?: number }) => {
     if (!chart.show_percent) return null;
-    if (percent < 0.05) return null;
+    if (percent == null || percent < 0.05) return null;
     return `${name} (${(percent * 100).toFixed(1)}%)`;
   };
 
@@ -75,12 +86,14 @@ export function ChartCard({
   };
   const clickable = !!(catCol && onSelect);
 
-  const formatTooltip = (v: number, name: string) => {
+  // recharts 3의 Tooltip Formatter는 value를 number로 좁혀주지 않는다(ValueType: string | number | Array).
+  const formatTooltip = (value: unknown, name: unknown): [string, string] => {
+    const v = typeof value === "number" ? value : Number(value);
     if (!chart.show_percent) {
-      return [`${v}${unit}`, name];
+      return [`${v}${unit}`, String(name)];
     }
     const pct = total > 0 ? ((v / total) * 100).toFixed(1) : "0.0";
-    return [`${v}${unit} (${pct}%)`, name];
+    return [`${v}${unit} (${pct}%)`, String(name)];
   };
 
   let chartHeight = 220;
@@ -158,11 +171,7 @@ export function ChartCard({
                   labelLine={false}
                   onClick={handleChartClick}
                   cursor={clickable ? "pointer" : undefined}
-                >
-                  {items.map((_, i) => (
-                    <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
-                  ))}
-                </Pie>
+                />
                 <Tooltip formatter={formatTooltip} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
               </PieChart>
@@ -172,11 +181,7 @@ export function ChartCard({
                 <XAxis type="number" tick={{ fontSize: 11 }} />
                 <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
                 <Tooltip formatter={formatTooltip} />
-                <Bar dataKey="value" radius={[0, 4, 4, 0]} onClick={handleChartClick} cursor={clickable ? "pointer" : undefined}>
-                  {items.map((_, i) => (
-                    <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
-                  ))}
-                </Bar>
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} onClick={handleChartClick} cursor={clickable ? "pointer" : undefined} />
               </BarChart>
             ) : (
               <BarChart data={items}>
@@ -184,11 +189,7 @@ export function ChartCard({
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip formatter={formatTooltip} />
-                <Bar dataKey="value" radius={[4, 4, 0, 0]} onClick={handleChartClick} cursor={clickable ? "pointer" : undefined}>
-                  {items.map((_, i) => (
-                    <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
-                  ))}
-                </Bar>
+                <Bar dataKey="value" radius={[4, 4, 0, 0]} onClick={handleChartClick} cursor={clickable ? "pointer" : undefined} />
               </BarChart>
             )}
           </ResponsiveContainer>
