@@ -46,15 +46,20 @@ All notable changes to the ClearSurvey project will be documented in this file.
   경위는 `vite.config.ts` 주석에 남겼다.
 - **`bun run lint`는 회귀 게이트가 아니다**: 기준선부터 315건(301 errors) 실패 중인 기존 부채이며,
   업그레이드 전후 수치가 동일함만 확인했다.
-- **미검증 1건**: 차트 클릭 교차필터 — 현재 세 프로젝트 어디에도 "클릭=필터"가 켜진 차트 구성이 없어
-  클릭 경로를 태울 수 없었다(`onClick`은 이번 변경에서 손대지 않음).
-- **미해결 1건**: `%APPDATA%\npm\`의 bun 셰임 3종이 이미 삭제된 npm 전역 패키지를 가리켜 `bun` 호출이
-  실패한다(실제 bun은 `~/.bun/bin/bun.exe` v1.3.14에 정상 설치). 전역 환경 변경이라 보류 — 셰임 제거 필요.
+- **개발 환경 수정**: `%APPDATA%\npm\`의 bun/bunx 셰임 6종이 이미 삭제된 npm 전역 패키지
+  (`%APPDATA%\npm\node_modules\bun`)를 가리켜 `bun` 호출이 실패하고 있었다. PATH에는 이미
+  `~/.bun/bin`(실제 bun v1.3.14)이 등록돼 있었으나 npm 경로가 앞순위라 가려진 상태였다.
+  → 고아 셰임 6종 삭제. 이제 `bun`/`bunx`가 실제 바이너리로 해석된다. `bun.lock`(7/9)보다
+  `package-lock.json`(7/16)이 최신이었던 것은 이 고장으로 npm에 임시 폴백한 흔적으로 보인다.
+- **교차필터 조건 참고**: `ChartCard.tsx::catCol` — donut/bar/hbar이고 `col`이 있으며 그 컬럼이
+  `numeric`이 아니거나 `unique_count <= 40`인 이산 수치일 때만 클릭 필터가 켜진다. 기본 프로젝트
+  `수의계약정보`는 이 조건을 만족하는 차트가 없다(`bus`·`sangga`·`mumhwa`에는 있음).
 
 **검증**: 프론트 `tsc --noEmit` 통과 · vitest **136개** 통과 · `bun run build` 성공 · e2e **20개**
 통과(콜드 스타트 포함). Playwright로 dev 서버와 Rolldown 프로덕션 번들(`vite preview`) 양쪽을 구동해
 차트 9개 렌더링·팔레트·범례 색상·막대 radius·아이콘(빈 SVG 0)·탭 전환·다크모드·PPT/PDF 내보내기
-(`PK`/`%PDF-` 헤더)까지 확인. 콘솔 에러 0건.
+(`PK`/`%PDF-` 헤더)까지 확인. 콘솔 에러 0건. **차트 클릭 교차필터**는 `bus` 프로젝트에서 도넛 조각
+클릭 → 필터바 `유성구 (695)`·카운트 `695 / 2423건`·KPI 갱신·연동 차트 재집계까지 확인.
 
 ## [2026-07-16] 대시보드 PPT/PDF 내보내기 신규 + shadcn 전환 마무리
 
