@@ -361,3 +361,38 @@ shadcn `<Tabs>`로 교체하면 `TabsContent`가 자동으로 숨김/표시를 �
 ### ⏳ 미반영 (기능·디자인 영향 없음, 선택 사항)
 - `DataTable.tsx` 표 본체: 드로어는 Sheet로 전환됐으나 표 자체는 native `<table>`(토큰 스타일 적용) 유지. shadcn `<Table>` 교체는 시각적 차이가 없어 보류
 - PR #12: `legacy-dashboard.css` 삭제 + ChartCard 스팬 흡수로 내용상 무의미(moot) 상태. GitHub에서 별도 close 필요
+
+---
+
+## 7. 차트 2D 그리드 레이아웃 (Grid Spanning) — ✅ 완료
+
+> 구 `chart_grid_spanning_plan.md`를 이 문서로 통합(2026-07-17). 원래 별도 계획서였으나, 그 문서의
+> §2~§4(구현 *방식*)가 본 문서의 마이그레이션으로 전부 무효화되어 따로 둘 이유가 없어졌다.
+> 기능 자체는 구현 완료 상태다.
+
+### 7-A. 목표
+
+1차원 너비 분할(Flexbox) 대신, 기준 크기(1:1)를 바탕으로 차트 카드를 가로/세로로 2배 이상 키우는
+2차원 그리드 확장. 세로 2배(`2x2`) 카드는 내부 차트(도넛 등)가 빈 공간만 차지하지 않도록 높이와
+도넛 반지름(`outerRadius`)을 비례 확장한다.
+
+### 7-B. 최종 구현 (현재 코드 기준)
+
+| 항목 | 구현 |
+|---|---|
+| 타입 | `types/dashboard.ts` — `ChartItem.layout?: "1x1" \| "2x1" \| "2x2" \| "0.5x1" \| "full"` |
+| 설정 UI | `components/manager/config/ChartConfigCard.tsx` (Step2 "차트 구성" 카드)의 크기 드롭다운 |
+| 그리드 | `routes/index.tsx`의 인라인 Tailwind — `grid [grid-auto-flow:dense]` + `gridTemplateColumns: repeat(auto-fit, minmax(320px, 1fr))`. 무한 팽창은 `maxColumns` 기반 `maxWidth`로 방어([remaining_improvements.md](remaining_improvements.md) §3) |
+| 스팬 | `ChartCard.tsx`의 **className** — `col-span-2 max-sm:col-span-1`(2x1), `col-span-2 max-sm:col-span-1 row-span-2`(2x2), `col-span-full`(full) |
+| 크기 확장 | `2x2`는 높이 560px, 파이 반지름 비례 확대 |
+
+### 7-C. 폐기된 설계 (기록용)
+
+원 계획서는 아래 3가지를 전제했으나 전부 바뀌었다. 같은 실수를 반복하지 않도록 이유를 남긴다.
+
+- **크기 드롭다운이 `Step2_ConfigEditor.tsx`에 있다** → `ChartConfigCard.tsx`로 분리됨.
+- **`src/legacy-dashboard.css`의 `.chart-grid`를 CSS Grid로 재구축** → 이 문서의 Phase 2에서
+  `legacy-dashboard.css` 자체가 삭제됨. 그리드는 `routes/index.tsx`로 이동.
+- **`layout`에 따라 `gridColumn`/`gridRow`를 인라인 스타일로 주입** → **className 기반으로 전환**.
+  인라인 스타일은 CSS로 오버라이드할 수 없어 모바일에서 강제 1열로 접히지 않는 버그(구 PR #12)를
+  낳았다. `max-sm:col-span-1`로 접으려면 반드시 className이어야 한다.

@@ -24,10 +24,8 @@
 구현과 검증이 끝난 계획입니다. 설계 의도와 시행착오 기록을 남기기 위해 보존합니다.
 
 * **[plan/complete/feature_plan.md](plan/complete/feature_plan.md)** — ✅ 완료: 연도 추출(`date_year`), 복수 선택 분리(`split_binary`), 정렬, 수치 다중 합산(`group_sum`) 등 기능 개선 계획서.
-* **[plan/complete/excel_chart_plan.md](plan/complete/excel_chart_plan.md)** — ✅ 완료: 엑셀 요약 시트에 네이티브 차트(Bar/Pie/Line)를 삽입하는 구현 기획안 (`engine/summarizer.py`).
-* **[plan/complete/design-migration-plan.md](plan/complete/design-migration-plan.md)** — ✅ 완료: legacy-dashboard.css → Tailwind v4 + shadcn/ui 전환 계획 (Admin/Index 전체). §6에 선택 사항 2건(DataTable 표 본체 shadcn `<Table>` 교체, PR #12 close)이 미반영으로 남아 있음.
-* **[plan/complete/chart_grid_spanning_plan.md](plan/complete/chart_grid_spanning_plan.md)** — ✅ 완료: 차트 카드 2D 그리드 레이아웃 확장(`layout: 1x1/2x1/2x2/0.5x1/full`) 계획.
-* **[plan/complete/chart_export_ppt_pdf_plan.md](plan/complete/chart_export_ppt_pdf_plan.md)** — ✅ 완료(2026-07-16): 공개 대시보드 헤더의 PPT/PDF 내보내기 계획. PPT는 PowerPoint 네이티브 차트 객체로 생성. §10에 html2canvas의 `oklch()` 파싱 실패 이슈와 해결 기록.
+* **[plan/complete/chart_export_plan.md](plan/complete/chart_export_plan.md)** — ✅ 완료: 차트 내보내기 3경로 통합 문서. §0 Excel 네이티브 차트(백엔드 `summarizer.py`, 구 `excel_chart_plan.md`) · §3 PPT 네이티브 차트 · §4 PDF 캡처(프론트). §0-D에 세 경로의 성격 차이(필터 반영 여부 등) 정리. §10에 html2canvas의 `oklch()` 파싱 실패 이슈와 해결 기록.
+* **[plan/complete/design-migration-plan.md](plan/complete/design-migration-plan.md)** — ✅ 완료: legacy-dashboard.css → Tailwind v4 + shadcn/ui 전환 계획 (Admin/Index 전체). §6에 선택 사항 2건(DataTable 표 본체 shadcn `<Table>` 교체, PR #12 close)이 미반영으로 남아 있음. §7은 차트 2D 그리드 스팬(`layout: 1x1/2x1/2x2/0.5x1/full`, 구 `chart_grid_spanning_plan.md`).
 * **[plan/complete/remaining_improvements.md](plan/complete/remaining_improvements.md)** — ✅ 5개 항목 전부 완료: 1.다중 엑셀 병합 웹 UI·2.번들 최적화·3.차트 그리드 auto-fit/가로 4열+설정 UI·4."정제 규칙 최신 반영 여부" 배지·5.transform 테스트 공백(→ transform_test_plan.md). §3·§4는 2026-07-16 브라우저 시각 검증까지 완료. 클라우드 스토리지 연동 및 Supabase 세션 개선(완료)은 [plan/pending/cloud_storage_plan.md](plan/pending/cloud_storage_plan.md)로 분리 이관.
 * **[plan/complete/transform_test_plan.md](plan/complete/transform_test_plan.md)** — ✅ 완료(2026-07-15): 정제 규칙(transform) 함수별 단위테스트 커버리지 공백 및 보강 계획서. 전체 282개 테스트 통과.
 * **[plan/complete/package_upgrade_plan.md](plan/complete/package_upgrade_plan.md)** — ✅ 완료(2026-07-17): 프론트엔드 의존성 업그레이드(recharts 3 · lucide-react 1 · vite 8) 위험도 분석과 단계별 실행 계획. 락파일 bun 일원화, 미사용 의존성(zod·@tanstack/start) 제거 포함.

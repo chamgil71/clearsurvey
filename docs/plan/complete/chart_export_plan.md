@@ -1,17 +1,23 @@
-# 📊 대시보드 차트 PPT / PDF 내보내기 기능 기획서
+# 📊 차트 내보내기 기능 기획서 (Excel · PPT · PDF)
 
-> **✅ 구현 상태 (2026-07-16 기준): 완료.** PPT/PDF 내보내기 전체 구현 및 end-to-end 검증 완료.
-> 계획에 없던 이슈 하나를 발견·해결했습니다(html2canvas의 `oklch()` 미지원). 상세는 문서 하단
-> **[§10 구현 결과 및 계획 대비 변경점](#10-구현-결과-및-계획-대비-변경점)** 참조.
+> **✅ 구현 상태: 완료.** 세 경로 모두 구현 및 검증 완료.
+> - **Excel 네이티브 차트**(백엔드, `summarizer.py`) — [§0](#0-excel-네이티브-차트-백엔드) 참조
+> - **PPT 네이티브 차트 / PDF 캡처**(프론트엔드, 2026-07-16) — 아래 §1~§10 참조.
+>   계획에 없던 이슈 하나를 발견·해결(html2canvas의 `oklch()` 미지원). 상세는
+>   **[§10 구현 결과 및 계획 대비 변경점](#10-구현-결과-및-계획-대비-변경점)**.
 
-> **작성일**: 2026-07-15  
-> **대상 범위**: `frontend/` 전용 (백엔드 수정 없음)  
-> **관련 파일**: [`ChartCard.tsx`](file:///c:/ai/clearsurvey/frontend/src/components/dashboard/ChartCard.tsx) · [`KpiRow.tsx`](file:///c:/ai/clearsurvey/frontend/src/components/dashboard/KpiRow.tsx) · [`index.tsx`](file:///c:/ai/clearsurvey/frontend/src/routes/index.tsx) · [`types/dashboard.ts`](file:///c:/ai/clearsurvey/frontend/src/types/dashboard.ts)
+> **통합 안내(2026-07-17)**: 구 `excel_chart_plan.md`(백엔드 Excel 차트)를 이 문서 §0으로 통합했다.
+> "차트를 파일로 내보낸다"는 동일 주제이고, 세 경로가 같은 `dashboard.json`의 `charts` 정의를
+> 공유하므로 한 문서에서 보는 편이 낫다.
+
+> **작성일**: 2026-07-15 (프론트) / Excel 편은 그 이전  
+> **관련 파일**: [`ChartCard.tsx`](file:///c:/ai/clearsurvey/frontend/src/components/dashboard/ChartCard.tsx) · [`KpiRow.tsx`](file:///c:/ai/clearsurvey/frontend/src/components/dashboard/KpiRow.tsx) · [`index.tsx`](file:///c:/ai/clearsurvey/frontend/src/routes/index.tsx) · [`types/dashboard.ts`](file:///c:/ai/clearsurvey/frontend/src/types/dashboard.ts) · [`summarizer.py`](file:///c:/ai/clearsurvey/backend/engine/summarizer.py)
 
 ---
 
 ## 목차
 
+0. [Excel 네이티브 차트 (백엔드)](#0-excel-네이티브-차트-백엔드)
 1. [기능 개요 및 목표](#1-기능-개요-및-목표)
 2. [기술 스택 및 라이브러리 선택](#2-기술-스택-및-라이브러리-선택)
 3. [PPT 내보내기 — 네이티브 차트 방식 설계](#3-ppt-내보내기--네이티브-차트-방식-설계)
@@ -21,6 +27,76 @@
 7. [기술적 제약 및 해결 전략](#7-기술적-제약-및-해결-전략)
 8. [검증 계획](#8-검증-계획)
 9. [예상 공수](#9-예상-공수)
+
+---
+
+## 0. Excel 네이티브 차트 (백엔드)
+
+> 구 `excel_chart_plan.md`. 정제 실행 시 생성되는 결과 엑셀(`_cleaned.xlsx`)의 `Summary` 시트
+> 우측에 **openpyxl 네이티브 차트**를 주입한다. 아래 PPT/PDF(프론트, 클라이언트 사이드)와 달리
+> 이쪽은 **백엔드 파이프라인**에서 수행된다.
+
+### 0-A. 아키텍처 및 연동 흐름
+
+```
+[사용자 대시보드 기획 (웹 UI Step 2)]
+            │
+            ▼ (dashboard.json 저장)
+[projects/{project_name}/dashboard.json]
+            │
+            ▼ (정제 실행 시 로드)
+[SummarySheetWriter (engine/summarizer.py)]
+  - config.yaml의 요약 섹션 및 dashboard.json 동시 로드
+  - 집계 테이블 배치 좌표(scol, srow, height) 역산
+  - 차트 타입(bar, pie, line)에 따라 openpyxl.chart 객체 생성
+  - 카테고리(Reference) 및 데이터(Reference) 범위 바인딩
+  - Summary 시트 우측 영역(G열)에 세로 간격으로 차트 오버레이 삽입
+```
+
+### 0-B. 세부 구현 설계
+
+**① dashboard.json 감지 및 로드**
+`SummarySheetWriter.write` 내부에서 `projects/{project}/dashboard.json`을 안전하게 읽는다.
+파일이 없거나 `charts`가 없으면 차트 로직을 건너뛰고 기존 요약 시트 작성만 수행한다(하위 호환).
+
+**② 데이터 바인딩 주소 역산 알고리즘**
+차트의 `colRef`로 `config.yaml`에 정의된 요약 섹션(`sec`)을 순회 매칭한다.
+- `sec.type == "unique_count"` 이며 `sec.col_ref == colRef`
+- `sec.type == "totals"` 이며 `sec.items` 중 `item.col_ref == colRef`
+- `sec.type == "binary_sum"` 이며 `sec.columns` 중 `col.col_ref == colRef`
+
+좌표 계산 (`n_rows` = 타이틀/헤더 제외 데이터 행수):
+- **카테고리 범위**: `min_col=scol, min_row=srow+2, max_row=srow+2+n_rows-1`
+- **데이터 범위**: `min_col=scol+1, min_row=srow+1, max_row=srow+2+n_rows-1`
+  (헤더 행을 포함해 차트 계열 타이틀을 획득)
+
+**③ 차트 생성 및 속성**
+- bar → `BarChart()` + `chart.type = "col"` (세로 막대)
+- pie/donut → `PieChart()`
+- line → `LineChart()`
+- 공통: `chart.title`(사용자 지정 또는 컬럼명), `chart.width = 16`, `chart.height = 10`
+
+**④ 우측 오버레이 배치**
+요약 테이블이 `A`~`D`열에 2단 그리드로 세로 배치되므로, 차트는 우측 **`G`열** `G2`부터
+`offset = 15 rows` 간격으로 배치한다 → `G2`, `G17`, `G32`…
+
+### 0-C. 검증
+
+- **자동**: `pytest tests/test_summarizer.py` — 요약 시트 렌더링 회귀 테스트.
+- **수동**: Step 2에서 차트 종류를 다수 지정·저장 → Step 3 정제 실행/내보내기 →
+  결과 `_cleaned.xlsx`의 Summary 시트 우측에 네이티브 차트가 삽입됐는지 육안 확인.
+
+### 0-D. 프론트 내보내기와의 관계
+
+| | Excel (§0) | PPT (§3) | PDF (§4) |
+|---|---|---|---|
+| 실행 위치 | 백엔드 파이프라인 | 브라우저 | 브라우저 |
+| 차트 형태 | openpyxl 네이티브 | pptxgenjs 네이티브 | 화면 캡처(래스터) |
+| 필터 반영 | ❌ 전체 데이터 기준 | ✅ 현재 필터(`filtered`) | ✅ 현재 필터 |
+| 편집 가능 | ✅ | ✅ | ❌ |
+
+→ **Excel은 "정제 산출물"**, **PPT/PDF는 "지금 보고 있는 화면"**이라는 성격 차이가 있다.
+같은 `dashboard.json`의 `charts`를 읽지만 필터 반영 여부가 다르다는 점에 주의.
 
 ---
 
