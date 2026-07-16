@@ -25,6 +25,10 @@ All notable changes to the ClearSurvey project will be documented in this file.
   가드(`minimumReleaseAge`)에 걸려 **가드를 우회하지 않고 설치 가능한 최신 버전으로** 낮춰 잡았다.
 - **패키지 매니저를 bun으로 일원화**: `bun.lock`(7/9)과 `package-lock.json`(7/16)이 공존해 서로 다른
   의존성 트리를 고정하고 있었다. npm 락파일을 제거하고 `.gitignore`에 재유입 가드를 추가했다.
+- **`.github/workflows/ci.yml`**: 위 일원화에 맞춰 `npm ci` → `bun install --frozen-lockfile`,
+  `npx` → `bunx`, `npm test` → `bun run test`로 교체. `cache-dependency-path`가 삭제된
+  `package-lock.json`을 가리키고 있어 그대로 두면 `typescript-check`·`playwright-e2e` 두 잡이
+  전부 깨진다. node는 vite 8 요구사항(`^20.19 || >=22.12`)과 Vercel 프로덕션(24.x)에 맞춰 20 → 24.
 
 ### Removed
 - **`frontend/src/components/ui/chart.tsx`**: 어디에서도 import되지 않는 미사용 shadcn 보일러플레이트가
