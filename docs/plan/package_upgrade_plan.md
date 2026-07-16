@@ -281,11 +281,11 @@ Playwright로 dev 서버와 Rolldown 프로덕션 번들(`vite preview`) 양쪽�
 > API도 그대로다. 교차필터가 켜진 프로젝트가 생기면 확인 필요.
 
 > [!NOTE]
-> **`tests/e2e/dashboard.spec.ts`는 이미 낡아 있다** (이번 업그레이드와 무관한 선행 문제).
-> 9개 중 5개가 `header select`·`nav`를 찾다 실패하는데, 직전 shadcn 전환에서 native `<select>` →
-> `<Select>`, 탭 `<nav>` → `<Tabs>`(`role=tablist`)로 바뀐 것이 반영되지 않았다. 브라우저로
-> `nav` 0개 / `[role=tablist]` 1개를 확인해 recharts 회귀가 아님을 확정했다. 스펙 갱신은
-> 본 계획의 범위 밖 — 별도 처리 필요.
+> **`tests/e2e/dashboard.spec.ts`가 낡아 있던 문제는 후속으로 해결했다** (이번 업그레이드와 무관한
+> 선행 문제였다). 직전 shadcn 전환에서 native `<select>` → `<Select>`(`role=combobox`), 탭
+> `<nav>` → `<Tabs>`(`role=tablist`)로 바뀐 것이 반영되지 않아 4개가 실패하고 있었다. 브라우저로
+> `nav` 0개 / `[role=tablist]` 1개를 확인해 recharts 회귀가 아님을 먼저 확정한 뒤, 구조 셀렉터를
+> role 기반으로 교체했다. e2e **20개 전체 통과**(콜드 스타트 포함).
 
 ---
 

@@ -13,26 +13,28 @@ test.describe("공개 대시보드 (/)", () => {
     await expect(page.locator("header")).toBeVisible({ timeout: 10_000 });
   });
 
+  // 프로젝트 선택은 shadcn <Select>(Radix)라 native <select>가 아닌 role=combobox 트리거로 렌더된다.
   test("프로젝트 선택 드롭다운이 존재한다", async ({ page }) => {
-    await expect(page.locator("header select")).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("header").getByRole("combobox")).toBeVisible({ timeout: 10_000 });
   });
 
+  // 탭은 shadcn <Tabs>(Radix)라 <nav>가 아닌 role=tablist/tab/tabpanel로 렌더된다.
   test("대시보드/목록 탭 네비게이션이 존재한다", async ({ page }) => {
-    // 로딩 완료 대기 (#loading 이 사라질 때까지)
-    await page.waitForSelector("#loading", { state: "detached", timeout: 15_000 }).catch(() => {});
-    await expect(page.locator("nav")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("tablist")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("tab", { name: /대시보드/ })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /목록/ })).toBeVisible();
   });
 
-  test("대시보드 탭 클릭 시 차트 영역이 보인다", async ({ page }) => {
-    await page.locator("nav").waitFor({ timeout: 15_000 });
-    await page.locator("nav button").first().click();
-    await expect(page.locator("section").first()).toBeVisible({ timeout: 5_000 });
+  test("대시보드 탭 클릭 시 차트가 보인다", async ({ page }) => {
+    await page.getByRole("tab", { name: /대시보드/ }).click({ timeout: 15_000 });
+    await expect(page.getByRole("tabpanel")).toBeVisible({ timeout: 5_000 });
+    // 탭 패널만으로는 차트가 실제로 그려졌는지 알 수 없으므로 recharts SVG까지 확인한다.
+    await expect(page.locator("svg.recharts-surface").first()).toBeVisible({ timeout: 15_000 });
   });
 
   test("목록 탭 클릭 시 테이블이 보인다", async ({ page }) => {
-    await page.locator("nav").waitFor({ timeout: 15_000 });
-    await page.locator("nav button").nth(1).click();
-    await expect(page.locator("section").nth(1)).toBeVisible({ timeout: 5_000 });
+    await page.getByRole("tab", { name: /목록/ }).click({ timeout: 15_000 });
+    await expect(page.getByRole("tabpanel").locator("table")).toBeVisible({ timeout: 10_000 });
   });
 
   test("다크모드 토글 버튼이 동작한다", async ({ page }) => {
