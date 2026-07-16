@@ -1,5 +1,10 @@
 # 📊 대시보드 차트 PPT / PDF 내보내기 기능 기획서
 
+> **⛔ 구현 상태 (2026-07-16 기준): 미착수.** 아래 §5 변경 파일 및 마지막 체크리스트 8개 항목이 전부
+> 미구현 상태입니다(`exportPptx.ts`/`exportPdf.ts` 없음, `pptxgenjs` 미설치, `buildChartItems()` 미추출,
+> `index.tsx` PPT/PDF 버튼 없음). 단 `html2pdf.js`는 이미 설치되어 있고 `DetailPanel.tsx`의 개별 행
+> PDF에 사용 중입니다(대시보드 전체 내보내기와는 별개). 이 문서는 구현 착수 시 그대로 사용합니다.
+
 > **작성일**: 2026-07-15  
 > **대상 범위**: `frontend/` 전용 (백엔드 수정 없음)  
 > **관련 파일**: [`ChartCard.tsx`](file:///c:/ai/clearsurvey/frontend/src/components/dashboard/ChartCard.tsx) · [`KpiRow.tsx`](file:///c:/ai/clearsurvey/frontend/src/components/dashboard/KpiRow.tsx) · [`index.tsx`](file:///c:/ai/clearsurvey/frontend/src/routes/index.tsx) · [`types/dashboard.ts`](file:///c:/ai/clearsurvey/frontend/src/types/dashboard.ts)

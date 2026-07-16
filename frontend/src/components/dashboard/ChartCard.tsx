@@ -13,7 +13,7 @@ import {
   Legend,
 } from "recharts";
 import type { ChartItem, ProjectData, Row } from "@/types/dashboard";
-import { aggCategory, aggMultiValue, aggNumericSum } from "@/lib/aggregate";
+import { buildChartItems } from "@/lib/aggregate";
 import { cn } from "@/lib/utils";
 
 const PALETTE = [
@@ -44,60 +44,7 @@ export function ChartCard({
     setMounted(true);
   }, []);
 
-  const items = useMemo(() => {
-    const sortBy = chart.sort_by || "value_desc";
-    const limit = chart.max_items !== undefined ? chart.max_items : 20;
-
-    if (chart.type === "multibar") {
-      const safeCols = Array.isArray((chart as any).cols) ? (chart as any).cols : [];
-      const list: { name: string; value: number }[] = safeCols.map((c: any) => ({
-        name: String(c.label || c.col),
-        value: aggNumericSum(rows, c.col),
-      }));
-      if (sortBy === "value_desc") {
-        list.sort((a, b) => b.value - a.value);
-      } else if (sortBy === "value_asc") {
-        list.sort((a, b) => a.value - b.value);
-      } else if (sortBy === "name_asc") {
-        list.sort((a, b) => a.name.localeCompare(b.name, "ko", { numeric: true }));
-      } else if (sortBy === "name_desc") {
-        list.sort((a, b) => b.name.localeCompare(a.name, "ko", { numeric: true }));
-      }
-      return limit > 0 ? list.slice(0, limit) : list;
-    }
-
-    let counts: Record<string, number>;
-    if ((chart as { type: string }).type === "multivalue") {
-      counts = aggMultiValue(rows, chart.col, (chart as { sep?: string }).sep || ",");
-    } else {
-      const valCol = (chart as any).value_col;
-      if (valCol) {
-        const sums: Record<string, number> = {};
-        rows.forEach((r) => {
-          const groupVal = String(r[chart.col] ?? "").trim();
-          if (groupVal) {
-            const numVal = Number(r[valCol]) || 0;
-            sums[groupVal] = (sums[groupVal] || 0) + numVal;
-          }
-        });
-        counts = sums;
-      } else {
-        counts = aggCategory(rows, chart.col);
-      }
-    }
-
-    const result = Object.entries(counts).map(([name, value]) => ({ name, value }));
-    if (sortBy === "value_desc") {
-      result.sort((a, b) => b.value - a.value);
-    } else if (sortBy === "value_asc") {
-      result.sort((a, b) => a.value - b.value);
-    } else if (sortBy === "name_asc") {
-      result.sort((a, b) => a.name.localeCompare(b.name, "ko", { numeric: true }));
-    } else if (sortBy === "name_desc") {
-      result.sort((a, b) => b.name.localeCompare(a.name, "ko", { numeric: true }));
-    }
-    return limit > 0 ? result.slice(0, limit) : result;
-  }, [chart, rows, data]);
+  const items = useMemo(() => buildChartItems(chart, rows), [chart, rows]);
 
   const total = useMemo(() => items.reduce((sum, item) => sum + item.value, 0), [items]);
 

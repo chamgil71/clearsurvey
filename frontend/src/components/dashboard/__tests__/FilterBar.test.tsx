@@ -59,8 +59,11 @@ describe("FilterBar — 기본 렌더링", () => {
     expect(screen.getAllByRole("combobox")).toHaveLength(2);
   });
 
-  it("셀렉트에 aggregates 옵션들이 표시된다", () => {
+  it("셀렉트를 열면 aggregates 옵션들이 표시된다", async () => {
+    const user = userEvent.setup();
     renderBar();
+    // Radix Select는 트리거를 열어야 옵션이 렌더링된다.
+    await user.click(screen.getAllByRole("combobox")[0]);
     expect(screen.getByText("서울 (3)")).toBeInTheDocument();
     expect(screen.getByText("부산 (1)")).toBeInTheDocument();
   });
@@ -72,7 +75,7 @@ describe("FilterBar — 필터 활성 상태", () => {
   it("filteredCount === total이면 카운트 표시와 초기화 버튼이 없다", () => {
     renderBar({ filteredCount: 5 });
     expect(screen.queryByText(/\/.*건/)).toBeNull();
-    expect(screen.queryByText("✕ 초기화")).toBeNull();
+    expect(screen.queryByText("초기화")).toBeNull();
   });
 
   it("filteredCount < total이면 'N / M건' 카운트가 표시된다", () => {
@@ -82,7 +85,7 @@ describe("FilterBar — 필터 활성 상태", () => {
 
   it("filteredCount < total이면 초기화 버튼이 표시된다", () => {
     renderBar({ filteredCount: 2 });
-    expect(screen.getByText("✕ 초기화")).toBeInTheDocument();
+    expect(screen.getByText("초기화")).toBeInTheDocument();
   });
 });
 
@@ -99,15 +102,16 @@ describe("FilterBar — 인터랙션", () => {
   it("셀렉트 변경 시 onFilterChange가 호출된다", async () => {
     const user = userEvent.setup();
     const { props } = renderBar();
-    const selects = screen.getAllByRole("combobox");
-    await user.selectOptions(selects[0], "서울");
+    // Radix Select: 트리거를 클릭해 연 뒤 옵션을 클릭한다.
+    await user.click(screen.getAllByRole("combobox")[0]);
+    await user.click(screen.getByText("서울 (3)"));
     expect(props.onFilterChange).toHaveBeenCalledWith("지역", "서울");
   });
 
   it("초기화 버튼 클릭 시 onReset이 호출된다", async () => {
     const user = userEvent.setup();
     const { props } = renderBar({ filteredCount: 2 });
-    await user.click(screen.getByText("✕ 초기화"));
+    await user.click(screen.getByText("초기화"));
     expect(props.onReset).toHaveBeenCalledOnce();
   });
 });

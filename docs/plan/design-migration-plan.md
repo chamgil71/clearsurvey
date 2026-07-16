@@ -330,3 +330,34 @@ shadcn `<Tabs>`로 교체하면 `TabsContent`가 자동으로 숨김/표시를 �
 | 2 | Admin Phase 1 | 기능 리스크 낮고 즉각적 개선 |
 | 3 | Index Phase 2 | 큰 작업이지만 핵심 목표 |
 | 4 | 테스트 수정 | Phase 2 완료 후 |
+
+---
+
+## 6. 반영 현황 (2026-07-16 기준)
+
+계획 대비 실제 코드 반영 상태를 정리한다.
+
+### ✅ 완료
+
+**Phase 1 — Admin** (`admin.tsx`, `GuideDrawer.tsx`)
+- 하드코딩 색상 → 시멘틱 토큰 전면 적용
+- StatCard → shadcn `<Card>` + `<CardContent>` 교체
+- StepIndicator 상단 헤더에 실제 렌더링 (§1-D 해결)
+- GuideDrawer → shadcn `<Sheet>` + `<Tabs>` + `<Table>` 전환
+
+**Phase 2 — Index**
+- `legacy-dashboard.css` 삭제 완료
+- 다크모드 로직 단순화 (§4-B): `dataset.theme` 제거, `.dark` 클래스 토글 + `localStorage`만 유지
+- `ChartCard.tsx` 2x1/2x2 그리드 스팬 (§4-A): inline `gridColumn` → `col-span-2 max-sm:col-span-1` className. PR #12의 모바일 버그가 여기서 흡수됨
+- `DataTable.tsx` 드로어 → shadcn `<Sheet>` 전환
+- `FilterBar.tsx` (§3-B): native `<input>`/`<select>` + 이모지 → shadcn `<Input>` + `<Select>` + lucide `<Search>`/`<X>`. Radix Select의 빈 value 제약 때문에 "전체" 옵션에 `__all__` sentinel 도입
+- `routes/index.tsx`: 프로젝트 선택 native `<select>` → shadcn `<Select>`, 탭 네비 커스텀 버튼 → shadcn `<Tabs>` (underline 디자인은 `data-[state=active]`로 유지)
+
+**Phase 3 — 검증**
+- FilterBar 테스트 수정 (§4-C): `user.selectOptions()` → 트리거 클릭 + 옵션 클릭 패턴, "✕ 초기화" → "초기화" 매칭
+- `src/test/setup.ts`: Radix Select용 jsdom mock 추가 (`hasPointerCapture`/`setPointerCapture`/`releasePointerCapture`/`scrollIntoView`)
+- 전체 테스트 129/129 통과, `tsc --noEmit` exit 0, `vite build` 성공(프리렌더 포함)
+
+### ⏳ 미반영 (기능·디자인 영향 없음, 선택 사항)
+- `DataTable.tsx` 표 본체: 드로어는 Sheet로 전환됐으나 표 자체는 native `<table>`(토큰 스타일 적용) 유지. shadcn `<Table>` 교체는 시각적 차이가 없어 보류
+- PR #12: `legacy-dashboard.css` 삭제 + ChartCard 스팬 흡수로 내용상 무의미(moot) 상태. GitHub에서 별도 close 필요

@@ -1,5 +1,17 @@
 import type { DashboardConfig, ProjectData } from "@/types/dashboard";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Search, X } from "lucide-react";
+
+// Radix Select는 빈 문자열 value를 허용하지 않으므로 "전체" 옵션에 sentinel 값을 사용한다.
+const ALL_VALUE = "__all__";
 
 interface Props {
   data: ProjectData;
@@ -29,20 +41,20 @@ export function FilterBar({
   return (
     <div className="bg-card border-b border-border px-6 py-2.5 mt-4">
       <div className="flex items-center gap-2 flex-wrap justify-between">
-        <div className="relative flex items-center flex-1 min-w-[200px] max-w-[500px]">
-          <span className="absolute left-2.5 text-sm text-muted-foreground pointer-events-none select-none">
-            🔍
-          </span>
-          <input
-            id="global-search"
-            type="search"
-            placeholder="전체 검색 (기관명, GPU종류, 지역 등...)"
-            value={search}
-            onChange={(e) => onSearch(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-sm border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          />
+        <div className="flex items-center flex-1 min-w-[200px] max-w-[500px] gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              id="global-search"
+              type="search"
+              placeholder="전체 검색 (기관명, GPU종류, 지역 등...)"
+              value={search}
+              onChange={(e) => onSearch(e.target.value)}
+              className="h-8 pl-8 text-sm"
+            />
+          </div>
           {isFiltered && (
-            <span className="text-xs text-primary font-semibold whitespace-nowrap ml-2">
+            <span className="text-xs text-primary font-semibold whitespace-nowrap">
               {filteredCount} / {total}건
             </span>
           )}
@@ -60,7 +72,7 @@ export function FilterBar({
               const raw = filters[col] || "";
               const displayVal = raw.startsWith("*") && raw.endsWith("*") ? raw.slice(1, -1) : raw;
               return (
-                <input
+                <Input
                   key={col}
                   type="text"
                   value={displayVal}
@@ -69,32 +81,38 @@ export function FilterBar({
                     onFilterChange(col, v ? `*${v}*` : "");
                   }}
                   placeholder={`${shortLabel} 검색`}
-                  className="text-xs px-2.5 py-1.5 border border-input rounded-md bg-background text-foreground w-32 focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="h-8 w-32 text-xs"
                 />
               );
             }
 
             return (
-              <select
+              <Select
                 key={col}
-                value={filters[col] || ""}
-                onChange={(e) => onFilterChange(col, e.target.value)}
-                className="text-xs px-2.5 py-1.5 border border-input rounded-md bg-background text-foreground cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
+                value={filters[col] || ALL_VALUE}
+                onValueChange={(v) => onFilterChange(col, v === ALL_VALUE ? "" : v)}
               >
-                <option value="">— {shortLabel} —</option>
-                {Object.entries(agg).map(([v, cnt]) => (
-                  <option key={v} value={v}>
-                    {v} ({cnt})
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="h-8 w-auto min-w-[7rem] text-xs">
+                  <SelectValue placeholder={`— ${shortLabel} —`} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_VALUE} className="text-xs">
+                    — {shortLabel} —
+                  </SelectItem>
+                  {Object.entries(agg).map(([v, cnt]) => (
+                    <SelectItem key={v} value={v} className="text-xs">
+                      {v} ({cnt})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             );
           })}
         </div>
 
         {isFiltered && (
-          <Button variant="ghost" size="sm" onClick={onReset} className="text-xs shrink-0">
-            ✕ 초기화
+          <Button variant="ghost" size="sm" onClick={onReset} className="text-xs shrink-0 gap-1">
+            <X className="h-3.5 w-3.5" /> 초기화
           </Button>
         )}
       </div>

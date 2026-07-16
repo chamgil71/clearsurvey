@@ -11,6 +11,14 @@ import { DataTable } from "@/components/dashboard/DataTable";
 import { GuideDrawer } from "@/components/dashboard/GuideDrawer";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart3, BookOpen, Settings, Moon, Sun } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -122,22 +130,27 @@ function DashboardPage() {
             ClearSurvey
           </button>
 
-          <select
-            title="프로젝트 선택"
-            value={url ?? ""}
-            onChange={(e) => e.target.value && switchProject(e.target.value)}
-            className="text-xs px-2.5 py-1.5 border border-input rounded-md bg-background text-foreground max-w-[240px] cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
+          <Select
+            value={url ?? undefined}
+            onValueChange={(v) => v && switchProject(v)}
           >
-            <option value="">프로젝트 선택...</option>
-            {projects.map((p) => {
-              const v = p.file.startsWith("data/") ? "/" + p.file : "/data/" + p.file;
-              return (
-                <option key={p.id} value={v}>
-                  {p.name} {p.updated ? `(${p.updated})` : ""}
-                </option>
-              );
-            })}
-          </select>
+            <SelectTrigger
+              title="프로젝트 선택"
+              className="h-8 w-auto max-w-[240px] text-xs"
+            >
+              <SelectValue placeholder="프로젝트 선택..." />
+            </SelectTrigger>
+            <SelectContent>
+              {projects.map((p) => {
+                const v = p.file.startsWith("data/") ? "/" + p.file : "/data/" + p.file;
+                return (
+                  <SelectItem key={p.id} value={v} className="text-xs">
+                    {p.name} {p.updated ? `(${p.updated})` : ""}
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
 
           <span className="flex-1" />
 
@@ -204,68 +217,66 @@ function DashboardPage() {
           }}
         />
 
-        {/* Tab Nav */}
-        <nav className="flex gap-1 px-6 pt-4 border-b border-border bg-card">
-          <button
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              tab === "dashboard"
-                ? "text-primary border-primary"
-                : "text-muted-foreground border-transparent hover:text-primary"
-            }`}
-            onClick={() => setTab("dashboard")}
-          >
-            📈 대시보드
-          </button>
-          <button
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              tab === "list"
-                ? "text-primary border-primary"
-                : "text-muted-foreground border-transparent hover:text-primary"
-            }`}
-            onClick={() => setTab("list")}
-          >
-            📋 목록 · 검색
-          </button>
-        </nav>
-
-        {/* Dashboard Tab */}
-        <section className={`px-6 py-5 ${tab !== "dashboard" ? "hidden" : ""}`}>
-          {filtered.length === 0 ? (
-            <div className="text-center py-12 text-sm text-muted-foreground col-span-full">
-              필터 조건에 해당하는 데이터가 없습니다.
-            </div>
-          ) : (
-            <div
-              className="grid [grid-auto-flow:dense] gap-3 mx-auto"
-              style={{
-                gridTemplateColumns: `repeat(auto-fit, minmax(${CHART_GRID_MIN_CARD_PX}px, 1fr))`,
-                // 가로 배열 최대 개수(기본 4열)를 넘지 않도록 컨테이너 폭을 제한.
-                // auto-fit이라 실제 열 수는 화면 폭에 맞춰 이보다 적게 줄어들 수 있음(반응형 유지).
-                maxWidth: `${
-                  (cfg.layout?.maxColumns ?? DEFAULT_MAX_COLUMNS) * CHART_GRID_MIN_CARD_PX +
-                  ((cfg.layout?.maxColumns ?? DEFAULT_MAX_COLUMNS) - 1) * CHART_GRID_GAP_PX
-                }px`,
-              }}
+        {/* Tabs */}
+        <Tabs
+          value={tab}
+          onValueChange={(v) => setTab(v as "dashboard" | "list")}
+          className="flex-1"
+        >
+          <TabsList className="h-auto w-full justify-start gap-1 rounded-none border-b border-border bg-card px-6 pt-4 pb-0">
+            <TabsTrigger
+              value="dashboard"
+              className="rounded-none border-b-2 border-transparent bg-transparent px-4 py-2 text-sm font-medium text-muted-foreground shadow-none hover:text-primary data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none"
             >
-              {(cfg.charts || []).map((c, i) => (
-                <ChartCard
-                  key={i}
-                  chart={c}
-                  rows={filtered}
-                  data={data}
-                  onSelect={(col, val) =>
-                    setFilters((prev) => ({ ...prev, [col]: prev[col] === val ? "" : val }))
-                  }
-                />
-              ))}
-            </div>
-          )}
-        </section>
+              📈 대시보드
+            </TabsTrigger>
+            <TabsTrigger
+              value="list"
+              className="rounded-none border-b-2 border-transparent bg-transparent px-4 py-2 text-sm font-medium text-muted-foreground shadow-none hover:text-primary data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none"
+            >
+              📋 목록 · 검색
+            </TabsTrigger>
+          </TabsList>
 
-        {/* List Tab */}
-        <section className={`px-6 py-5 ${tab !== "list" ? "hidden" : ""}`}>
-          <DataTable rows={filtered} cfg={cfg} search={search} />
-        </section>
+          {/* Dashboard Tab */}
+          <TabsContent value="dashboard" className="px-6 py-5 mt-0">
+            {filtered.length === 0 ? (
+              <div className="text-center py-12 text-sm text-muted-foreground col-span-full">
+                필터 조건에 해당하는 데이터가 없습니다.
+              </div>
+            ) : (
+              <div
+                className="grid [grid-auto-flow:dense] gap-3 mx-auto"
+                style={{
+                  gridTemplateColumns: `repeat(auto-fit, minmax(${CHART_GRID_MIN_CARD_PX}px, 1fr))`,
+                  // 가로 배열 최대 개수(기본 4열)를 넘지 않도록 컨테이너 폭을 제한.
+                  // auto-fit이라 실제 열 수는 화면 폭에 맞춰 이보다 적게 줄어들 수 있음(반응형 유지).
+                  maxWidth: `${
+                    (cfg.layout?.maxColumns ?? DEFAULT_MAX_COLUMNS) * CHART_GRID_MIN_CARD_PX +
+                    ((cfg.layout?.maxColumns ?? DEFAULT_MAX_COLUMNS) - 1) * CHART_GRID_GAP_PX
+                  }px`,
+                }}
+              >
+                {(cfg.charts || []).map((c, i) => (
+                  <ChartCard
+                    key={i}
+                    chart={c}
+                    rows={filtered}
+                    data={data}
+                    onSelect={(col, val) =>
+                      setFilters((prev) => ({ ...prev, [col]: prev[col] === val ? "" : val }))
+                    }
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* List Tab */}
+          <TabsContent value="list" className="px-6 py-5 mt-0">
+            <DataTable rows={filtered} cfg={cfg} search={search} />
+          </TabsContent>
+        </Tabs>
 
         <GuideDrawer isOpen={guideOpen} onClose={() => setGuideOpen(false)} />
       </div>
