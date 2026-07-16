@@ -1,3 +1,4 @@
+import type PptxGenJS from "pptxgenjs";
 import type { DashboardConfig, ProjectData, Row } from "@/types/dashboard";
 import { buildChartItems, type ChartDatum } from "@/lib/aggregate";
 
@@ -81,23 +82,49 @@ export async function exportToPptx(
   // ── 슬라이드 1: 타이틀 ──
   const title = pptx.addSlide();
   title.background = { color: "F8FAFC" };
-  title.addText(project, { x: 0.5, y: 1.6, w: 9, h: 0.9, fontSize: 36, bold: true, color: "1E293B" });
+  title.addText(project, {
+    x: 0.5,
+    y: 1.6,
+    w: 9,
+    h: 0.9,
+    fontSize: 36,
+    bold: true,
+    color: "1E293B",
+  });
   title.addText("ClearSurvey 설문 분석 결과", {
-    x: 0.5, y: 2.6, w: 9, h: 0.5, fontSize: 18, color: "4A90D9",
+    x: 0.5,
+    y: 2.6,
+    w: 9,
+    h: 0.5,
+    fontSize: 18,
+    color: "4A90D9",
   });
   const subParts = [
     `총 응답수: ${rows.length.toLocaleString("ko-KR")}건`,
     generatedAt ? `생성일시: ${generatedAt}` : "",
   ].filter(Boolean);
   title.addText(subParts.join("    ·    "), {
-    x: 0.5, y: 3.3, w: 9, h: 0.4, fontSize: 12, color: "64748B",
+    x: 0.5,
+    y: 3.3,
+    w: 9,
+    h: 0.4,
+    fontSize: 12,
+    color: "64748B",
   });
 
   // ── 슬라이드 2: KPI 요약 ──
   const kpis = buildKpiSummary(cfg, rows);
   if (kpis.length > 0) {
     const kpiSlide = pptx.addSlide();
-    kpiSlide.addText("KPI 요약", { x: 0.5, y: 0.3, w: 9, h: 0.5, fontSize: 22, bold: true, color: "1E293B" });
+    kpiSlide.addText("KPI 요약", {
+      x: 0.5,
+      y: 0.3,
+      w: 9,
+      h: 0.5,
+      fontSize: 22,
+      bold: true,
+      color: "1E293B",
+    });
     const tableRows = [
       [
         { text: "지표", options: { bold: true, fill: { color: "E2E8F0" } } },
@@ -105,11 +132,19 @@ export async function exportToPptx(
       ],
       ...kpis.map((k) => [
         { text: k.label, options: {} },
-        { text: `${k.value.toLocaleString("ko-KR")}${k.unit}`, options: { align: "right" as const } },
+        {
+          text: `${k.value.toLocaleString("ko-KR")}${k.unit}`,
+          options: { align: "right" as const },
+        },
       ]),
     ];
     kpiSlide.addTable(tableRows, {
-      x: 0.5, y: 1.0, w: 9, colW: [6, 3], fontSize: 14, border: { type: "solid", color: "CBD5E1", pt: 1 },
+      x: 0.5,
+      y: 1.0,
+      w: 9,
+      colW: [6, 3],
+      fontSize: 14,
+      border: { type: "solid", color: "CBD5E1", pt: 1 },
     });
   }
 
@@ -131,9 +166,19 @@ export async function exportToPptx(
 
   // ── 마지막: 출처 ──
   const last = pptx.addSlide();
-  last.addText("데이터 출처", { x: 0.5, y: 2.2, w: 9, h: 0.5, fontSize: 18, bold: true, color: "1E293B" });
+  last.addText("데이터 출처", {
+    x: 0.5,
+    y: 2.2,
+    w: 9,
+    h: 0.5,
+    fontSize: 18,
+    bold: true,
+    color: "1E293B",
+  });
   last.addText(
-    [generatedAt ? `데이터 기준일: ${generatedAt}` : "", "ClearSurvey"].filter(Boolean).join("    ·    "),
+    [generatedAt ? `데이터 기준일: ${generatedAt}` : "", "ClearSurvey"]
+      .filter(Boolean)
+      .join("    ·    "),
     { x: 0.5, y: 2.9, w: 9, h: 0.4, fontSize: 12, color: "64748B" },
   );
 
@@ -141,8 +186,8 @@ export async function exportToPptx(
 }
 
 function addChartToSlide(
-  pptx: any,
-  slide: any,
+  pptx: PptxGenJS,
+  slide: PptxGenJS.Slide,
   chart: DashboardConfig["charts"][number],
   items: ChartDatum[],
   pos: { x: number; y: number; w: number; h: number },

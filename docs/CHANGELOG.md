@@ -2,7 +2,63 @@
 
 All notable changes to the ClearSurvey project will be documented in this file.
 
-## [2026-07-15] 정제 파이프라인 성능 개선 및 대시보드 필터/차트 UX 수정
+## [2026-07-16] 대시보드 PPT/PDF 내보내기 신규 + shadcn 전환 마무리
+
+### Added
+- **`frontend/src/lib/exportPptx.ts`** (신규): 공개 대시보드 헤더의 **PPT 저장** 기능. `pptxgenjs`로
+  타이틀·KPI 요약표·차트(2개/슬라이드)·출처 슬라이드를 가진 `.pptx`를 생성한다. 차트는 SVG 이미지가
+  아니라 **PowerPoint 네이티브 차트 객체**(bar/hbar→막대, donut→도넛)로 삽입되어 파일 안에서 데이터
+  편집이 가능하다. 현재 필터가 적용된 행(`filtered`) 기준으로 집계해 화면과 동일 수치를 낸다.
+- **`frontend/src/lib/exportPdf.ts`** (신규): 공개 대시보드 헤더의 **PDF 저장** 기능. 기존
+  `html2pdf.js`를 동적 import로 재활용해 대시보드 차트 영역을 A4 가로로 캡처한다. 다크모드일 때는
+  캡처 직전 `.dark`를 제거하고 완료 후 원복(인쇄 가독성).
+- **`frontend/src/lib/pdfColorFix.ts`** (신규): html2canvas가 파싱하지 못하는 `oklch()`/`oklab()`
+  색상을 캡처 직전 rgb로 치환하는 공유 유틸(아래 Fixed 참조).
+- **`frontend/src/lib/aggregate.ts::buildChartItems()`**: `ChartCard.tsx`의 `items` 집계 로직을
+  순수 함수로 추출(+`ChartDatum` 타입). `ChartCard`와 `exportPptx`가 동일 로직을 공유한다.
+  단위 테스트 7케이스 추가(`aggregate.test.ts`).
+- **PPT/PDF 버튼**(`routes/index.tsx`): 헤더에 추가, 두 라이브러리 모두 동적 import라 초기 번들 미포함
+  (빌드 시 `exportPptx`/`exportPdf` 별도 청크 확인).
+
+### Fixed
+- **PDF 내보내기 `oklch()` 파싱 예외** (신규 기능 구현 중 발견): Tailwind v4 / shadcn 테마 색상 변수가
+  전부 `oklch`이고 불투명도 유틸리티(`bg-x/10`)는 `color-mix`가 `oklab`으로 계산되는데, html2pdf에
+  번들된 html2canvas 버전이 이를 파싱하지 못해 `Attempting to parse an unsupported color function "oklch"`
+  로 **PDF 저장이 실패**했다. 특히 Tailwind preflight가 모든 요소의 `::before`/`::after`에
+  `border-color: var(--foreground)`(oklch)를 상속시켜 유사 요소는 인라인으로 덮을 수 없는 것이 핵심.
+  → 캡처 직전 라이브 DOM에 대해 ① 문서 루트의 oklch/oklab **CSS 커스텀 변수를 rgb로 재정의**(유사 요소의
+  `var()`까지 커버) + ② 서브트리 각 요소의 잔여 `color-mix` 계산 색상을 인라인 rgb로 치환, 캡처 후 원복.
+  색공간 변환(oklch/oklab→sRGB)은 브라우저 canvas 지원 여부에 의존하지 않도록 **수학 변환으로 직접 구현**.
+  변환값은 동일 색의 rgb라 화면 변화 없음.
+- **`frontend/src/components/dashboard/DetailPanel.tsx`**: 행별 상세 PDF 저장도 동일한 oklch 취약점을
+  잠재하고 있었음(Tailwind preflight 기본 테두리색이 동적 생성 wrapper·유사 요소에 적용). 위
+  `pdfColorFix.fixModernColorsInPlace`를 공유해 함께 수정. Playwright로 실제 다운로드 검증 완료.
+
+### Changed
+- **`frontend/src/components/dashboard/FilterBar.tsx`**: native `<input>`/`<select>`+이모지(🔍/✕) →
+  shadcn `<Input>`+`<Select>`+lucide 아이콘으로 전환(`design-migration-plan.md` 잔여 항목). Radix
+  Select가 빈 문자열 value를 허용하지 않아 "전체" 옵션에 `__all__` sentinel 도입.
+- **`frontend/src/routes/index.tsx`**: 프로젝트 선택 native `<select>` → shadcn `<Select>`, 탭
+  네비게이션 커스텀 버튼 → shadcn `<Tabs>`(underline 디자인은 `data-[state=active]`로 유지).
+- **`frontend/src/components/dashboard/ChartCard.tsx`**: `items` useMemo를 `buildChartItems()` 호출로
+  교체(동작 동일, 로직 재사용).
+- **`frontend/src/test/setup.ts`**: Radix Select가 jsdom에서 동작하도록 `hasPointerCapture`/
+  `setPointerCapture`/`releasePointerCapture`/`scrollIntoView` mock 추가. `FilterBar.test.tsx`는
+  `user.selectOptions()` → 트리거 클릭+옵션 클릭 패턴으로 수정.
+
+### Docs
+- `docs/plan/chart_export_ppt_pdf_plan.md`: 구현 완료로 갱신 + §10에 oklch 이슈/해결 기록.
+- `docs/plan/chart_grid_spanning_plan.md`: design-migration 이후 낡은 서술(파일 위치·legacy CSS·인라인
+  스타일) 정정(§5 반영 현황).
+- `docs/plan/remaining_improvements.md`: §3(반응형 그리드)·§4(stale 배지) **브라우저 시각 검증 완료**로
+  갱신(Playwright headless로 확인 — 이전 세션의 샌드박스 네트워크 제약 우회).
+- `docs/plan/design-migration-plan.md`: §6 반영 현황 추가.
+
+**검증**: 프론트 `tsc --noEmit` 통과 · vitest **136개**(기존 129 + `buildChartItems` 7) 통과 ·
+`vite build` 성공. PPT/PDF는 Playwright headless로 실제 버튼 클릭→다운로드까지 구동해 유효 파일
+생성 확인(PPT `PK`/zip, PDF `%PDF-`). §3 반응형 그리드·§4 stale 배지도 Playwright로 시각 검증.
+
+
 
 ### Fixed
 - **`backend/engine/pipeline.py::_sheet_to_dataframe`**: 원본 엑셀을 `ws.cell(r, c).value` 셀 단위로

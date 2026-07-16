@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { buildDefaultConfig, loadConfig } from "@/lib/dashboardConfig";
 import { filterRows } from "@/lib/aggregate";
@@ -19,7 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, BookOpen, Settings, Moon, Sun } from "lucide-react";
+import { BarChart3, BookOpen, Settings, Moon, Sun, FileBarChart, FileText } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [{ title: "Survey Dashboard" }] }),
@@ -46,6 +47,8 @@ function DashboardPage() {
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [theme, setTheme] = useState<string>("");
   const [guideOpen, setGuideOpen] = useState(false);
+  const [exporting, setExporting] = useState<"ppt" | "pdf" | null>(null);
+  const dashboardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem("theme") || "" : "";
@@ -60,6 +63,32 @@ function DashboardPage() {
     setTheme(next);
     document.documentElement.classList.toggle("dark", next === "dark");
     localStorage.setItem("theme", next);
+  };
+
+  const handleExportPptx = async () => {
+    if (!cfg || !data) return;
+    setExporting("ppt");
+    try {
+      const { exportToPptx } = await import("@/lib/exportPptx");
+      await exportToPptx(cfg, filtered, data);
+    } catch (e) {
+      toast.error(`PPT 내보내기 실패: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (!dashboardRef.current || !data) return;
+    setExporting("pdf");
+    try {
+      const { exportToPdf } = await import("@/lib/exportPdf");
+      await exportToPdf(dashboardRef.current, data.meta.project, theme === "dark");
+    } catch (e) {
+      toast.error(`PDF 내보내기 실패: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setExporting(null);
+    }
   };
 
   const cfg: DashboardConfig | null = useMemo(() => {
@@ -107,9 +136,7 @@ function DashboardPage() {
               <Button variant="outline">📖 GitHub</Button>
             </a>
           </div>
-          {error && (
-            <p className="mt-5 text-[11px] text-muted-foreground opacity-60">{error}</p>
-          )}
+          {error && <p className="mt-5 text-[11px] text-muted-foreground opacity-60">{error}</p>}
         </div>
       </div>
     );
@@ -130,14 +157,8 @@ function DashboardPage() {
             ClearSurvey
           </button>
 
-          <Select
-            value={url ?? undefined}
-            onValueChange={(v) => v && switchProject(v)}
-          >
-            <SelectTrigger
-              title="프로젝트 선택"
-              className="h-8 w-auto max-w-[240px] text-xs"
-            >
+          <Select value={url ?? undefined} onValueChange={(v) => v && switchProject(v)}>
+            <SelectTrigger title="프로젝트 선택" className="h-8 w-auto max-w-[240px] text-xs">
               <SelectValue placeholder="프로젝트 선택..." />
             </SelectTrigger>
             <SelectContent>
@@ -158,7 +179,37 @@ function DashboardPage() {
             {data.meta.generated_at?.slice(0, 16).replace("T", " ")}
           </span>
 
-          <Button variant="ghost" size="icon" onClick={toggleTheme} title="다크모드 전환" className="h-8 w-8">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportPptx}
+            disabled={exporting !== null}
+            title="차트를 PPT로 내보내기"
+            className="text-xs gap-1.5"
+          >
+            <FileBarChart className="h-3.5 w-3.5" />
+            {exporting === "ppt" ? "생성 중…" : "PPT"}
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportPdf}
+            disabled={exporting !== null}
+            title="대시보드를 PDF로 내보내기"
+            className="text-xs gap-1.5"
+          >
+            <FileText className="h-3.5 w-3.5" />
+            {exporting === "pdf" ? "생성 중…" : "PDF"}
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            title="다크모드 전환"
+            className="h-8 w-8"
+          >
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
 
@@ -174,7 +225,12 @@ function DashboardPage() {
           </Button>
 
           <Link to="/admin">
-            <Button variant="ghost" size="sm" className="text-xs gap-1.5" title="대시보드 관리자 설정">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs gap-1.5"
+              title="대시보드 관리자 설정"
+            >
               <Settings className="h-3.5 w-3.5" />
               설정
             </Button>
@@ -239,7 +295,7 @@ function DashboardPage() {
           </TabsList>
 
           {/* Dashboard Tab */}
-          <TabsContent value="dashboard" className="px-6 py-5 mt-0">
+          <TabsContent value="dashboard" className="px-6 py-5 mt-0" ref={dashboardRef}>
             {filtered.length === 0 ? (
               <div className="text-center py-12 text-sm text-muted-foreground col-span-full">
                 필터 조건에 해당하는 데이터가 없습니다.

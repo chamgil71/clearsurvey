@@ -1,9 +1,8 @@
 # 📊 대시보드 차트 PPT / PDF 내보내기 기능 기획서
 
-> **⛔ 구현 상태 (2026-07-16 기준): 미착수.** 아래 §5 변경 파일 및 마지막 체크리스트 8개 항목이 전부
-> 미구현 상태입니다(`exportPptx.ts`/`exportPdf.ts` 없음, `pptxgenjs` 미설치, `buildChartItems()` 미추출,
-> `index.tsx` PPT/PDF 버튼 없음). 단 `html2pdf.js`는 이미 설치되어 있고 `DetailPanel.tsx`의 개별 행
-> PDF에 사용 중입니다(대시보드 전체 내보내기와는 별개). 이 문서는 구현 착수 시 그대로 사용합니다.
+> **✅ 구현 상태 (2026-07-16 기준): 완료.** PPT/PDF 내보내기 전체 구현 및 end-to-end 검증 완료.
+> 계획에 없던 이슈 하나를 발견·해결했습니다(html2canvas의 `oklch()` 미지원). 상세는 문서 하단
+> **[§10 구현 결과 및 계획 대비 변경점](#10-구현-결과-및-계획-대비-변경점)** 참조.
 
 > **작성일**: 2026-07-15  
 > **대상 범위**: `frontend/` 전용 (백엔드 수정 없음)  
@@ -416,11 +415,35 @@ CSS 변수 대신 이 팔레트를 직접 `chartColors` 옵션에 전달합니�
 
 ## 구현 시작 체크리스트
 
-- [ ] `bun add pptxgenjs` 설치
-- [ ] `aggregate.ts`에 `buildChartItems()` 순수 함수 추출
-- [ ] `ChartCard.tsx` useMemo를 `buildChartItems()` 호출로 교체
-- [ ] `lib/exportPptx.ts` 신규 작성
-- [ ] `lib/exportPdf.ts` 신규 작성
-- [ ] `index.tsx` PPT/PDF 버튼 추가 및 핸들러 연결
-- [ ] `vitest` 단위 테스트 추가 및 `tsc` 통과 확인
-- [ ] 브라우저에서 PPT/PDF 출력물 수동 검증
+- [x] `pptxgenjs` 설치 (`npm install pptxgenjs` — 이 프로젝트는 npm 사용, `bun` 아님)
+- [x] `aggregate.ts`에 `buildChartItems()` 순수 함수 추출
+- [x] `ChartCard.tsx` useMemo를 `buildChartItems()` 호출로 교체
+- [x] `lib/exportPptx.ts` 신규 작성
+- [x] `lib/exportPdf.ts` 신규 작성 (+ oklch 색상 회피 로직 — §10 참조)
+- [x] `index.tsx` PPT/PDF 버튼 추가 및 핸들러 연결
+- [x] `vitest` 단위 테스트 추가 (`buildChartItems` 7케이스) 및 `tsc` 통과 확인
+- [x] 브라우저(Playwright headless)에서 PPT/PDF 출력물 검증 — 둘 다 유효 파일 생성 확인
+
+---
+
+## 10. 구현 결과 및 계획 대비 변경점 (2026-07-16)
+
+### 완료 내역
+- **신규**: `src/lib/exportPptx.ts`, `src/lib/exportPdf.ts`
+- **수정**: `src/lib/aggregate.ts`(`buildChartItems()`+`ChartDatum` 추가), `src/components/dashboard/ChartCard.tsx`(items useMemo→함수 호출), `src/routes/index.tsx`(PPT/PDF 버튼·핸들러·`dashboardRef`), `src/lib/__tests__/aggregate.test.ts`(7케이스)
+- **패키지**: `pptxgenjs@^4` 추가. exportPptx/exportPdf 모두 동적 import → 별도 청크로 분리됨(초기 번들 미포함) 빌드로 확인.
+
+### 검증 결과
+- `tsc` 통과 · vitest **136개**(기존 129 + buildChartItems 7) 통과 · `vite build` 성공.
+- Playwright headless로 실제 버튼 클릭 → 다운로드까지 구동: **PPT** `mumhwa_dashboard.pptx`(≈200KB, zip 매직 `PK`), **PDF** `mumhwa_dashboard.pdf`(≈265KB, `%PDF-`) 정상 생성.
+
+### ⚠ 계획에 없던 이슈 — html2canvas `oklch()` 미지원 (중요)
+- **증상**: PDF 내보내기 최초 실행 시 `Attempting to parse an unsupported color function "oklch"` 예외로 **실패**. §4 계획은 "기존 html2pdf.js 재활용, 다크모드만 처리"만 다뤘고 이 문제를 예상하지 못함.
+- **원인**: 이 프로젝트는 Tailwind v4 / shadcn을 쓰며 테마 색상 변수(`--background`,`--foreground`,`--border` 등)가 전부 `oklch()`이고, 불투명도 유틸리티(`bg-x/10`)는 `color-mix`가 `oklab()`으로 계산됨. html2pdf에 번들된 html2canvas 버전은 `oklch`/`oklab`을 파싱하지 못한다. 특히 **Tailwind preflight가 모든 요소의 `::before`/`::after`에 `border-color: var(--foreground)`(oklch)를 상속**시키는데, 유사 요소는 인라인 스타일로 덮을 수 없어 요소 단위 치환만으로는 해결되지 않았음.
+- **해결 (`exportPdf.ts`)**: 캡처 직전 라이브 DOM에 대해 ① 문서 루트(`documentElement`)의 oklch/oklab **CSS 커스텀 변수를 rgb로 재정의**(유사 요소의 `var()`까지 커버) + ② 서브트리 각 요소의 계산 색상 중 남은 oklch/oklab(color-mix 결과)을 인라인 rgb로 치환. 캡처 후 원복. 색공간 변환(oklch/oklab→sRGB)은 브라우저 canvas의 oklch 지원 여부에 의존하지 않도록 **수학 변환으로 직접 구현**(구형 Chromium에서 canvas가 oklch를 변환하지 못함을 확인). 변환값은 동일 색의 rgb 표기라 화면상 변화 없음.
+- **참고**: 기존 `DetailPanel.tsx`의 개별 행 PDF도 동일한 oklch 취약점이 잠재해 있을 수 있음(이번 범위 밖, 별도 점검 권장).
+
+### 계획과 달라진 사소한 점
+- 패키지 매니저: 계획서 `bun add` → 실제 `npm install`(레포 표준).
+- `multibar`는 계획 §3-3의 "다중 시리즈"가 아니라 화면과 동일하게 **단일 시리즈**(열별 1막대)로 렌더 — 현재 대시보드의 multibar 집계 형태와 일치시킴.
+- `histogram`은 계획대로 `bar`로 폴백.

@@ -1,6 +1,7 @@
 import { Fragment, useState } from "react";
 import type { DashboardConfig, Row } from "@/types/dashboard";
 import { Button } from "@/components/ui/button";
+import { fixModernColorsInPlace } from "@/lib/pdfColorFix";
 
 export function DetailPanel({
   row,
@@ -69,17 +70,24 @@ export function DetailPanel({
       wrapper.appendChild(table);
       document.body.appendChild(wrapper);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (html2pdf() as any)
-        .set({
-          margin: [15, 15, 15, 15],
-          filename: `상세정보_${String(title).replace(/[^a-zA-Z0-9가-힣]/g, "_")}.pdf`,
-          image: { type: "jpeg", quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
-          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        })
-        .from(wrapper)
-        .save();
+      // Tailwind preflight의 기본 테두리색(var(--border)=oklch)이 wrapper·자식·유사 요소에도
+      // 적용되어 html2canvas가 oklch 파싱 예외를 던지므로, 캡처 직전 rgb로 치환하고 후에 복원.
+      const restoreColors = fixModernColorsInPlace(wrapper);
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (html2pdf() as any)
+          .set({
+            margin: [15, 15, 15, 15],
+            filename: `상세정보_${String(title).replace(/[^a-zA-Z0-9가-힣]/g, "_")}.pdf`,
+            image: { type: "jpeg", quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+            jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+          })
+          .from(wrapper)
+          .save();
+      } finally {
+        restoreColors();
+      }
 
       document.body.removeChild(wrapper);
     } catch (e) {
@@ -96,16 +104,15 @@ export function DetailPanel({
           size="sm"
           onClick={downloadPDF}
           disabled={saving}
-          className={saving ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-green-600 hover:bg-green-700 text-white"}
+          className={
+            saving
+              ? "bg-muted text-muted-foreground cursor-not-allowed"
+              : "bg-green-600 hover:bg-green-700 text-white"
+          }
         >
           {saving ? "⏳ 저장 중..." : "📄 PDF 다운로드"}
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onClose}
-          className="h-7 w-7 rounded-full"
-        >
+        <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7 rounded-full">
           ✕
         </Button>
       </div>
@@ -115,9 +122,7 @@ export function DetailPanel({
           <small className="text-muted-foreground text-[10px] uppercase font-bold tracking-wide">
             상세조회 레코드
           </small>
-          <div className="text-lg font-bold text-primary mt-1 break-words">
-            {String(title)}
-          </div>
+          <div className="text-lg font-bold text-primary mt-1 break-words">{String(title)}</div>
         </div>
 
         <dl className="grid gap-x-4 gap-y-2.5" style={{ gridTemplateColumns: "130px 1fr" }}>

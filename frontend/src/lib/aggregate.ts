@@ -25,8 +25,8 @@ export function buildChartItems(chart: ChartItem, rows: Row[]): ChartDatum[] {
   const limit = chart.max_items !== undefined ? chart.max_items : 20;
 
   if (chart.type === "multibar") {
-    const safeCols = Array.isArray((chart as any).cols) ? (chart as any).cols : [];
-    const list: ChartDatum[] = safeCols.map((c: any) => ({
+    const safeCols = Array.isArray(chart.cols) ? chart.cols : [];
+    const list: ChartDatum[] = safeCols.map((c) => ({
       name: String(c.label || c.col),
       value: aggNumericSum(rows, c.col),
     }));
@@ -38,7 +38,7 @@ export function buildChartItems(chart: ChartItem, rows: Row[]): ChartDatum[] {
   if ((chart as { type: string }).type === "multivalue") {
     counts = aggMultiValue(rows, chart.col, (chart as { sep?: string }).sep || ",");
   } else {
-    const valCol = (chart as any).value_col;
+    const valCol = (chart as { value_col?: string }).value_col;
     if (valCol) {
       const sums: Record<string, number> = {};
       rows.forEach((r) => {
@@ -109,7 +109,10 @@ export function matchesPattern(cellStr: string, pattern: string): boolean {
   if (p.startsWith("*")) return cellStr.endsWith(p.slice(1).trim());
   if (p.endsWith("*")) return cellStr.startsWith(p.slice(0, -1).trim());
 
-  return cellStr.split(",").map((s) => s.trim()).includes(p);
+  return cellStr
+    .split(",")
+    .map((s) => s.trim())
+    .includes(p);
 }
 
 export function filterRows(rows: Row[], search: string, filters: Record<string, string>): Row[] {

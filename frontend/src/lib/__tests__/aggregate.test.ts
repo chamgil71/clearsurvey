@@ -1,6 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { aggCategory, aggNumericSum, aggMultiValue, filterRows, matchesPattern } from "@/lib/aggregate";
-import type { Row } from "@/types/dashboard";
+import {
+  aggCategory,
+  aggNumericSum,
+  aggMultiValue,
+  filterRows,
+  matchesPattern,
+  buildChartItems,
+} from "@/lib/aggregate";
+import type { ChartItem, Row } from "@/types/dashboard";
 
 const rows: Row[] = [
   { 지역: "서울", 부서: "개발팀", 점수: 90 },
@@ -203,5 +210,67 @@ describe("filterRows — 패턴 매칭 필터", () => {
   it("*keyword 와일드카드 필터는 끝 검색을 수행한다", () => {
     const r: Row[] = [{ 지역: "서울 강남" }, { 지역: "인천 강남" }, { 지역: "부산" }];
     expect(filterRows(r, "", { 지역: "*강남" })).toHaveLength(2);
+  });
+});
+
+// ── buildChartItems (PPT/차트 데이터 추출) ────────────────────────────────────
+
+describe("buildChartItems", () => {
+  it("bar 타입: 카테고리 빈도를 값 내림차순으로 집계한다", () => {
+    const chart = { type: "bar", col: "지역" } as ChartItem;
+    const result = buildChartItems(chart, rows);
+    expect(result).toEqual([
+      { name: "서울", value: 3 },
+      { name: "부산", value: 1 },
+      { name: "대구", value: 1 },
+    ]);
+  });
+
+  it("max_items로 상위 항목만 절삭한다", () => {
+    const chart = { type: "bar", col: "지역", max_items: 1 } as ChartItem;
+    const result = buildChartItems(chart, rows);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({ name: "서울", value: 3 });
+  });
+
+  it("max_items=0 이면 전체를 반환한다", () => {
+    const chart = { type: "bar", col: "지역", max_items: 0 } as ChartItem;
+    expect(buildChartItems(chart, rows)).toHaveLength(3);
+  });
+
+  it("sort_by=name_asc 이면 이름 가나다순으로 정렬한다", () => {
+    const chart = { type: "bar", col: "지역", sort_by: "name_asc" } as ChartItem;
+    const names = buildChartItems(chart, rows).map((i) => i.name);
+    expect(names).toEqual(["대구", "부산", "서울"]);
+  });
+
+  it("histogram 타입은 bar와 동일하게 카테고리 집계로 폴백한다", () => {
+    const bar = buildChartItems({ type: "bar", col: "지역" } as ChartItem, rows);
+    const hist = buildChartItems({ type: "histogram", col: "지역" } as ChartItem, rows);
+    expect(hist).toEqual(bar);
+  });
+
+  it("multibar 타입: 각 컬럼의 수치 합을 시리즈로 만든다", () => {
+    const chart = {
+      type: "multibar",
+      cols: [
+        { col: "점수", label: "점수합" },
+        { col: "없는열", label: "빈열" },
+      ],
+    } as ChartItem;
+    const result = buildChartItems(chart, rows);
+    // 점수 합 = 90 + 85 + 70 = 245, 없는열 = 0 → 값 내림차순
+    expect(result).toEqual([
+      { name: "점수합", value: 245 },
+      { name: "빈열", value: 0 },
+    ]);
+  });
+
+  it("value_col 지정 시 그룹별 수치 합계를 낸다", () => {
+    const chart = { type: "bar", col: "지역", value_col: "점수" } as unknown as ChartItem;
+    const result = buildChartItems(chart, rows);
+    const seoul = result.find((r) => r.name === "서울");
+    // 서울 점수: 90 + (null→0) + 70 = 160
+    expect(seoul?.value).toBe(160);
   });
 });
