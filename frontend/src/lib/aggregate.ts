@@ -17,10 +17,23 @@ function sortChartData(list: ChartDatum[], sortBy: string): void {
   }
 }
 
+export interface ChartItemsResult {
+  items: ChartDatum[];
+  /** max_items로 자르기 *전* 후보 개수. items.length보다 크면 잘린 것이다. */
+  totalCount: number;
+}
+
 // 차트 카드의 데이터 계산 로직. `ChartCard.tsx`의 `items` useMemo와 동일한 결과를 내는
 // 순수 함수로, 컴포넌트 밖(PPT 내보내기 등)에서도 동일 수치를 재사용하기 위해 분리했다.
 // histogram은 bar와 동일하게 카테고리 집계로 처리된다.
 export function buildChartItems(chart: ChartItem, rows: Row[]): ChartDatum[] {
+  return buildChartItemsWithMeta(chart, rows).items;
+}
+
+// buildChartItems와 동일하되 자르기 전 개수까지 돌려준다. 요약 탭이 "상위 N개 기준"인지
+// 판별하는 데 쓴다 — 잘렸는지는 자르기가 일어나는 이 함수 안에서만 알 수 있고, 밖에서
+// 전체 목록을 다시 집계해 비교하면 큰 데이터에서 집계를 두 번 하게 된다.
+export function buildChartItemsWithMeta(chart: ChartItem, rows: Row[]): ChartItemsResult {
   const sortBy = chart.sort_by || "value_desc";
   const limit = chart.max_items !== undefined ? chart.max_items : 20;
 
@@ -31,7 +44,7 @@ export function buildChartItems(chart: ChartItem, rows: Row[]): ChartDatum[] {
       value: aggNumericSum(rows, c.col),
     }));
     sortChartData(list, sortBy);
-    return limit > 0 ? list.slice(0, limit) : list;
+    return { items: limit > 0 ? list.slice(0, limit) : list, totalCount: list.length };
   }
 
   let counts: Record<string, number>;
@@ -56,7 +69,7 @@ export function buildChartItems(chart: ChartItem, rows: Row[]): ChartDatum[] {
 
   const result: ChartDatum[] = Object.entries(counts).map(([name, value]) => ({ name, value }));
   sortChartData(result, sortBy);
-  return limit > 0 ? result.slice(0, limit) : result;
+  return { items: limit > 0 ? result.slice(0, limit) : result, totalCount: result.length };
 }
 
 export function aggCategory(rows: Row[], col: string): Record<string, number> {

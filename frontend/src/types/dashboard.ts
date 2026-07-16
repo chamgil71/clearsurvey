@@ -82,6 +82,14 @@ export interface DashboardLayout {
   maxColumns?: number;
 }
 
+/** 요약 탭의 표에 표시할 열. "항목"(카테고리명) 열은 항상 표시되므로 목록에 없다. */
+export type SummaryColumn = "value" | "percent" | "rank" | "cumulative";
+
+export interface DashboardSummary {
+  /** 표시할 열. 미설정 시 SUMMARY_DEFAULT_COLUMNS(["value", "percent"]). */
+  columns?: SummaryColumn[];
+}
+
 export interface DashboardConfig {
   version: number;
   kpi: KpiItem[];
@@ -92,6 +100,8 @@ export interface DashboardConfig {
   };
   theme?: DashboardTheme;
   layout?: DashboardLayout;
+  /** 요약 탭 설정. 기존 dashboard.json에는 없으므로 optional — 없으면 기본값을 쓴다. */
+  summary?: DashboardSummary;
 }
 
 export interface GlobalFilter {

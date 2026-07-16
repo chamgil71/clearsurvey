@@ -7,6 +7,7 @@ import { Trash2, Plus, GripVertical, Pin, BarChart2, List, Filter } from "lucide
 
 import type { DashboardConfig, KpiItem, ChartItem } from "@/types/dashboard";
 import type { ProjectConfig } from "@/hooks/useManagerApi";
+import { resolveSummaryColumns, SUMMARY_COLUMN_LABELS, SUMMARY_COLUMN_ORDER } from "@/lib/summary";
 
 interface ChartConfigCardProps {
   dashboard: DashboardConfig;
@@ -27,6 +28,7 @@ interface ChartConfigCardProps {
 
   onUpdateExcelOptions: (options: { include_slicers?: boolean; include_charts?: boolean }) => void;
   onUpdateLayout?: (patch: Partial<DashboardConfig["layout"]>) => void;
+  onUpdateSummary?: (patch: Partial<DashboardConfig["summary"]>) => void;
 }
 
 export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
@@ -44,7 +46,9 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
   onDeleteChart,
   onUpdateExcelOptions,
   onUpdateLayout,
+  onUpdateSummary,
 }) => {
+  const summaryColumns = resolveSummaryColumns(dashboard);
 
   const handleDeleteKpi = (i: number) => {
     if (onDeleteKpi) onDeleteKpi(i);
@@ -160,6 +164,40 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
           <p className="text-[12px] text-slate-400">
             donut - 도넛 차트 (category) | bar - 세로막대 | hbar - 가로막대 | histogram - 분포도 (numeric) | multibar - 여러 0/1 응답 비교 (0, * 목적 등)
           </p>
+
+          {/* 요약 탭은 위 차트를 순서대로 표로 옮긴다. 차트는 전부 포함, 표에 보일 열만 고른다. */}
+          {onUpdateSummary && (
+            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-3 flex-wrap">
+              <label className="text-[12px] font-semibold text-slate-500 shrink-0">
+                요약 탭 표시 열
+              </label>
+              {SUMMARY_COLUMN_ORDER.map((col) => {
+                const checked = summaryColumns.includes(col);
+                return (
+                  <label
+                    key={col}
+                    className="flex items-center gap-1.5 text-[12px] font-medium text-slate-700 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => {
+                        const next = checked
+                          ? summaryColumns.filter((c) => c !== col)
+                          : [...summaryColumns, col];
+                        onUpdateSummary({ columns: next });
+                      }}
+                      className="h-3.5 w-3.5 accent-blue-500"
+                    />
+                    {SUMMARY_COLUMN_LABELS[col]}
+                  </label>
+                );
+              })}
+              <span className="text-[11px] text-slate-400">
+                &quot;항목&quot; 열은 항상 표시됩니다.
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="space-y-3">

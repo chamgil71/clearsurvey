@@ -2,6 +2,50 @@
 
 All notable changes to the ClearSurvey project will be documented in this file.
 
+## [2026-07-17] 대시보드 요약 탭 신설
+
+계획: [plan/summary_tab_plan.md](plan/summary_tab_plan.md).
+
+### Added
+- **요약 탭**(`frontend/src/components/dashboard/SummaryTab.tsx`): 차트가 말하는 내용을 표로 정리하는
+  탭. 대시보드(차트)와 목록(원본 행) 사이의 공백 — "정확한 수치를 읽고 그대로 문서로 넘기는 것" — 을
+  채운다. 전체 제목 `[프로젝트명] 요약`, 소제목은 차트 제목, 표는 `항목 / 값 / 비중` + 합계 행,
+  하단에 필터 기준 박스. 차트 순서를 그대로 따르고 현재 필터(`filtered`)에 연동된다.
+- **`frontend/src/lib/summary.ts`**: `buildSummary()` 등 순수 함수. 집계는 **기존
+  `buildChartItems`를 그대로 재사용**한다 — 로직이 갈라지면 차트와 표의 수치가 어긋나는 순간
+  신뢰를 잃기 때문이다(`exportPptx`가 이미 같은 이유로 공유 중).
+- **`frontend/src/lib/aggregate.ts::buildChartItemsWithMeta()`**: 자르기 전 후보 개수(`totalCount`)를
+  함께 반환. `max_items`로 잘렸는지는 자르기가 일어나는 함수 안에서만 알 수 있고, 밖에서 전체 목록을
+  다시 집계해 비교하면 큰 데이터(sangga 2만행)에서 집계를 두 번 하게 된다. 기존 `buildChartItems`는
+  이를 감싸는 형태로 유지 — 호출부 무영향.
+- **내보내기**: PDF(A4 세로, 기존 `exportPdf.ts` 재사용)와 **DOCX**(신규 `exportSummaryDocx.ts`).
+  DOCX는 화면 DOM이 아니라 `SummaryDoc` 데이터에서 직접 생성한다 — DOM 캡처는 편집이 불가하고
+  oklch 파싱 같은 렌더링 취약점을 물려받는다. `docx`(9.7.1, MIT) 동적 import로 초기 번들 미포함.
+- **설정**(`ChartConfigCard.tsx`): 요약 표에 표시할 열 선택(값·비중·순위·누적 비중). 기본값은
+  값·비중. "항목" 열은 항상 표시. `DashboardConfig.summary?`는 optional이라 기존 `dashboard.json`을
+  마이그레이션 없이 읽는다(`layout?.maxColumns`와 같은 패턴).
+
+### Changed
+- **`frontend/src/lib/exportPdf.ts`**: `orientation`/`suffix` 옵션 추가(기본값이 기존 동작이라
+  차트 탭 PDF는 무변경). 표가 페이지 경계에서 잘리지 않도록 `pagebreak` 옵션도 추가 — html2pdf.js가
+  지원하는 옵션이나 번들된 타입 정의에 빠져 있어 캐스팅했다.
+- **`frontend/src/routes/index.tsx`**: 헤더 내보내기 버튼을 **현재 탭에 맞춰 전환**한다
+  (대시보드 → `PPT`/`PDF`, 요약 → `PDF`/`DOCX`). 탭마다 PDF 버튼을 따로 두면 "어느 PDF인지"
+  모호해지므로 "보고 있는 것을 내보낸다"로 정리했다.
+
+### Notes
+- **`max_items`로 잘린 차트의 비중 기준**: 표시 항목 합계 기준(합이 100%)으로 하고, 합계 행에
+  `(상위 N개 기준)`을 명시한다. 전체 합계 기준이면 비중 합이 100%가 안 되어 혼란스럽고,
+  표시 기준만 쓰면 잘렸다는 사실이 숨겨진다 — 둘 다 피한다.
+- **어드민 설정 UI는 브라우저 구동 검증을 하지 못했다**: 이 환경의 `storage/projects/`에
+  `README.md`만 있어 백엔드가 `/api/projects/{name}/config`에 404를 반환한다(이번 변경과 무관한
+  환경 제약). 대신 `ChartConfigCard.summary.test.tsx` 6케이스로 계약을 고정했다.
+
+**검증**: `tsc --noEmit` 통과 · vitest **173개**(기준선 136 + 신규 37) 통과 · `bun run build` 성공 ·
+lint 314건(기준선 315 — 신규 코드 0건). Playwright로 `bus` 프로젝트 구동 — 표/합계/절단 표시,
+도넛 클릭 시 요약 수치 연동(`695 / 28.7%` → `695 / 100.0%`), PDF **595×842pt=A4 세로**(MediaBox 실측),
+DOCX는 압축 해제해 `document.xml` 검사(화면과 동일 수치, `w:orient="portrait"`, 표 3개) 확인.
+
 ## [2026-07-17] 프론트엔드 패키지 업그레이드 (recharts 3 · lucide 1 · vite 8)
 
 계획: [plan/complete/package_upgrade_plan.md](plan/complete/package_upgrade_plan.md). 메이저는 각각 별도 커밋으로 진행했다.

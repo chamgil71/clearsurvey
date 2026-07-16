@@ -18,6 +18,7 @@
 남기기 위해 삭제하지 않고 `complete/` 하위 폴더에 그대로 보존합니다.
 
 * **[plan/prd.md](plan/prd.md)**: ClearSurvey 서비스의 제품 정의, 핵심 기능 스코프, 기술 아키텍처를 정의한 제품 요구사항 정의서(PRD).
+* **[plan/summary_tab_plan.md](plan/summary_tab_plan.md)** — ✅ 완료(2026-07-17): 공개 대시보드 **요약 탭** 기획서. 차트 집계를 차트 순서대로 표(항목/값/비중)로 정리하고 PDF(A4 세로)·DOCX로 내보낸다. §8에 설계 결정 근거(집계 재사용, `max_items` 절단 시 비중 기준 등).
 
 ### 완료된 계획 (`docs/plan/complete/`)
 

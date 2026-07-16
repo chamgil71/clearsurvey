@@ -224,6 +224,13 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
     }));
   };
 
+  const updateSummary = (patch: Partial<DashboardConfig["summary"]>) => {
+    setLocalDashboard((prev) => ({
+      ...prev,
+      summary: { ...(prev.summary || {}), ...patch },
+    }));
+  };
+
   // ── KPI Handlers ─────────────────────────────────────────────────────────────
 
   const updateKpi = (i: number, patch: Record<string, any>) => {
@@ -416,6 +423,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                 onDeleteChart={deleteChart}
                 onUpdateExcelOptions={handleUpdateExcelOptions}
                 onUpdateLayout={updateLayout}
+                onUpdateSummary={updateSummary}
               />
             </div>
           </TabsContent>

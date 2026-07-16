@@ -7,6 +7,7 @@ import type { DashboardConfig } from "@/types/dashboard";
 import { KpiRow } from "@/components/dashboard/KpiRow";
 import { FilterBar } from "@/components/dashboard/FilterBar";
 import { ChartCard } from "@/components/dashboard/ChartCard";
+import { SummaryTab } from "@/components/dashboard/SummaryTab";
 import { DataTable } from "@/components/dashboard/DataTable";
 import { GuideDrawer } from "@/components/dashboard/GuideDrawer";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
@@ -42,13 +43,14 @@ function DashboardPage() {
       : undefined;
 
   const { projects, data, url, loading, error, switchProject } = useDashboardData(initialUrl);
-  const [tab, setTab] = useState<"dashboard" | "list">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "list" | "summary">("dashboard");
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [theme, setTheme] = useState<string>("");
   const [guideOpen, setGuideOpen] = useState(false);
-  const [exporting, setExporting] = useState<"ppt" | "pdf" | null>(null);
+  const [exporting, setExporting] = useState<"ppt" | "pdf" | "docx" | null>(null);
   const dashboardRef = useRef<HTMLDivElement>(null);
+  const summaryRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem("theme") || "" : "";
@@ -73,6 +75,40 @@ function DashboardPage() {
       await exportToPptx(cfg, filtered, data);
     } catch (e) {
       toast.error(`PPT 내보내기 실패: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  // 요약 탭 PDF는 표 문서라 A4 세로. 차트 대시보드(가로)와 같은 함수를 옵션만 달리해 쓴다.
+  const handleExportSummaryPdf = async () => {
+    if (!summaryRef.current || !data) return;
+    setExporting("pdf");
+    try {
+      const { exportToPdf } = await import("@/lib/exportPdf");
+      await exportToPdf(summaryRef.current, data.meta.project, theme === "dark", {
+        orientation: "portrait",
+        suffix: "summary",
+      });
+    } catch (e) {
+      toast.error(`PDF 내보내기 실패: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const handleExportSummaryDocx = async () => {
+    if (!cfg || !data) return;
+    setExporting("docx");
+    try {
+      const [{ buildSummary }, { exportSummaryToDocx }] = await Promise.all([
+        import("@/lib/summary"),
+        import("@/lib/exportSummaryDocx"),
+      ]);
+      const doc = buildSummary(cfg, filtered, data.meta.project, data.rows.length, search, filters);
+      await exportSummaryToDocx(doc);
+    } catch (e) {
+      toast.error(`DOCX 내보내기 실패: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setExporting(null);
     }
@@ -179,29 +215,61 @@ function DashboardPage() {
             {data.meta.generated_at?.slice(0, 16).replace("T", " ")}
           </span>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportPptx}
-            disabled={exporting !== null}
-            title="차트를 PPT로 내보내기"
-            className="text-xs gap-1.5"
-          >
-            <FileBarChart className="h-3.5 w-3.5" />
-            {exporting === "ppt" ? "생성 중…" : "PPT"}
-          </Button>
+          {/* 내보내기 버튼은 현재 탭이 대상이다 — 보고 있는 것을 내보낸다.
+              탭마다 PDF 버튼을 따로 두면 "어느 PDF인지" 모호해지므로 헤더에서 전환한다. */}
+          {tab === "summary" ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportSummaryPdf}
+                disabled={exporting !== null}
+                title="요약을 PDF로 내보내기 (A4 세로)"
+                className="text-xs gap-1.5"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                {exporting === "pdf" ? "생성 중…" : "PDF"}
+              </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportPdf}
-            disabled={exporting !== null}
-            title="대시보드를 PDF로 내보내기"
-            className="text-xs gap-1.5"
-          >
-            <FileText className="h-3.5 w-3.5" />
-            {exporting === "pdf" ? "생성 중…" : "PDF"}
-          </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportSummaryDocx}
+                disabled={exporting !== null}
+                title="요약을 편집 가능한 Word 문서로 내보내기"
+                className="text-xs gap-1.5"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                {exporting === "docx" ? "생성 중…" : "DOCX"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportPptx}
+                disabled={exporting !== null}
+                title="차트를 PPT로 내보내기"
+                className="text-xs gap-1.5"
+              >
+                <FileBarChart className="h-3.5 w-3.5" />
+                {exporting === "ppt" ? "생성 중…" : "PPT"}
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportPdf}
+                disabled={exporting !== null}
+                title="대시보드를 PDF로 내보내기"
+                className="text-xs gap-1.5"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                {exporting === "pdf" ? "생성 중…" : "PDF"}
+              </Button>
+            </>
+          )}
 
           <Button
             variant="ghost"
@@ -292,6 +360,12 @@ function DashboardPage() {
             >
               📋 목록 · 검색
             </TabsTrigger>
+            <TabsTrigger
+              value="summary"
+              className="rounded-none border-b-2 border-transparent bg-transparent px-4 py-2 text-sm font-medium text-muted-foreground shadow-none hover:text-primary data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none"
+            >
+              🧾 요약
+            </TabsTrigger>
           </TabsList>
 
           {/* Dashboard Tab */}
@@ -331,6 +405,19 @@ function DashboardPage() {
           {/* List Tab */}
           <TabsContent value="list" className="px-6 py-5 mt-0">
             <DataTable rows={filtered} cfg={cfg} search={search} />
+          </TabsContent>
+
+          {/* Summary Tab */}
+          <TabsContent value="summary" className="px-6 py-5 mt-0">
+            <SummaryTab
+              cfg={cfg}
+              filtered={filtered}
+              projectName={data.meta.project}
+              totalRows={data.rows.length}
+              search={search}
+              filters={filters}
+              contentRef={summaryRef}
+            />
           </TabsContent>
         </Tabs>
 
