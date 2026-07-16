@@ -14,15 +14,23 @@
 
 ## 1. 📂 설계 및 기획서 (`docs/plan/`)
 
-프로젝트의 제품 요구사항 사양서(PRD) 및 설계/기획 로드맵 문서입니다. 완료된 기획도 "왜 이렇게 설계했는가"를 남기기 위해 archive로 옮기지 않고 여기 둡니다.
+프로젝트의 제품 요구사항 사양서(PRD) 및 설계/기획 로드맵 문서입니다. 완료된 기획도 "왜 이렇게 설계했는가"를
+남기기 위해 삭제하지 않고 `complete/` 하위 폴더에 그대로 보존합니다.
 
 * **[plan/prd.md](plan/prd.md)**: ClearSurvey 서비스의 제품 정의, 핵심 기능 스코프, 기술 아키텍처를 정의한 제품 요구사항 정의서(PRD).
-* **[plan/feature_plan.md](plan/feature_plan.md)** — ✅ 완료: 연도 추출(`date_year`), 복수 선택 분리(`split_binary`), 정렬, 수치 다중 합산(`group_sum`) 등 기능 개선 계획서.
-* **[plan/excel_chart_plan.md](plan/excel_chart_plan.md)** — ✅ 완료: 엑셀 요약 시트에 네이티브 차트(Bar/Pie/Line)를 삽입하는 구현 기획안 (`engine/summarizer.py`).
-* **[plan/design-migration-plan.md](plan/design-migration-plan.md)** — ✅ 완료: legacy-dashboard.css → Tailwind v4 + shadcn/ui 전환 계획 (Admin/Index 전체).
-* **[plan/chart_grid_spanning_plan.md](plan/chart_grid_spanning_plan.md)** — ✅ 완료: 차트 카드 2D 그리드 레이아웃 확장(`layout: 1x1/2x1/2x2/0.5x1/full`) 계획.
-* **[plan/remaining_improvements.md](plan/remaining_improvements.md)** — ✅ 5개 항목 전부 완료(2026-07-15): 1.다중 엑셀 병합 웹 UI·2.번들 최적화·3.차트 그리드 auto-fit/가로 4열+설정 UI(브라우저 시각검증 보류)·4."정제 규칙 최신 반영 여부" 배지(브라우저 시각검증 보류)·5.transform 테스트 공백(→ transform_test_plan.md, ✅ 완료). 클라우드 스토리지 연동 및 Supabase 세션 개선(완료)은 [plan/pending/cloud_storage_plan.md](plan/pending/cloud_storage_plan.md)로 분리 이관.
-* **[plan/transform_test_plan.md](plan/transform_test_plan.md)** — ✅ 완료(2026-07-15): 정제 규칙(transform) 함수별 단위테스트 커버리지 공백 및 보강 계획서. 전체 282개 테스트 통과.
+
+### 완료된 계획 (`docs/plan/complete/`)
+
+구현과 검증이 끝난 계획입니다. 설계 의도와 시행착오 기록을 남기기 위해 보존합니다.
+
+* **[plan/complete/feature_plan.md](plan/complete/feature_plan.md)** — ✅ 완료: 연도 추출(`date_year`), 복수 선택 분리(`split_binary`), 정렬, 수치 다중 합산(`group_sum`) 등 기능 개선 계획서.
+* **[plan/complete/excel_chart_plan.md](plan/complete/excel_chart_plan.md)** — ✅ 완료: 엑셀 요약 시트에 네이티브 차트(Bar/Pie/Line)를 삽입하는 구현 기획안 (`engine/summarizer.py`).
+* **[plan/complete/design-migration-plan.md](plan/complete/design-migration-plan.md)** — ✅ 완료: legacy-dashboard.css → Tailwind v4 + shadcn/ui 전환 계획 (Admin/Index 전체). §6에 선택 사항 2건(DataTable 표 본체 shadcn `<Table>` 교체, PR #12 close)이 미반영으로 남아 있음.
+* **[plan/complete/chart_grid_spanning_plan.md](plan/complete/chart_grid_spanning_plan.md)** — ✅ 완료: 차트 카드 2D 그리드 레이아웃 확장(`layout: 1x1/2x1/2x2/0.5x1/full`) 계획.
+* **[plan/complete/chart_export_ppt_pdf_plan.md](plan/complete/chart_export_ppt_pdf_plan.md)** — ✅ 완료(2026-07-16): 공개 대시보드 헤더의 PPT/PDF 내보내기 계획. PPT는 PowerPoint 네이티브 차트 객체로 생성. §10에 html2canvas의 `oklch()` 파싱 실패 이슈와 해결 기록.
+* **[plan/complete/remaining_improvements.md](plan/complete/remaining_improvements.md)** — ✅ 5개 항목 전부 완료: 1.다중 엑셀 병합 웹 UI·2.번들 최적화·3.차트 그리드 auto-fit/가로 4열+설정 UI·4."정제 규칙 최신 반영 여부" 배지·5.transform 테스트 공백(→ transform_test_plan.md). §3·§4는 2026-07-16 브라우저 시각 검증까지 완료. 클라우드 스토리지 연동 및 Supabase 세션 개선(완료)은 [plan/pending/cloud_storage_plan.md](plan/pending/cloud_storage_plan.md)로 분리 이관.
+* **[plan/complete/transform_test_plan.md](plan/complete/transform_test_plan.md)** — ✅ 완료(2026-07-15): 정제 규칙(transform) 함수별 단위테스트 커버리지 공백 및 보강 계획서. 전체 282개 테스트 통과.
+* **[plan/complete/package_upgrade_plan.md](plan/complete/package_upgrade_plan.md)** — ✅ 완료(2026-07-17): 프론트엔드 의존성 업그레이드(recharts 3 · lucide-react 1 · vite 8) 위험도 분석과 단계별 실행 계획. 락파일 bun 일원화, 미사용 의존성(zod·@tanstack/start) 제거 포함.
 
 ### 착수하지 않은 계획 (`docs/plan/pending/`)
 

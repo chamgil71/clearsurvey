@@ -658,8 +658,8 @@ columns:
 | 문서 | 내용 |
 |------|------|
 | [docs/plan/prd.md](docs/plan/prd.md) | 제품 요구사항 정의서(PRD) |
-| [docs/plan/remaining_improvements.md](docs/plan/remaining_improvements.md) | 잔여 개선 사항 기획서 |
-| [docs/plan/transform_test_plan.md](docs/plan/transform_test_plan.md) | 정제 규칙 테스트 커버리지 보강 계획 |
+| [docs/plan/complete/remaining_improvements.md](docs/plan/complete/remaining_improvements.md) | 잔여 개선 사항 기획서 |
+| [docs/plan/complete/transform_test_plan.md](docs/plan/complete/transform_test_plan.md) | 정제 규칙 테스트 커버리지 보강 계획 |
 
 ### 작업 로그
 

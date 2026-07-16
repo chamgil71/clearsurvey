@@ -1,14 +1,14 @@
 # 클라우드 스토리지 연동 (Supabase Storage) 구현 계획
 
 > 작성일: 2026-07-15
-> 상태: 검토 중 (미구현) — `docs/plan/remaining_improvements.md` 2번 항목에서 분리 이관
+> 상태: 검토 중 (미구현) — `docs/plan/complete/remaining_improvements.md` 2번 항목에서 분리 이관
 > 목표: Railway 등 무상태(Stateless) 컨테이너 배포 시 로컬 디스크 `/storage` 파일 소실 문제 해결
 
 ---
 
 ## 0. 이관 배경
 
-기존 `docs/plan/remaining_improvements.md`에 잔여 개선 사항 중 하나로 함께 있었으나,
+기존 `docs/plan/complete/remaining_improvements.md`에 잔여 개선 사항 중 하나로 함께 있었으나,
 독립적인 아키텍처 변경(스토리지 추상화 계층 도입)이라 별도 계획서로 분리함.
 Supabase를 다루는 김에 관련 세션 토큰 이슈(구 4번 항목)도 참고용으로 §4에 함께 기록.
 

@@ -4,7 +4,7 @@ All notable changes to the ClearSurvey project will be documented in this file.
 
 ## [2026-07-17] 프론트엔드 패키지 업그레이드 (recharts 3 · lucide 1 · vite 8)
 
-계획: [plan/package_upgrade_plan.md](plan/package_upgrade_plan.md). 메이저는 각각 별도 커밋으로 진행했다.
+계획: [plan/complete/package_upgrade_plan.md](plan/complete/package_upgrade_plan.md). 메이저는 각각 별도 커밋으로 진행했다.
 
 ### Changed
 - **`recharts` 2.15.4 → 3.9.2**: `<Cell />`이 deprecated(4.0 제거 예정)되어 걷어냈다. 공식 권장
@@ -43,6 +43,14 @@ All notable changes to the ClearSurvey project will be documented in this file.
   스펙을 갱신(패키지 업그레이드와 무관한 선행 문제). native `<select>` → `role=combobox`,
   `<nav>`/`<nav button>` → `role=tablist`/`tab`/`tabpanel`. 구조 셀렉터를 role 기반으로 바꾸면서
   의미가 옅던 단언(`section` nth)도 실제 확인 대상(차트 SVG 렌더링 / 테이블 표시)으로 교체했다.
+
+### Docs
+- **`docs/plan/` 정리**: 완료된 계획 8건을 `docs/plan/complete/` 하위 폴더로 이동(기존 `pending/`과 대칭).
+  `docs/plan/`에는 살아있는 문서인 `prd.md`와 `pending/`만 남는다. 삭제가 아니라 보존이며, 설계 의도와
+  시행착오 기록은 그대로 유지된다. `INDEX.md`·`GUIDE.md`·`pending/cloud_storage_plan.md`·
+  `backend/tests/test_transforms.py`의 참조 경로와 이동한 문서 안의 상대 링크를 함께 갱신했다.
+  색인에서 누락돼 있던 `chart_export_ppt_pdf_plan.md`·`package_upgrade_plan.md`도 `INDEX.md`에 추가.
+  과거 CHANGELOG 항목의 경로 표기는 그 시점의 사실이므로 고치지 않았다.
 
 ### Notes
 - **`vite-tsconfig-paths`는 유지**: vite 8이 네이티브 `resolve.tsconfigPaths`로 대체하라고 안내하고

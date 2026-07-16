@@ -549,7 +549,7 @@ class TestCase18_NewTransforms:
 class TestCase19_NameBlind:
     """이름 중간 글자 마스킹(name_blind / mask_name 별칭).
 
-    docs/plan/transform_test_plan.md 우선순위 1위 — 회귀 시 개인정보가
+    docs/plan/complete/transform_test_plan.md 우선순위 1위 — 회귀 시 개인정보가
     그대로 노출될 수 있어 다른 정제 규칙보다 파급력이 큰 함수.
     """
 
@@ -724,7 +724,7 @@ class TestCase24_AddrSplitPartsDict:
     """`engine/pipeline.py`의 addr_split 클로저와 `transforms/common/address.py`의
     폴백 addr_split() 함수가 공통으로 사용하는 dict 조립 순수 함수.
 
-    docs/plan/transform_test_plan.md 2.6절 — 클로저 안에 갇혀 직접 테스트가 어려웠던
+    docs/plan/complete/transform_test_plan.md 2.6절 — 클로저 안에 갇혀 직접 테스트가 어려웠던
     지점을 순수 함수로 분리(A안)한 뒤의 단위 테스트.
     """
 

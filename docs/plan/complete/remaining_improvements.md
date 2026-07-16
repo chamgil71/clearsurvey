@@ -12,7 +12,7 @@
 5. [정제 규칙(Transform) 자동 테스트 커버리지 공백](#5-정제-규칙transform-자동-테스트-커버리지-공백)
 
 > **이관 안내**: 과거 2번(클라우드 스토리지 연동)과 4번(Supabase 세션 토큰 개선) 항목은
-> [plan/pending/cloud_storage_plan.md](pending/cloud_storage_plan.md)로 분리 이관되었습니다.
+> [plan/pending/cloud_storage_plan.md](../pending/cloud_storage_plan.md)로 분리 이관되었습니다.
 > 세션 토큰 항목은 이미 구현 완료 상태이며, 클라우드 스토리지 연동은 보류(미착수) 상태입니다.
 > 아래 번호는 이관 이후 순서로 재부여되었습니다.
 
@@ -33,7 +33,7 @@
   `UnboundLocalError`로 500 에러가 나는 버그가 있었음. 함께 수정.
 * **완료 내역**: `admin.tsx`에 `handleCreateMergeProject` 핸들러 추가 및 prop 연결, `yaml` 버그 수정,
   `backend/tests/test_api.py::TestCreateMergeProject` 5케이스 추가(239개 전체 통과), 프론트 `tsc`/vitest
-  통과 확인. 상세는 [CHANGELOG.md](../CHANGELOG.md) 2026-07-15 항목 참조.
+  통과 확인. 상세는 [CHANGELOG.md](../../CHANGELOG.md) 2026-07-15 항목 참조.
 
 ### 원래 조사 내용 (참고용)
 * **당시 추정 현황**: 백엔드 엔진([merger.py](file:///c:/ai/clearsurvey/backend/engine/merger.py)) 및 CLI 명령어(`uv run main.py merge`)를 통해서는 여러 파일 병합 설정(yaml)을 처리할 수 있으나, 웹 UI(Step 1 ~ Step 3)의 프로젝트 생성 화면은 오직 단일 파일 업로드만 지원하여 다중 소스 취합 작업을 웹 브라우저에서 수행할 수 없는 한계가 있다고 기술되어 있었음(부정확 — 위 재조사 결과 참조).
@@ -102,7 +102,7 @@
   다시 경고가 뜨도록 신호를 복원).
 
 **완료 내역**: `vite.config.ts` `chunkSizeWarningLimit` 조정, `admin.backup.tsx` 삭제(+`routeTree.gen.ts`
-자동 재생성), `tsc`/vitest(129개) 재확인. 상세는 [CHANGELOG.md](../CHANGELOG.md) 참조.
+자동 재생성), `tsc`/vitest(129개) 재확인. 상세는 [CHANGELOG.md](../../CHANGELOG.md) 참조.
 
 ---
 
