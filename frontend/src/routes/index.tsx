@@ -51,7 +51,8 @@ function DashboardPage() {
   const [theme, setTheme] = useState<string | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
   const [exporting, setExporting] = useState<"ppt" | "pdf" | "docx" | null>(null);
-  const dashboardRef = useRef<HTMLDivElement>(null);
+  // 카드별 캡처를 위해 그리드 컨테이너를 직접 참조한다 — 자식이 곧 ChartCard 들이다.
+  const chartGridRef = useRef<HTMLDivElement>(null);
   const summaryRef = useRef<HTMLDivElement>(null);
 
   const handleExportPptx = async () => {
@@ -101,12 +102,19 @@ function DashboardPage() {
     }
   };
 
+  // 차트 PDF는 요약 탭 PDF(html2pdf 통짜 캡처)와 다른 경로를 쓴다. 그리드를 통째로 찍으면
+  // A4 경계에서 차트가 잘리는데, CSS Grid라 pagebreak.avoid로도 피할 수 없기 때문이다.
+  // exportPdfCharts는 카드별로 캡처해 A4 3×2 격자에 직접 배치한다.
   const handleExportPdf = async () => {
-    if (!dashboardRef.current || !data) return;
+    if (!chartGridRef.current || !data) return;
     setExporting("pdf");
     try {
-      const { exportToPdf } = await import("@/lib/exportPdf");
-      await exportToPdf(dashboardRef.current, data.meta.project, theme === "dark");
+      const { exportChartsToPdf } = await import("@/lib/exportPdfCharts");
+      await exportChartsToPdf(
+        chartGridRef.current,
+        data.meta.project,
+        data.meta.generated_at?.slice(0, 16).replace("T", " ") || "",
+      );
     } catch (e) {
       toast.error(`PDF 내보내기 실패: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
@@ -380,13 +388,14 @@ function DashboardPage() {
           </TabsList>
 
           {/* Dashboard Tab */}
-          <TabsContent value="dashboard" className="px-6 py-5 mt-0" ref={dashboardRef}>
+          <TabsContent value="dashboard" className="px-6 py-5 mt-0">
             {filtered.length === 0 ? (
               <div className="text-center py-12 text-sm text-muted-foreground col-span-full">
                 필터 조건에 해당하는 데이터가 없습니다.
               </div>
             ) : (
               <div
+                ref={chartGridRef}
                 className="grid [grid-auto-flow:dense] gap-3 mx-auto"
                 style={{
                   gridTemplateColumns: `repeat(auto-fit, minmax(${CHART_GRID_MIN_CARD_PX}px, 1fr))`,

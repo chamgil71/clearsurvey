@@ -7,6 +7,8 @@
 // html2canvas가 클론이 아닌 원본 DOM의 계산 스타일을 읽으므로 onclone으로는 회피 불가 → 라이브 DOM을
 // 직접(같은 색의 rgb라 화면 변화 없음) 수정하고 캡처 후 복원한다.
 
+import { COLOR_TOKENS } from "@/theme/tokens";
+
 // oklab(L a b) → 감마 sRGB rgb. oklch도 lab로 변환 후 공용.
 function oklabToRgb(L: number, a: number, b: number, A: number): string {
   const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
@@ -65,31 +67,22 @@ export function fixModernColorsInPlace(rootEl: HTMLElement): () => void {
   };
 
   // ① 문서 루트의 oklch/oklab CSS 커스텀 변수를 rgb로 재정의(유사 요소의 var()까지 커버).
+  //
+  // 값은 반드시 getComputedStyle로 "지금 적용 중인" 것을 읽는다. 스타일시트 규칙을 직접 훑으면
+  // 안 된다 — presets.css는 테마 15종이 같은 토큰(--chart-1 등)을 각자 정의하므로, 규칙 순서대로
+  // 처음 만난 값을 쓰면 파일 첫 테마(light)의 색이 잡히고 활성 테마(toss 등)가 무시된다.
+  // 게다가 그 값을 docEl 인라인 스타일에 박으면 인라인이 모든 셀렉터를 이겨서, 캡처 동안 페이지
+  // 전체가 엉뚱한 테마 색으로 렌더된다(실제 증상: 토스 화면인데 PDF만 light 팔레트).
+  // 브라우저가 이미 셀렉터 우선순위를 계산해 뒀으니 그 결과를 그대로 쓴다.
   const docEl = document.documentElement;
   const savedRootVars: Array<[string, string]> = [];
-  const seen = new Set<string>();
-  for (const sheet of Array.from(document.styleSheets)) {
-    let rules: CSSRuleList;
-    try {
-      rules = sheet.cssRules;
-    } catch {
-      continue; // cross-origin
-    }
-    for (const rule of Array.from(rules)) {
-      const style = (rule as CSSStyleRule).style;
-      if (!style) continue;
-      for (let i = 0; i < style.length; i++) {
-        const name = style[i];
-        if (name.startsWith("--") && !seen.has(name)) {
-          const val = style.getPropertyValue(name).trim();
-          if (hasModern(val)) {
-            seen.add(name);
-            savedRootVars.push([name, docEl.style.getPropertyValue(name)]);
-            docEl.style.setProperty(name, replaceModernColors(val));
-          }
-        }
-      }
-    }
+  const rootCs = getComputedStyle(docEl);
+  for (const token of COLOR_TOKENS) {
+    const name = `--${token}`;
+    const applied = rootCs.getPropertyValue(name).trim();
+    if (!applied || !hasModern(applied)) continue;
+    savedRootVars.push([name, docEl.style.getPropertyValue(name)]);
+    docEl.style.setProperty(name, replaceModernColors(applied));
   }
 
   // ② 서브트리 각 요소의 계산 색상 중 여전히 oklch/oklab인 값(color-mix 결과 등)을 인라인 치환.

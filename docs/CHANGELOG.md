@@ -2,6 +2,63 @@
 
 All notable changes to the ClearSurvey project will be documented in this file.
 
+## [2026-07-17] 차트 PDF 재작성 · 내보내기 색상 테마 연동
+
+차트 PDF는 화면을 통째로 찍는 대신 카드별로 캡처해 A4에 직접 배치한다. PDF·PPT 모두 이제
+활성 테마 색을 따른다. 계획: [plan/complete/chart_export_plan.md §4](plan/complete/chart_export_plan.md).
+
+### Fixed
+- **PDF가 활성 테마를 무시하고 `light` 팔레트로 나오던 버그** (`lib/pdfColorFix.ts`):
+  스타일시트 규칙을 순서대로 훑어 `--chart-1` 등을 **처음 만난 값**으로 확정하고 있었다.
+  `presets.css`는 테마 15종이 같은 토큰을 각자 정의하고 `light`가 파일 맨 앞(5행)이라, `toss`
+  화면에서도 항상 light의 주황(`oklch(0.646 0.222 41.116)`)이 잡혔다. 게다가 그 값을 `<html>`
+  인라인에 박아 모든 셀렉터를 이겼다. 테마가 하나(`:root`)뿐이던 시절의 가정이 테마 15종이
+  되면서 깨진 것 — 이제 `getComputedStyle`로 **지금 적용 중인** 값을 읽는다. 차트 색만이 아니라
+  배경·텍스트·테두리 전부 해당됐고, 요약 탭 PDF·DetailPanel도 함께 고쳐졌다.
+- **차트가 A4 경계에서 잘리던 문제**: `pagebreak.avoid: ".break-inside-avoid"`가 대시보드에서
+  **아무것도 매치하지 않았다**(그 클래스는 `SummaryTab`에만 있다). 클래스를 붙여도 해결되지
+  않는다 — html2pdf의 `avoid`는 걸린 요소를 여백으로 밀어내는데, 대시보드는 CSS Grid라 한 카드만
+  밀 수 없다(같은 행의 옆 카드가 따라가지 않는다).
+- **카드 제목이 누락되던 문제**: 위 잘림의 증상이었다. 제목이 카드 최상단이라 경계에 걸리면
+  제목만 앞 페이지에 남았다.
+- **애니메이션 도중 캡처되던 문제**: recharts는 마운트·필터 변경 후 약 1.5초간 애니메이션을 돈다
+  (실측: 도넛 sector의 `d`가 450~1950ms 동안 변함). PDF를 빨리 누르면 도넛이 얇은 부채꼴로,
+  막대는 덜 자란 채로 박혔다 — 화면은 멀쩡해 원인을 찾기 어려운 종류다. 이제 그리기가 멎을
+  때까지 기다린 뒤 찍는다.
+- **출력이 브라우저 창 크기에 좌우되던 문제**: 화면 그리드가 `repeat(auto-fit, minmax(320px, 1fr))`
+  이라 열 수도 카드 비율도 창이 정했다(창을 넓히면 3열, 좁히면 2열). 캡처 직전 그리드를 A4 기하로
+  고정해 창 크기와 무관하게 같은 결과가 나온다.
+
+### Added
+- **`lib/exportPdfCharts.ts`**: 차트 PDF 전용 경로. 카드별 html2canvas 캡처 + A4 가로 **3열 × 2행**
+  격자에 jsPDF로 직접 배치. 카드 이미지는 통째로 들어가거나 통째로 다음 페이지로 가므로 잘릴 수
+  없다. `2x1`/`2x2`/`full` span은 화면 규칙 그대로 유지되고, `2x2`는 3열에 둘이 못 서므로 연속되면
+  페이지당 하나씩 나뉜다.
+- **페이지 머리글**(프로젝트명 · 생성일시 · 페이지 번호): PPT에는 타이틀 슬라이드가 있었으나
+  PDF에는 대응물이 없었다(캡처 대상이 차트 그리드뿐이고 화면 헤더는 버튼이 섞여 캡처 불가).
+  jsPDF `text()`가 아니라 **DOM을 만들어 캡처**한다 — jsPDF 내장 폰트는 Helvetica/Times/Courier
+  뿐이라 한글이 깨진다(실측: "버스 만족도 조사" → `¼Â¤ ¹ÌÈq³Ä ÈpÀ¬`). 한글 폰트 임베드는
+  음절 11,172자라 수백 KB~수 MB가 붙는다.
+- **`theme/readColors.ts`**: 적용 중인 테마 색을 hex로 읽는 공용 함수. PDF·PPT가 공유한다.
+  `withLightModeAsync`는 캡처처럼 await가 필요한 작업용 — 동기판에 async 콜백을 넘기면 `finally`가
+  캡처 전에 실행돼 다크가 되돌아온다.
+- **테스트 16개**: `packPages` 배치 규칙(겹침·격자 이탈·2x2 페이지 분할) 7건, `pdfColorFix`
+  회귀 5건, e2e 4건(실제 PDF 생성·한글 폰트 회귀·캡처 후 테마 원복·활성 테마 색).
+
+### Changed
+- **PPT 색상이 테마를 따른다** (`lib/exportPptx.ts`): `PPT_PALETTE` 하드코딩 7색을 걷어내고
+  차트·제목·표·테두리 색을 현재 테마에서 읽는다. PDF와 달리 이쪽은 버그가 아니라 **애초에 테마를
+  시도하지 않던 것**이었다. 다크모드에서 그대로 읽으면 어두운 배경이 PPT에 박히므로 PDF와 같이
+  라이트 기준으로 읽는다.
+- **"클릭=필터" 배지가 PDF에서 빠진다**(`ChartCard.tsx`의 `data-export-hide`): 클릭 유도 표시라
+  정지된 문서에선 노이즈다.
+- **`jspdf`·`html2canvas`를 직접 의존성으로 승격**: 이미 `html2pdf.js`의 전이 의존성으로 트리에
+  있었다(새 다운로드 없음). index 청크는 336KB로 변동 없다 — 둘 다 동적 import라 별도 청크다.
+
+### Notes
+- 요약 탭 PDF는 기존 `lib/exportPdf.ts`(html2pdf 통짜 캡처)를 그대로 쓴다. 그쪽은 일반 블록
+  흐름이라 `break-inside-avoid`가 실제로 동작하고, 잘림 문제가 없다.
+
 ## [2026-07-17] 테마 시스템 — 테마 15종 · 프로젝트별 적용 · 하드코딩 제거
 
 계획: [plan/complete/theme_system_plan.md](plan/complete/theme_system_plan.md).

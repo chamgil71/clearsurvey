@@ -130,7 +130,9 @@ export function ChartCard({
       <div className="flex items-center justify-between mb-2">
         <div className="text-xs font-semibold text-foreground">{title || "Untitled Chart"}</div>
         {clickable && (
+          // data-export-hide: 클릭 유도 표시라 정지된 문서(PDF)에선 의미가 없다 → 캡처에서 제외.
           <span
+            data-export-hide
             className="text-[10px] text-muted-foreground bg-muted/50 border border-border/60 px-1.5 py-0.5 rounded cursor-help"
             title="차트를 클릭하면 해당 값으로 전체 필터가 적용됩니다."
           >

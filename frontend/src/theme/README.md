@@ -48,9 +48,13 @@ bun scripts/build-themes.mjs
 원본 가이드는 **이 저장소 안**에 있다 — [`docs/design/design_system_guides/`](../../../docs/design/design_system_guides)
 (350개). 다른 저장소에 의존하지 않으므로 어디서든 재생성된다.
 
-> `catalog.json`(약 720KB)은 생성물이지만 **커밋한다.** `registry.ts` 가 import 하므로 앱 빌드에
-> 필요하고, 커밋해 두면 CI·Vercel 이 테마 빌드를 먼저 돌리지 않아도 된다.
-> 가이드를 고쳤다면 스크립트를 다시 돌려 생성물을 함께 커밋할 것.
+> `catalog.json`(약 720KB)은 생성물이지만 **커밋한다.** 커밋해 두면 CI·Vercel 이 테마 빌드를 먼저
+> 돌리지 않아도 된다. 가이드를 고쳤다면 스크립트를 다시 돌려 생성물을 함께 커밋할 것.
+>
+> **앱 코드에서 `catalog.json` 을 import 하지 말 것.** 720KB 가 `__root.tsx` 를 타고 초기 번들에
+> 통째로 들어간다(실측: index 청크 431KB → 886KB). 앱에 필요한 건 활성 15종의 메타데이터뿐이라
+> `registry.ts` 는 `registry.gen.ts`(3.4KB)를 읽는다. 색 값은 CSS(`presets.css`)가 담당한다.
+> `catalog.json` 은 빌드 스크립트와 테스트만 읽는다.
 
 ## 구성
 
@@ -60,7 +64,10 @@ bun scripts/build-themes.mjs
 | `{id}.css` × 15 | 드롭인 (`styles.css` 교체용) |
 | `presets.css` | 런타임용 `html[data-theme="{id}"]:not(.dark)` 블록. 다크 조합은 `html[data-theme="{id}"].dark`. `html`·`:not()` 은 명시도 때문 — 자세한 건 build-themes.mjs 주석 |
 | `tokens.ts` | 토큰 이름 단일 정의 — 스크립트·테스트가 공유 |
-| `registry.ts` | 활성 목록·라벨 (UI 가 참조) |
+| `registry.gen.ts` | 활성 15종 메타데이터 (생성물). **앱이 읽는 건 이것** — catalog.json 이 아니다 |
+| `registry.ts` | 활성 목록·라벨 (UI 가 참조). `registry.gen.ts` 를 감싼다 |
+| `apply.ts` | `resolveTheme`(순수) + `applyTheme`(DOM). 우선순위: 사용자 토글 > 프로젝트 `mode` > 프리셋 `darkFirst` |
+| `readColors.ts` | 적용 중인 테마 색을 hex 로 읽기 — PDF·PPT 내보내기가 화면과 같은 색을 쓰도록. 스타일시트를 뒤지지 않고 `getComputedStyle` 을 쓴다(어느 테마가 이겼는지는 브라우저만 안다) |
 | `overrides/{id}.json` | 차트 팔레트 수작업 값 |
 
 ## 활성 15종

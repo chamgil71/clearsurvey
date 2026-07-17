@@ -1,9 +1,45 @@
 import type PptxGenJS from "pptxgenjs";
 import type { DashboardConfig, ProjectData, Row } from "@/types/dashboard";
 import { buildChartItems, type ChartDatum } from "@/lib/aggregate";
+import { readChartPaletteHex, readTokenHex, withLightMode } from "@/theme/readColors";
 
-// PPT 파일에 직접 임베드할 고정 hex 팔레트 (CSS 변수 var(--chart-N)은 PPT에서 해석 불가).
-const PPT_PALETTE = ["4A90D9", "7ED321", "F5A623", "9B59B6", "E74C3C", "1ABC9C", "E67E22"];
+// 테마를 못 읽는 상황(SSR·테스트)의 최후 기본값. 실제 색은 readPptTheme()이 현재 테마에서 읽는다.
+// 여기 값을 화면 색으로 착각하지 말 것 — 화면은 항상 CSS 변수를 따른다.
+const FALLBACK_PALETTE = ["4A90D9", "7ED321", "F5A623", "9B59B6", "E74C3C", "1ABC9C", "E67E22"];
+
+interface PptTheme {
+  palette: string[];
+  /** 본문·제목 텍스트 */
+  fg: string;
+  /** 보조 텍스트(부제·각주) */
+  muted: string;
+  /** 강조(부제 제목 등) */
+  accent: string;
+  /** 타이틀 슬라이드 배경 */
+  bg: string;
+  /** 표 헤더 채움 */
+  tableHead: string;
+  /** 표 테두리 */
+  border: string;
+}
+
+/**
+ * 현재 적용 중인 테마에서 PPT 색을 읽는다.
+ *
+ * 다크모드에서 그대로 읽으면 어두운 배경·밝은 글자가 PPT에 박혀 인쇄물로 못 쓰므로,
+ * PDF와 동일하게 라이트 기준으로 읽는다(withLightMode).
+ */
+function readPptTheme(): PptTheme {
+  return withLightMode(() => ({
+    palette: readChartPaletteHex(FALLBACK_PALETTE),
+    fg: readTokenHex("foreground", "1E293B"),
+    muted: readTokenHex("muted-foreground", "64748B"),
+    accent: readTokenHex("primary", "4A90D9"),
+    bg: readTokenHex("muted", "F8FAFC"),
+    tableHead: readTokenHex("secondary", "E2E8F0"),
+    border: readTokenHex("border", "CBD5E1"),
+  }));
+}
 
 interface KpiSummaryItem {
   label: string;
@@ -76,12 +112,13 @@ export async function exportToPptx(
   pptx.defineLayout({ name: "CS_WIDE", width: 10, height: 5.625 });
   pptx.layout = "CS_WIDE";
 
+  const th = readPptTheme();
   const project = data.meta.project || "ClearSurvey";
   const generatedAt = data.meta.generated_at?.slice(0, 16).replace("T", " ") || "";
 
   // ── 슬라이드 1: 타이틀 ──
   const title = pptx.addSlide();
-  title.background = { color: "F8FAFC" };
+  title.background = { color: th.bg };
   title.addText(project, {
     x: 0.5,
     y: 1.6,
@@ -89,7 +126,7 @@ export async function exportToPptx(
     h: 0.9,
     fontSize: 36,
     bold: true,
-    color: "1E293B",
+    color: th.fg,
   });
   title.addText("ClearSurvey 설문 분석 결과", {
     x: 0.5,
@@ -97,7 +134,7 @@ export async function exportToPptx(
     w: 9,
     h: 0.5,
     fontSize: 18,
-    color: "4A90D9",
+    color: th.accent,
   });
   const subParts = [
     `총 응답수: ${rows.length.toLocaleString("ko-KR")}건`,
@@ -109,7 +146,7 @@ export async function exportToPptx(
     w: 9,
     h: 0.4,
     fontSize: 12,
-    color: "64748B",
+    color: th.muted,
   });
 
   // ── 슬라이드 2: KPI 요약 ──
@@ -123,12 +160,15 @@ export async function exportToPptx(
       h: 0.5,
       fontSize: 22,
       bold: true,
-      color: "1E293B",
+      color: th.fg,
     });
     const tableRows = [
       [
-        { text: "지표", options: { bold: true, fill: { color: "E2E8F0" } } },
-        { text: "값", options: { bold: true, fill: { color: "E2E8F0" }, align: "right" as const } },
+        { text: "지표", options: { bold: true, fill: { color: th.tableHead } } },
+        {
+          text: "값",
+          options: { bold: true, fill: { color: th.tableHead }, align: "right" as const },
+        },
       ],
       ...kpis.map((k) => [
         { text: k.label, options: {} },
@@ -144,7 +184,7 @@ export async function exportToPptx(
       w: 9,
       colW: [6, 3],
       fontSize: 14,
-      border: { type: "solid", color: "CBD5E1", pt: 1 },
+      border: { type: "solid", color: th.border, pt: 1 },
     });
   }
 
@@ -160,7 +200,7 @@ export async function exportToPptx(
       const single = pair.length === 1;
       const x = single ? 0.75 : idx === 0 ? 0.4 : 5.15;
       const w = single ? 8.5 : 4.45;
-      addChartToSlide(pptx, slide, chart, items, { x, y: 0.6, w, h: 4.4 });
+      addChartToSlide(pptx, slide, chart, items, { x, y: 0.6, w, h: 4.4 }, th);
     });
   }
 
@@ -173,13 +213,13 @@ export async function exportToPptx(
     h: 0.5,
     fontSize: 18,
     bold: true,
-    color: "1E293B",
+    color: th.fg,
   });
   last.addText(
     [generatedAt ? `데이터 기준일: ${generatedAt}` : "", "ClearSurvey"]
       .filter(Boolean)
       .join("    ·    "),
-    { x: 0.5, y: 2.9, w: 9, h: 0.4, fontSize: 12, color: "64748B" },
+    { x: 0.5, y: 2.9, w: 9, h: 0.4, fontSize: 12, color: th.muted },
   );
 
   await pptx.writeFile({ fileName: `${project}_dashboard.pptx` });
@@ -191,6 +231,7 @@ function addChartToSlide(
   chart: DashboardConfig["charts"][number],
   items: ChartDatum[],
   pos: { x: number; y: number; w: number; h: number },
+  th: PptTheme,
 ): void {
   const kind = chartKind(chart.type);
   const labels = items.map((it) => it.name);
@@ -202,7 +243,7 @@ function addChartToSlide(
     showTitle: true,
     title: t,
     titleFontSize: 14,
-    chartColors: PPT_PALETTE,
+    chartColors: th.palette,
   };
 
   if (kind.kind === "doughnut") {
