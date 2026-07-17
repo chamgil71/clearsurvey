@@ -17,10 +17,21 @@ All notable changes to the ClearSurvey project will be documented in this file.
 - **`docs/guides/cli_vs_web_guide.md`**: 존재하지 않는 `backend/cli.py`를 가리키고 인자 형식도
   실제와 달랐다(`--file`/`--project` vs 실제는 위치 인자). 실제 `main.py` 시그니처로 정정.
 
+### Removed
+- **`backend/uv.lock`**(210KB)과 **Dockerfile의 uv 의존**: `Dockerfile`이 `pip install uv` →
+  `uv sync --extra dev` → `CMD ["uv","run",...]`로 uv를 쓰고 있었다(처음에 `.bat`과 문서만 보고
+  "uv.lock은 아무도 안 쓴다"고 판단했으나 **오판**이었다 — Dockerfile을 놓쳤다).
+  → Dockerfile을 `pip install -e ".[dev]"` + `CMD ["python","-m","uvicorn",...]`로 바꿔
+  **로컬·CI·Docker 세 경로를 모두 pip으로 통일**하고 `uv.lock`을 제거했다. 이제 저장소에서
+  uv를 쓰는 곳은 없다.
+  - 트레이드오프: 프로덕션 이미지가 버전 고정(`uv.lock`)을 잃고 `pyproject.toml`의 범위를 따른다.
+    CI(`pip install -e ".[dev]"`)가 이미 같은 방식이라 새로 생긴 위험은 아니다.
+  - 레이어 캐시를 위해 `pyproject.toml`을 먼저 COPY하던 순서는 유지하되, `pip install -e`가
+    패키지를 찾으려면 소스가 먼저 있어야 하므로 소스 COPY를 설치 앞으로 옮겼다.
+
 ### Notes
 - **`uv sync`를 공용 venv에 실행하면 안 된다**: 잠금 파일에 없는 패키지를 *제거*하므로
-  `.venv314`(106개 패키지)에 대고 실행하면 다른 11개 프로젝트의 의존성이 날아간다. GUIDE에 경고 추가.
-- `backend/uv.lock`은 남겨뒀다 — 현재 워크플로·CI 어디서도 쓰지 않으므로 제거 여부는 별도 판단.
+  `.venv314`(106개 패키지)에 대고 실행하면 다른 11개 프로젝트의 의존성이 날아간다.
 
 **검증**: 수정한 `.bat`과 동일한 명령으로 백엔드 구동 확인(`Application startup complete`),
 `.venv314`로 `pytest` **282개 통과**, `python main.py --help` 정상.

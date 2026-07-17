@@ -150,9 +150,12 @@ cd frontend && bun install && cd ..
 > `start_backend.bat`도 이 경로를 기본값으로 쓰며, 다른 환경을 쓰려면 `CLEARSURVEY_PYTHON`에
 > `python.exe` 경로를 지정하면 된다.
 >
-> `backend/uv.lock`이 남아 있지만 현재 워크플로(공용 venv)와 CI(`pip install -e ".[dev]"`)는
-> uv를 쓰지 않는다. `uv sync`는 잠금 파일에 없는 패키지를 **제거**하므로 공용 venv에 대고
-> 실행하면 다른 프로젝트의 의존성이 날아간다 — 쓰지 말 것.
+> 의존성은 **로컬·CI·Docker 모두 `pip install -e ".[dev]"`**(`backend/pyproject.toml` 기준)로 통일돼
+> 있다. `pyproject.toml`은 파이썬 표준(PEP 621) 매니페스트라 pip이 그대로 읽으며, 별도 도구가 필요
+> 없다. 이 저장소는 uv를 쓰지 않는다(구 `uv.lock`은 제거됨).
+>
+> 혹시 uv를 쓰더라도 `uv sync`를 **공용 venv에 실행하지 말 것** — 잠금 파일에 없는 패키지를
+> **제거**하므로 `C:\ai` 다른 프로젝트의 의존성이 날아간다.
 
 ### 1단계: CLI 모드 (백엔드 없이)
 
