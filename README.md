@@ -24,6 +24,7 @@
   - **A4 PDF 저장**: 상세 패널 레이아웃(여백, Noto Serif 폰트, 정렬)을 A4 가로/세로 오피스 규격 PDF 파일로 즉시 저장 다운로드합니다.
 * **📤 대시보드 원클릭 PPT / PDF 내보내기**: 현재 필터가 적용된 상태 그대로 대시보드를 **PowerPoint(.pptx)** 또는 **A4 PDF**로 저장합니다. PPT는 이미지가 아니라 PowerPoint에서 수치·범례를 직접 편집할 수 있는 **네이티브 차트 객체**(타이틀 · KPI 요약표 · 차트 슬라이드)로 생성됩니다. 두 라이브러리 모두 버튼 클릭 시점에만 동적 로드되어 초기 로딩 성능에 영향이 없습니다.
 * **🧾 요약 탭 (표 + 문서 내보내기)**: 차트가 말하는 내용을 **표로 정리**해 보여주는 탭입니다. 차트 순서대로 `차트 제목 → 표(항목 · 값 · 비중)`가 이어지고, 하단 박스에 현재 필터 기준이 명시됩니다. 차트·필터를 바꾸면 표도 함께 바뀝니다(집계 함수를 차트와 공유하므로 수치가 어긋나지 않습니다). **A4 세로 PDF**와 편집 가능한 **Word(.docx)**로 내보낼 수 있고, 표에 표시할 열(값 · 비중 · 순위 · 누적 비중)은 어드민 Step 2에서 선택합니다.
+* **🎨 브랜드 테마 15종**: 토스·애플·카카오·듀오링고·버셀 등 **실제 브랜드의 디자인 시스템**에서 뽑아낸 테마를 프로젝트마다 골라 적용합니다(어드민 Step 2). 색·모서리 둥글기·차트 팔레트가 한 번에 바뀌며, 로고 텍스트와 브랜드 타이틀도 프로젝트별로 지정할 수 있습니다. 기본 테마는 **토스**입니다. 앱의 모든 색이 시멘틱 토큰으로 통일돼 있어 하드코딩 없이 설정만으로 제어됩니다. 원본 가이드 350종은 [`docs/design/`](docs/design/)에 있고 `bun scripts/build-themes.mjs` 로 언제든 재생성합니다. 상세: [`frontend/src/theme/README.md`](frontend/src/theme/README.md)
 * **💾 Excel Slicer 주입 해킹 기술**: 가공된 최종 엑셀 파일 내부에 네이티브 오피스 Slicer 피벗 XML을 파이썬 ZipArchive 컴파일 기법으로 강제 주입하여, 엑셀을 여는 순간 테이블 옆에 네이티브 다차원 필터링 버튼이 즉시 활성화됩니다.
 
 ---
@@ -118,7 +119,9 @@ ClearSurvey/
 │   ├── transforms/             # 날짜/주소/마스킹 등 개별 변환 함수 레지스트리
 │   └── tests/                  # pytest 단위·통합·API 테스트
 ├── frontend/                   # React / Vite / Tailwind+shadcn 웹 대시보드 및 3단계 마법사
+│   ├── scripts/                # build-themes.mjs (디자인 가이드 → 테마 생성)
 │   ├── src/                    # components/dashboard, components/manager, hooks, routes 등
+│   │   └── theme/              # 테마 팩 15종 + 카탈로그 (생성물 — theme/README.md 참조)
 │   ├── public/data/            # 발행된 대시보드 JSON (git 추적됨 — Vercel이 서빙하는 대상)
 │   └── tests/e2e/              # Playwright e2e 테스트
 ├── storage/                    # [Git 제외 — raw/backup] 프로젝트 레시피(config.yaml/dashboard.json)와
@@ -127,6 +130,7 @@ ClearSurvey/
 └── docs/                       # 설계·가이드·로그 문서 보관 폴더 — 인덱스: docs/INDEX.md
     ├── plan/                   # 설계/기획서 — prd.md(살아있는 문서),
     │                           #   plan/complete/ = 완료(보존), plan/pending/ = 미착수
+    ├── design/                 # 브랜드 350종 디자인 시스템 가이드 — 테마 팩의 원본 데이터
     ├── guides/                 # 운영/사용 가이드 (살아있는 참조 문서)
     ├── logs/                   # 작업 이력·테스트 결과 (append-only)
     └── archive/                # 현재 아키텍처와 맞지 않는 구버전 문서

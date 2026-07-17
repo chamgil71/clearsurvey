@@ -474,6 +474,41 @@ function main() {
   ].join("\n");
   writeFileSync(PRESETS_FILE, presets, "utf-8");
 
+  // 앱이 쓰는 것은 활성 15종의 메타데이터뿐이다(~1KB). catalog.json(720KB)을 registry.ts 가
+  // import 하면 __root.tsx 를 타고 초기 번들에 통째로 들어간다 — 실제로 index 청크가
+  // 431KB -> 886KB 로 불어났다. 색 값은 CSS(presets.css)가 담당하므로 JS 에 있을 이유가 없다.
+  const registryTs = [
+    "// 생성물 — bun scripts/build-themes.mjs. 직접 수정하지 말 것.",
+    "// catalog.json 에서 활성 테마의 메타데이터만 뽑았다(번들 크기 때문 — registry.ts 주석 참조).",
+    "",
+    "export interface ThemePresetMeta {",
+    "  id: string;",
+    "  label: string;",
+    "  description: string;",
+    "  source: string;",
+    "  hasDark: boolean;",
+    "  darkFirst: boolean;",
+    "}",
+    "",
+    "export const THEME_PRESET_META: ThemePresetMeta[] = [",
+    ...active.map(
+      (e) =>
+        "  " +
+        JSON.stringify({
+          id: e.id,
+          label: e.label,
+          description: e.description,
+          source: e.source,
+          hasDark: Boolean(e.dark),
+          darkFirst: Boolean(e.handmadeDarkMode),
+        }) +
+        ",",
+    ),
+    "];",
+    "",
+  ].join("\n");
+  writeFileSync(path.join(THEME_DIR, "registry.gen.ts"), registryTs, "utf-8");
+
   writeFileSync(
     CATALOG_FILE,
     JSON.stringify(

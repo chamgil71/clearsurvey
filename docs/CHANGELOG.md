@@ -2,6 +2,66 @@
 
 All notable changes to the ClearSurvey project will be documented in this file.
 
+## [2026-07-17] 테마 시스템 — 테마 15종 · 프로젝트별 적용 · 하드코딩 제거
+
+계획: [plan/complete/theme_system_plan.md](plan/complete/theme_system_plan.md).
+**기본 테마가 `toss`로 바뀌었다** (기존 shadcn 기본값은 `light` 프리셋으로 남아 있다).
+
+### Added
+- **테마 팩 15종**(`frontend/src/theme/`): `light`·`dark`(현행 shadcn 기본값) + 가이드 파생 11종
+  (`toss`·`apple-hig`·`anthropic`·`claude`·`linear`·`vercel`·`duolingo`·`datadog`·`kakao`·
+  `github-primer`·`airbnb`) + 수작업 이관 2종(`ink`·`forest`). 나머지 215종은 `catalog.json`에 백업.
+- **`docs/design/design_system_guides/`**: 브랜드 350종 디자인 가이드. `new-beginnings`에서 가져와
+  **이 저장소로 이관**했다 — 처음엔 옆 저장소 경로를 참조했으나 그러면 테마를 재생성할 수 없다.
+- **`frontend/scripts/build-themes.mjs`**: 가이드 → 카탈로그 + 드롭인 CSS + 런타임 프리셋 생성.
+  `new-beginnings/scripts/build-design-catalog.mjs`를 이식하되, 그쪽이 `{id}.md`/`{id}.dark.md`를
+  별개 테마로 다루는 것과 달리 **두 파일을 짝지어** 하나의 테마로 만든다(`{id}.dark.md`의 `:root`가
+  완전한 다크 토큰셋이라 `{id}.md` 안의 6줄짜리 축약 블록보다 낫다).
+- **`scripts/lib/color.mjs`**: hex/rgba → oklch 변환(`pdfColorFix.ts`의 역행렬). 왕복 테스트로 고정.
+- **`--success`·`--warning`·`--highlight` 토큰**: shadcn 기본엔 없으나 이 앱이 실제로 쓰는 시맨틱 색
+  (실행/완료·주의·검색 형광펜). 원본 가이드의 `--color-success-fg` 등과 대응된다.
+- **프로젝트별 테마**: 어드민 Step2 → "대시보드 비주얼 레이아웃" → 테마 및 디자인 설정.
+  `dashboard.theme.preset`에 저장되고 `<html data-theme="{id}">`로 반영된다.
+
+### Changed
+- **하드코딩 색상 276 → 33건**: 어드민 쪽 Tailwind 팔레트 하드코딩을 시멘틱 토큰으로 치환.
+  공개 대시보드는 이미 0건이었고(design-migration Phase 2), 남은 건 `config/*` 카드들이었다.
+  기존에 어드민은 블루, 공개 대시보드는 네이비로 어긋나 있었는데 이제 같은 브랜드 색을 따른다.
+- **`DashboardTheme` 타입 통일**: `primaryColor`·`chartPalette` **폐기**. 프리셋이 이미 primary와
+  차트 색을 정하는데 별도 필드를 남기면 둘 중 뭐가 이기는지 모호해진다 — 색은 테마 한 곳에서만
+  결정한다. `DashboardThemeCard`의 로컬 `ThemeConfig`(필드가 어긋나 있던 별도 정의)도 제거.
+- **동작하지 않던 필드 구현**: `logoText`(헤더 로고)·`brandTitle`(옆 보조 텍스트)·`borderRadius`
+  (`--radius` 오버라이드)가 실제로 반영된다. 이들은 타입·UI에만 있고 구현이 없었다.
+- **`routes/__root.tsx`**: 첫 페인트 전 테마를 심는 인라인 스크립트(`THEME_BOOT`) 추가. React가
+  붙은 뒤 적용하면 기본 테마로 한 번 그려졌다가 바뀌어 색이 번쩍인다(FOUC).
+
+### Fixed
+- **죽어 있던 테마 코드 3종**: `DashboardThemeCard`(import 0곳)·`updateTheme`(전달 0곳)·`cfg.theme`
+  (읽는 곳 0곳). [remaining_improvements §3](plan/complete/remaining_improvements.md)이 지적했던
+  문제로, 그때 `layout`만 살리고 `theme`은 남아 있었다.
+
+### Notes
+- **색 표기는 oklch를 유지한다.** 초안은 "hex로 통일"이었으나 폐기했다 — 근거로 든 "html2canvas가
+  oklch를 못 읽어 PDF가 깨진다"는 `pdfColorFix.ts`가 **이미 해결한 문제**였다. 이미 값을 치른 문제를
+  새 결정의 근거로 삼은 것이 오류였고, Tailwind v4 기본 팔레트가 oklch라 이탈 비용이 크다.
+  가이드 원본(hex)은 빌드 시 1회 변환한다.
+- **차트 팔레트는 자동 도출이 아니라 수작업이다.** 15종을 진단하니 12종이 부적합했다 — 본문 텍스트용
+  색을 조각으로 고르거나(`toss` `#191F28` → 도넛이 검정), 모노크롬 브랜드라 5색 중 3색이 무채색이거나
+  (`vercel`), semantic 색이 부족해 primary 램프만 반복해 색상이 사실상 같았다(Δh≈0~3°).
+  11종에 `overrides/{id}.json`을 두어 각 브랜드가 실제로 쓰는 팔레트로 확정했다.
+- **테마 저장은 export를 해야 공개 대시보드에 반영된다.** 공개 대시보드는
+  `public/data/{name}_data.json`을 읽고 그 안의 `dashboard`는 export 시점 스냅샷이다. 테마만의
+  제약이 아니라 차트·KPI 등 모든 dashboard 설정에 해당하는 기존 구조다.
+- **남은 하드코딩 33건은 의도적이다**: `GuideDrawer.GROUP_COLORS` 28건(정제 규칙 그룹 7색 —
+  범주형 팔레트라 테마 색으로 뭉치면 그룹을 구별할 수 없다)과 `Step3` 터미널 로그 5건(컨테이너가
+  `bg-black` 고정이라 테마 토큰을 쓰면 라이트 테마에서 대비가 사라진다).
+
+**검증**: `tsc --noEmit` 통과 · vitest **344개** 통과(시작 시 173) · `bun run build` 성공 ·
+e2e **20개** 통과(CI 모드) · lint 313(기준선 314). 브라우저로 확인 — 기본이 toss(Toss Blue,
+radius 12px), 어드민에서 kakao 저장 → export → 공개 대시보드가 카카오 옐로 + 로고/브랜드 반영.
+CSS 명시도 버그 2건을 브라우저 검증에서 잡았다(프리셋이 `:root`에 지던 것, 다크에서 radius가
+리셋되던 것) — 타입체크·테스트로는 잡히지 않는 종류라 계산값을 직접 읽어야 발견된다.
+
 ## [2026-07-17] 백엔드 실행 환경을 공용 venv(.venv314)로 정리
 
 ### Changed
