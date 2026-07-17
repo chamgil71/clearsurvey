@@ -15,7 +15,7 @@ PDF(A4 세로) / DOCX로 내보낸다.
 
 > **작성일**: 2026-07-17  
 > **대상 범위**: `frontend/` 전용 (백엔드 수정 없음)  
-> **관련 문서**: [complete/chart_export_plan.md](complete/chart_export_plan.md) — 기존 PPT/PDF 내보내기와
+> **관련 문서**: [chart_export_plan.md](chart_export_plan.md) — 기존 PPT/PDF 내보내기와
 > 같은 집계 함수(`buildChartItems`)를 공유한다.
 
 ---
@@ -204,7 +204,7 @@ export async function exportToPdf(
 
 요약 탭은 `{ orientation: "portrait", suffix: "summary" }` → `mumhwa_summary.pdf`.
 `pdfColorFix`(oklch 회피)와 다크모드 원복 로직을 그대로 물려받는다 —
-[chart_export_plan.md §10](complete/chart_export_plan.md) 참조.
+[chart_export_plan.md §10](chart_export_plan.md) 참조.
 
 ### 5-B. DOCX
 
@@ -295,7 +295,7 @@ bun run build
 
 > [!NOTE]
 > 다크모드 PDF는 기존 `exportPdf.ts`의 `.dark` 제거/원복 로직을 그대로 물려받는다
-> ([chart_export_plan.md](complete/chart_export_plan.md)에서 이미 검증된 경로).
+> ([chart_export_plan.md](chart_export_plan.md)에서 이미 검증된 경로).
 
 ---
 

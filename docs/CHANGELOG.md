@@ -2,9 +2,32 @@
 
 All notable changes to the ClearSurvey project will be documented in this file.
 
+## [2026-07-17] 백엔드 실행 환경을 공용 venv(.venv314)로 정리
+
+### Changed
+- **`start_backend.bat`**: `uv run uvicorn` → `C:\ai\.venv314`의 `python -m uvicorn`. `C:\ai` 아래
+  12개 프로젝트가 이 가상환경을 **공유**하는데 이 배치 파일만 uv를 요구해, uv 미설치 환경에서
+  `'uv' is not recognized`로 실행이 실패했다. 경로는 `CLEARSURVEY_PYTHON` 환경변수로 덮을 수 있고,
+  없으면 무엇을 설정해야 하는지 안내하고 종료한다.
+  → uv는 이 프로젝트에서 이 한 줄에서만 쓰이고 있었다. CI는 이미 `pip install -e ".[dev]"`를 쓴다.
+- **문서의 uv 안내 갱신**: `README.md`·`GUIDE.md`(`uv sync` → venv 활성화 + `pip install -e ".[dev]"`,
+  `uv run main.py` → `python main.py` 17건), `agents.md`(`uv run --extra dev pytest` → `pytest`).
+
+### Fixed
+- **`docs/guides/cli_vs_web_guide.md`**: 존재하지 않는 `backend/cli.py`를 가리키고 인자 형식도
+  실제와 달랐다(`--file`/`--project` vs 실제는 위치 인자). 실제 `main.py` 시그니처로 정정.
+
+### Notes
+- **`uv sync`를 공용 venv에 실행하면 안 된다**: 잠금 파일에 없는 패키지를 *제거*하므로
+  `.venv314`(106개 패키지)에 대고 실행하면 다른 11개 프로젝트의 의존성이 날아간다. GUIDE에 경고 추가.
+- `backend/uv.lock`은 남겨뒀다 — 현재 워크플로·CI 어디서도 쓰지 않으므로 제거 여부는 별도 판단.
+
+**검증**: 수정한 `.bat`과 동일한 명령으로 백엔드 구동 확인(`Application startup complete`),
+`.venv314`로 `pytest` **282개 통과**, `python main.py --help` 정상.
+
 ## [2026-07-17] 대시보드 요약 탭 신설
 
-계획: [plan/summary_tab_plan.md](plan/summary_tab_plan.md).
+계획: [plan/complete/summary_tab_plan.md](plan/complete/summary_tab_plan.md).
 
 ### Added
 - **요약 탭**(`frontend/src/components/dashboard/SummaryTab.tsx`): 차트가 말하는 내용을 표로 정리하는

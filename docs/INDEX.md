@@ -5,7 +5,7 @@
 > 시작점은 프로젝트 루트의 [`GUIDE.md`](../GUIDE.md)(빠른 시작·CLI·Config 레퍼런스)입니다. 이 인덱스는 그보다 더 깊은 개별 주제 문서를 찾을 때 사용하세요.
 
 **분류 기준**
-- **`plan/`** — 앞으로 할 일 또는 "왜 이렇게 만들었는지"를 설명하는 설계/기획 문서. 구현 완료 여부와 무관하게 기획 의도를 남기기 위해 보관합니다. 착수하지 않은 항목은 `plan/pending/`에 둡니다.
+- **`plan/`** — 앞으로 할 일 또는 "왜 이렇게 만들었는지"를 설명하는 설계/기획 문서. 구현 완료 여부와 무관하게 기획 의도를 남기기 위해 보관합니다. 완료된 계획은 `plan/complete/`, 착수하지 않은 항목은 `plan/pending/`에 두고, `plan/` 최상위에는 살아있는 문서(`prd.md`)만 남깁니다.
 - **`guides/`** — 지금 이 순간의 운영/사용 방법을 설명하는 살아있는 참조 문서. 코드가 바뀌면 같이 갱신되어야 합니다.
 - **`logs/`** — 과거 시점의 작업 이력·테스트 결과 기록. 사후에 고치지 않는 append-only 기록입니다.
 - **`archive/`** — 더 이상 현재 아키텍처와 맞지 않거나 다른 문서에 흡수되어 참고용으로만 남긴 구버전 문서.
@@ -18,7 +18,6 @@
 남기기 위해 삭제하지 않고 `complete/` 하위 폴더에 그대로 보존합니다.
 
 * **[plan/prd.md](plan/prd.md)**: ClearSurvey 서비스의 제품 정의, 핵심 기능 스코프, 기술 아키텍처를 정의한 제품 요구사항 정의서(PRD).
-* **[plan/summary_tab_plan.md](plan/summary_tab_plan.md)** — ✅ 완료(2026-07-17): 공개 대시보드 **요약 탭** 기획서. 차트 집계를 차트 순서대로 표(항목/값/비중)로 정리하고 PDF(A4 세로)·DOCX로 내보낸다. §8에 설계 결정 근거(집계 재사용, `max_items` 절단 시 비중 기준 등).
 
 ### 완료된 계획 (`docs/plan/complete/`)
 
@@ -30,6 +29,7 @@
 * **[plan/complete/remaining_improvements.md](plan/complete/remaining_improvements.md)** — ✅ 5개 항목 전부 완료: 1.다중 엑셀 병합 웹 UI·2.번들 최적화·3.차트 그리드 auto-fit/가로 4열+설정 UI·4."정제 규칙 최신 반영 여부" 배지·5.transform 테스트 공백(→ transform_test_plan.md). §3·§4는 2026-07-16 브라우저 시각 검증까지 완료. 클라우드 스토리지 연동 및 Supabase 세션 개선(완료)은 [plan/pending/cloud_storage_plan.md](plan/pending/cloud_storage_plan.md)로 분리 이관.
 * **[plan/complete/transform_test_plan.md](plan/complete/transform_test_plan.md)** — ✅ 완료(2026-07-15): 정제 규칙(transform) 함수별 단위테스트 커버리지 공백 및 보강 계획서. 전체 282개 테스트 통과.
 * **[plan/complete/package_upgrade_plan.md](plan/complete/package_upgrade_plan.md)** — ✅ 완료(2026-07-17): 프론트엔드 의존성 업그레이드(recharts 3 · lucide-react 1 · vite 8) 위험도 분석과 단계별 실행 계획. 락파일 bun 일원화, 미사용 의존성(zod·@tanstack/start) 제거 포함.
+* **[plan/complete/summary_tab_plan.md](plan/complete/summary_tab_plan.md)** — ✅ 완료(2026-07-17): 공개 대시보드 **요약 탭** 기획서. 차트 집계를 차트 순서대로 표(항목/값/비중)로 정리하고 PDF(A4 세로)·DOCX로 내보낸다. §8에 설계 결정 근거(집계 재사용, `max_items` 절단 시 비중 기준 등).
 
 ### 착수하지 않은 계획 (`docs/plan/pending/`)
 

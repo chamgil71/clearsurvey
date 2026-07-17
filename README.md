@@ -23,6 +23,7 @@
   - **우측 상세 드로어**: 테이블 행 클릭 시 화면 우측에서 부드럽게 미끄러지듯 노출되는 Drawer 상세 템플릿.
   - **A4 PDF 저장**: 상세 패널 레이아웃(여백, Noto Serif 폰트, 정렬)을 A4 가로/세로 오피스 규격 PDF 파일로 즉시 저장 다운로드합니다.
 * **📤 대시보드 원클릭 PPT / PDF 내보내기**: 현재 필터가 적용된 상태 그대로 대시보드를 **PowerPoint(.pptx)** 또는 **A4 PDF**로 저장합니다. PPT는 이미지가 아니라 PowerPoint에서 수치·범례를 직접 편집할 수 있는 **네이티브 차트 객체**(타이틀 · KPI 요약표 · 차트 슬라이드)로 생성됩니다. 두 라이브러리 모두 버튼 클릭 시점에만 동적 로드되어 초기 로딩 성능에 영향이 없습니다.
+* **🧾 요약 탭 (표 + 문서 내보내기)**: 차트가 말하는 내용을 **표로 정리**해 보여주는 탭입니다. 차트 순서대로 `차트 제목 → 표(항목 · 값 · 비중)`가 이어지고, 하단 박스에 현재 필터 기준이 명시됩니다. 차트·필터를 바꾸면 표도 함께 바뀝니다(집계 함수를 차트와 공유하므로 수치가 어긋나지 않습니다). **A4 세로 PDF**와 편집 가능한 **Word(.docx)**로 내보낼 수 있고, 표에 표시할 열(값 · 비중 · 순위 · 누적 비중)은 어드민 Step 2에서 선택합니다.
 * **💾 Excel Slicer 주입 해킹 기술**: 가공된 최종 엑셀 파일 내부에 네이티브 오피스 Slicer 피벗 XML을 파이썬 ZipArchive 컴파일 기법으로 강제 주입하여, 엑셀을 여는 순간 테이블 옆에 네이티브 다차원 필터링 버튼이 즉시 활성화됩니다.
 
 ---
@@ -111,7 +112,7 @@ ClearSurvey/
 ├── start_all.bat               # 백엔드+프론트엔드 동시 기동
 ├── backend/                    # Python 정제 엔진 + FastAPI 서버
 │   ├── main.py                 # CLI 데이터 정제 및 내보내기 조율 스크립트
-│   ├── pyproject.toml          # 파이썬 의존성 패키지 명세 (uv)
+│   ├── pyproject.toml          # 파이썬 의존성 패키지 명세 (pip install -e ".[dev]")
 │   ├── app/                    # FastAPI 백엔드 서버 (main.py)
 │   ├── engine/                 # 핵심 정제 파이프라인 코어 엔진 모듈
 │   ├── transforms/             # 날짜/주소/마스킹 등 개별 변환 함수 레지스트리
@@ -124,7 +125,8 @@ ClearSurvey/
 │   │                           #   업로드 원본 엑셀을 함께 보관 (projects/{name}/, raw/, backup/)
 │   └── projects/{name}/        # 프로젝트별 config.yaml, dashboard.json, output/
 └── docs/                       # 설계·가이드·로그 문서 보관 폴더 — 인덱스: docs/INDEX.md
-    ├── plan/                   # 설계/기획서 (완료 여부 무관하게 보관), plan/pending/ = 미착수
+    ├── plan/                   # 설계/기획서 — prd.md(살아있는 문서),
+    │                           #   plan/complete/ = 완료(보존), plan/pending/ = 미착수
     ├── guides/                 # 운영/사용 가이드 (살아있는 참조 문서)
     ├── logs/                   # 작업 이력·테스트 결과 (append-only)
     └── archive/                # 현재 아키텍처와 맞지 않는 구버전 문서
@@ -184,7 +186,7 @@ pytest -v
 
 ### TypeScript 타입 체크
 ```bash
-cd frontend && bun install && npx tsc --noEmit
+cd frontend && bun install && bunx tsc --noEmit
 ```
 
 ### 프론트엔드 단위 테스트 (vitest)
@@ -195,8 +197,8 @@ cd frontend && bun run test
 ### Playwright E2E 테스트
 ```bash
 cd frontend
-npx playwright install --with-deps chromium
-npx playwright test
+bunx playwright install --with-deps chromium
+bunx playwright test
 # 결과는 docs/logs/ 에 저장됨 (gitignore)
 ```
 

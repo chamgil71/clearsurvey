@@ -179,7 +179,7 @@ python main.py export ../storage/projects/gpu_raw_data_3/config.yaml
 # 5. 웹 대시보드 확인 (프로젝트 최상위 루트로 복귀 후)
 cd ..
 start_web.bat       # Windows
-# 또는: cd frontend && npm run dev → http://localhost:5173
+# 또는: cd frontend && bun run dev → http://localhost:5173
 ```
 
 ### 2단계: 웹 마법사 모드
