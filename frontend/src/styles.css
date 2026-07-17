@@ -1,5 +1,14 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+/* build-themes:presets:start
+ * 프로젝트별 테마 프리셋 — html[data-theme="{id}"] 블록. 생성물이므로 직접 고치지 말 것
+ * (bun scripts/build-themes.mjs). 아래 :root 는 기본 테마이고, data-theme 속성이 붙으면
+ * 그 블록이 덮는다. 이 import 가 없으면 어드민에서 테마를 골라도 색이 바뀌지 않는다.
+ *
+ * 이 구간은 드롭인 테마(theme/{id}.css)를 만들 때 통째로 제거된다 — 드롭인은 테마 하나만
+ * 담는 완결 파일이라 프리셋 전체를 끌고 오면 안 된다. 마커를 지우지 말 것. */
+@import "./theme/presets.css";
+/* build-themes:presets:end */
 @source "../src";
 @custom-variant dark (&:is(.dark *));
 

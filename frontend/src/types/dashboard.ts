@@ -58,14 +58,26 @@ export type ChartItem =
       layout?: "1x1" | "2x1" | "2x2" | "0.5x1" | "full";
     };
 
+/**
+ * 프로젝트별 테마. 없으면 앱 기본 테마를 쓴다(하위 호환).
+ *
+ * `preset` 을 유니온 타입으로 좁히지 않는다 — 좁히면 테마 추가가 타입 변경이 되어 확장을 막는다.
+ * 대신 런타임에 theme/registry.ts 로 검증하고, 모르는 값은 기본 테마로 떨군다.
+ *
+ * 구 `primaryColor`·`chartPalette` 는 폐기했다. 프리셋이 이미 primary 와 차트 색을 정하는데
+ * 별도 필드를 남기면 둘 중 뭐가 이기는지 모호해진다 — 색은 테마 한 곳에서만 결정한다.
+ */
 export interface DashboardTheme {
+  /** theme/registry.ts 의 테마 id. 예: "toss" */
   preset?: string;
+  /** 프로젝트 기본 명암. 사용자가 헤더에서 토글하면 그쪽(localStorage)이 우선한다. */
   mode?: "라이트 모드" | "다크 모드";
-  primaryColor?: string;
+  /** 테마의 기본 --radius 를 덮는다. 예: "16px" */
   borderRadius?: string;
-  brandTitle?: string;
+  /** 헤더 로고 텍스트. 기본 "ClearSurvey" */
   logoText?: string;
-  chartPalette?: string;
+  /** 로고 옆 보조 텍스트 + 문서 title */
+  brandTitle?: string;
 }
 
 export interface DashboardLayout {

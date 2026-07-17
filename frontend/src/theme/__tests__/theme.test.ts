@@ -105,7 +105,7 @@ describe("생성된 CSS", () => {
   it.each(activeIds)("%s 의 드롭인과 presets.css 값이 일치한다", (id) => {
     // 두 산출물이 한 소스에서 나오는지 고정 — 손으로 두 번 쓰면 반드시 갈라진다.
     const presets = readFileSync(path.join(THEME_DIR, "presets.css"), "utf-8");
-    const scoped = parseBlock(presets, `[data-theme="${id}"]`);
+    const scoped = parseBlock(presets, `html[data-theme="${id}"]:not(.dark)`);
     const e = byId.get(id)!;
     expect(Object.keys(scoped).length, `${id} 프리셋 블록 없음`).toBeGreaterThan(0);
     for (const t of COLOR_TOKENS) {
@@ -124,7 +124,48 @@ describe("생성된 CSS", () => {
   it("다크 프리셋 선택자는 .dark 와 조합된다", () => {
     // .dark(명암)와 [data-theme](브랜드)은 다른 축이라 조합이 성립해야 한다.
     const presets = readFileSync(path.join(THEME_DIR, "presets.css"), "utf-8");
-    expect(presets).toContain('[data-theme="toss"].dark');
+    expect(presets).toContain('html[data-theme="toss"].dark');
+  });
+
+  it("프리셋 선택자는 html[...] 로 :root 를 이긴다", () => {
+    // @import 는 파일 앞에 와야 하므로 프리셋 규칙이 styles.css 의 :root 보다 먼저 온다.
+    // 같은 명시도면 나중 규칙이 이기므로, html 을 붙여 (0,2,1) 로 올려야 프리셋이 적용된다.
+    const presets = readFileSync(path.join(THEME_DIR, "presets.css"), "utf-8");
+    expect(presets).not.toMatch(/^\[data-theme=/m);
+    expect(presets).toContain('html[data-theme="toss"]:not(.dark)');
+  });
+
+  it("라이트 블록은 :not(.dark) 로 한정된다", () => {
+    // 자체 다크가 없는 테마(forest)가 기본 .dark 로 폴백하려면 라이트가 다크에서 빠져야 한다.
+    const presets = readFileSync(path.join(THEME_DIR, "presets.css"), "utf-8");
+    expect(presets).toContain('html[data-theme="forest"]:not(.dark)');
+    expect(presets).not.toContain('html[data-theme="forest"].dark');
+  });
+
+  it.each(activeIds)("%s — 프리셋 라이트/다크 블록 모두 --radius 를 갖는다", (id) => {
+    // 라이트 블록이 :not(.dark) 라, 다크 블록에 radius 가 없으면 다크 모드에서 :root 기본값으로
+    // 되돌아간다(실제로 toss 가 12px -> 0.625rem 으로 리셋되는 버그가 있었다).
+    const presets = readFileSync(path.join(THEME_DIR, "presets.css"), "utf-8");
+    const e = byId.get(id)!;
+    expect(parseBlock(presets, `html[data-theme="${id}"]:not(.dark)`).radius).toBe(e.radius);
+    if (e.dark) {
+      expect(parseBlock(presets, `html[data-theme="${id}"].dark`).radius).toBe(e.radius);
+    }
+  });
+
+  it("styles.css 가 presets.css 를 import 한다", () => {
+    // 이게 빠지면 어드민에서 테마를 골라도 색이 바뀌지 않는다 — 조용히 실패하는 지점.
+    const styles = readFileSync(path.join(THEME_DIR, "..", "styles.css"), "utf-8");
+    expect(styles).toContain('@import "./theme/presets.css"');
+  });
+
+  it("드롭인 CSS 는 presets 를 끌어오지 않는다", () => {
+    // 드롭인은 테마 하나만 담는 완결 파일이다. presets import 가 남으면 경로도 틀리고
+    // 다른 테마까지 딸려온다.
+    for (const id of ["toss", "light"]) {
+      const css = readFileSync(path.join(THEME_DIR, `${id}.css`), "utf-8");
+      expect(css, `${id}.css`).not.toContain("presets.css");
+    }
   });
 });
 

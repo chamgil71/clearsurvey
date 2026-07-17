@@ -8,6 +8,7 @@ import { KpiRow } from "@/components/dashboard/KpiRow";
 import { FilterBar } from "@/components/dashboard/FilterBar";
 import { ChartCard } from "@/components/dashboard/ChartCard";
 import { SummaryTab } from "@/components/dashboard/SummaryTab";
+import { resolveTheme, applyTheme, USER_MODE_KEY } from "@/theme/apply";
 import { DataTable } from "@/components/dashboard/DataTable";
 import { GuideDrawer } from "@/components/dashboard/GuideDrawer";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
@@ -46,26 +47,12 @@ function DashboardPage() {
   const [tab, setTab] = useState<"dashboard" | "list" | "summary">("dashboard");
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<Record<string, string>>({});
-  const [theme, setTheme] = useState<string>("");
+  // null = 사용자가 아직 명암을 고르지 않음 → 프로젝트 기본(cfg.theme.mode)을 따른다.
+  const [theme, setTheme] = useState<string | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
   const [exporting, setExporting] = useState<"ppt" | "pdf" | "docx" | null>(null);
   const dashboardRef = useRef<HTMLDivElement>(null);
   const summaryRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const saved = typeof window !== "undefined" ? localStorage.getItem("theme") || "" : "";
-    setTheme(saved);
-    if (typeof document !== "undefined") {
-      document.documentElement.classList.toggle("dark", saved === "dark");
-    }
-  }, []);
-
-  const toggleTheme = () => {
-    const next = theme === "dark" ? "" : "dark";
-    setTheme(next);
-    document.documentElement.classList.toggle("dark", next === "dark");
-    localStorage.setItem("theme", next);
-  };
 
   const handleExportPptx = async () => {
     if (!cfg || !data) return;
@@ -133,6 +120,25 @@ function DashboardPage() {
     return saved || buildDefaultConfig(data.meta);
   }, [data]);
 
+  // 프로젝트 테마(cfg.theme) + 사용자의 명암 선택을 합쳐 DOM 에 반영한다.
+  // 사용자가 헤더에서 토글했으면 그쪽이 프로젝트 기본값보다 우선한다(resolveTheme).
+  const resolvedTheme = useMemo(() => resolveTheme(cfg?.theme, theme), [cfg?.theme, theme]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setTheme(localStorage.getItem(USER_MODE_KEY));
+  }, []);
+
+  useEffect(() => {
+    applyTheme(resolvedTheme);
+  }, [resolvedTheme]);
+
+  const toggleTheme = () => {
+    const next = resolvedTheme.dark ? "" : "dark";
+    setTheme(next);
+    localStorage.setItem(USER_MODE_KEY, next);
+  };
+
   useEffect(() => {
     setSearch("");
     setFilters({});
@@ -190,8 +196,13 @@ function DashboardPage() {
             className="font-bold text-base text-primary flex items-center gap-1.5 bg-transparent border-none p-0 cursor-pointer"
           >
             <BarChart3 className="h-4 w-4" />
-            ClearSurvey
+            {resolvedTheme.logoText}
           </button>
+          {resolvedTheme.brandTitle && (
+            <span className="text-xs text-muted-foreground hidden md:block">
+              {resolvedTheme.brandTitle}
+            </span>
+          )}
 
           <Select value={url ?? undefined} onValueChange={(v) => v && switchProject(v)}>
             <SelectTrigger title="프로젝트 선택" className="h-8 w-auto max-w-[240px] text-xs">

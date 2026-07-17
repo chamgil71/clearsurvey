@@ -2,7 +2,21 @@ import type { DashboardConfig, DataMeta } from "@/types/dashboard";
 
 export const configKey = (project: string) => `survey-dash-config-${project}`;
 
+/**
+ * 구 theme 필드 제거. `primaryColor`·`chartPalette` 는 테마 프리셋과 개념이 겹쳐 폐기했다
+ * (theme_system_plan §4-F). 저장된 값이 있어도 무시하고 버린다 — 남겨두면 프리셋과 둘 중
+ * 뭐가 이기는지 모호해진다.
+ */
+function migrateTheme(theme: DashboardConfig["theme"]): DashboardConfig["theme"] {
+  if (!theme) return theme;
+  const { primaryColor, chartPalette, ...rest } = theme as Record<string, unknown>;
+  void primaryColor;
+  void chartPalette;
+  return rest as DashboardConfig["theme"];
+}
+
 export function migrateConfig(parsed: DashboardConfig): DashboardConfig {
+  if (parsed.theme) parsed = { ...parsed, theme: migrateTheme(parsed.theme) };
   if (!parsed.charts || !Array.isArray(parsed.charts)) return parsed;
   const charts = parsed.charts
     .filter((c) => c != null)

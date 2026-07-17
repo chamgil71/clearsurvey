@@ -9,6 +9,7 @@
  */
 @import "tailwindcss";
 @import "tw-animate-css";
+
 @source "../src";
 @custom-variant dark (&:is(.dark *));
 
@@ -118,6 +119,7 @@
 }
 
 .dark {
+  --radius: 6px;
   --background: oklch(0 0 0);
   --foreground: oklch(1 0 0);
   --card: oklch(0.178 0 0);

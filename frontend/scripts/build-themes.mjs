@@ -380,12 +380,33 @@ const cssBlock = (selector, entry, variant) => {
   const colors = variant === "dark" ? entry.dark : entry.light;
   const chart = (variant === "dark" ? entry.chart.dark : entry.chart.light) ?? entry.chart.light;
   const lines = [`${selector} {`];
-  if (variant !== "dark") lines.push(`  --radius: ${entry.radius};`);
+  // radius 는 명암과 무관하므로 두 블록 모두에 넣는다. 프리셋의 라이트 블록은 :not(.dark) 로
+  // 한정돼 있어, 다크 블록에 없으면 다크 모드에서 styles.css 의 :root 기본값으로 되돌아간다.
+  lines.push(`  --radius: ${entry.radius};`);
   for (const [k, v] of Object.entries(colors)) if (v) lines.push(`  --${k}: ${v};`);
   chart.forEach((c, i) => lines.push(`  --chart-${i + 1}: ${c};`));
   lines.push("}");
   return lines.join("\n");
 };
+
+/**
+ * styles.css 의 presets import 구간을 마커 기준으로 제거한다.
+ * 마커가 없으면(누가 지웠으면) 조용히 통과시키지 않고 알린다 — 드롭인에 프리셋 전체가
+ * 섞여 들어가면 원인을 찾기 어렵다.
+ */
+function stripPresetsImport(text) {
+  const START = "/* build-themes:presets:start";
+  const END = "/* build-themes:presets:end */";
+  const s = text.indexOf(START);
+  const e = text.indexOf(END);
+  if (s === -1 || e === -1) {
+    console.warn(
+      "⚠ styles.css 에서 build-themes:presets 마커를 찾지 못했다 — 드롭인에 프리셋이 섞일 수 있다.",
+    );
+    return text;
+  }
+  return text.slice(0, s) + text.slice(e + END.length).replace(/^\n/, "");
+}
 
 function writeDropIn(entry, baseCss) {
   const header = `/* ${entry.label} — ${entry.description}
@@ -423,7 +444,12 @@ function main() {
   const headerEnd = styles.indexOf(":root {");
   const layerStart = styles.indexOf("@layer base");
   const baseCss = {
-    header: styles.slice(0, headerEnd).trimEnd() + "\n",
+    // 드롭인은 그 테마 하나만 담는 완결 파일이다 — presets.css import 는 뺀다.
+    // (theme/{id}.css 에서 "./theme/presets.css" 는 경로도 틀리고 다른 테마까지 끌고 온다.)
+    // 드롭인은 테마 하나만 담는 완결 파일이므로 presets import 구간을 통째로 걷어낸다.
+    // styles.css 의 build-themes:presets:start/end 마커로 범위를 잡는다 — 주석을 정규식으로
+    // 더듬으면 취약하다.
+    header: stripPresetsImport(styles.slice(0, headerEnd)).trimEnd() + "\n",
     footer: layerStart === -1 ? "" : styles.slice(layerStart),
     darkFallback: "/* 이 테마는 다크 토큰이 없다 — 기본 .dark 를 그대로 쓴다. */",
   };
@@ -438,9 +464,12 @@ function main() {
     ' * 다크 블록 선택자는 [data-theme="{id}"].dark 이다. */',
     "",
     ...active.flatMap((e) => [
-      cssBlock(`[data-theme="${e.id}"]`, e, "light"),
+      // html[...] 로 명시도를 (0,2,1)로 올린다 — @import 는 파일 앞에 와야 하므로 프리셋 규칙이
+      // styles.css 의 :root(0,1,0)보다 먼저 오는데, 같은 명시도면 나중 규칙이 이겨 :root 가 이긴다.
+      // :not(.dark) 로 라이트를 한정해야 자체 다크가 없는 테마에서 기본 .dark 가 살아난다.
+      cssBlock(`html[data-theme="${e.id}"]:not(.dark)`, e, "light"),
       "",
-      ...(e.dark ? [cssBlock(`[data-theme="${e.id}"].dark`, e, "dark"), ""] : []),
+      ...(e.dark ? [cssBlock(`html[data-theme="${e.id}"].dark`, e, "dark"), ""] : []),
     ]),
   ].join("\n");
   writeFileSync(PRESETS_FILE, presets, "utf-8");
