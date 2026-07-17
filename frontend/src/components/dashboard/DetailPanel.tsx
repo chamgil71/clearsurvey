@@ -107,7 +107,7 @@ export function DetailPanel({
           className={
             saving
               ? "bg-muted text-muted-foreground cursor-not-allowed"
-              : "bg-green-600 hover:bg-green-700 text-white"
+              : "bg-success text-success-foreground hover:bg-success/90"
           }
         >
           {saving ? "⏳ 저장 중..." : "📄 PDF 다운로드"}

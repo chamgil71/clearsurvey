@@ -175,7 +175,7 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
                         <Checkbox
                           checked={isExcluded}
                           onCheckedChange={() => onExcludeToggle(index, isExcluded)}
-                          className="border-input rounded-sm data-[state=checked]:bg-primary data-[state=checked]:border-blue-600 h-4 w-4"
+                          className="border-input rounded-sm data-[state=checked]:bg-primary data-[state=checked]:border-primary h-4 w-4"
                         />
                       </div>
                     </TableCell>
@@ -185,7 +185,7 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
                         <Input
                           value={col.output_col}
                           onChange={(e) => onColumnChange(index, { output_col: e.target.value })}
-                          className="h-8 px-2 text-[13px] font-bold border-input bg-card hover:border-input focus-visible:ring-1 focus-visible:ring-blue-500 rounded-md transition-all shadow-sm"
+                          className="h-8 px-2 text-[13px] font-bold border-input bg-card hover:border-input focus-visible:ring-1 focus-visible:ring-ring rounded-md transition-all shadow-sm"
                         />
                         {col.source_col_name && (
                           <span className="text-[11px] text-muted-foreground pl-1 truncate">
@@ -199,7 +199,7 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
                       <select
                         value={col.type ?? ""}
                         onChange={(e) => onColumnChange(index, { type: e.target.value })}
-                        className="w-full h-8 px-2 text-[13px] border border-input bg-card rounded-md text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-blue-500 hover:border-input transition-all shadow-sm"
+                        className="w-full h-8 px-2 text-[13px] border border-input bg-card rounded-md text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-ring hover:border-input transition-all shadow-sm"
                       >
                         <option value="">자동 감지</option>
                         {COL_TYPES.map((t) => (
@@ -213,7 +213,7 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
                         value={col.source_col ?? ""}
                         disabled={isExcluded}
                         onChange={(e) => onColumnChange(index, { source_col: e.target.value ? Number(e.target.value) : undefined })}
-                        className="w-full h-8 px-1 text-center text-[13px] font-mono border border-input bg-card rounded-md text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-blue-500 hover:border-input disabled:opacity-50 transition-all shadow-sm"
+                        className="w-full h-8 px-1 text-center text-[13px] font-mono border border-input bg-card rounded-md text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-ring hover:border-input disabled:opacity-50 transition-all shadow-sm"
                       >
                         <option value="">-</option>
                         {sourceColOptions.map((n) => (
@@ -226,7 +226,7 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
                       <select
                         value={transform}
                         onChange={(e) => onTransformChange(index, e.target.value)}
-                        className="w-full h-8 px-2 text-[13px] border border-input bg-card rounded-md text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-blue-500 hover:border-input transition-all shadow-sm"
+                        className="w-full h-8 px-2 text-[13px] border border-input bg-card rounded-md text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-ring hover:border-input transition-all shadow-sm"
                       >
                         <option value="">기본 통과 (변경 없음)</option>
                         {TRANSFORM_GROUP_ORDER.map((group) => (
@@ -246,7 +246,7 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
                             placeholder="키워드 (예: 예, 동의)"
                             value={col.flag_keyword ?? ""}
                             onChange={(e) => onColumnChange(index, { flag_keyword: e.target.value })}
-                            className="h-8 px-2 text-[13px] border-input bg-card hover:border-input focus-visible:ring-1 focus-visible:ring-blue-500 rounded-md transition-all shadow-sm"
+                            className="h-8 px-2 text-[13px] border-input bg-card hover:border-input focus-visible:ring-1 focus-visible:ring-ring rounded-md transition-all shadow-sm"
                           />
                         )}
                         {NEEDS_SOURCE_COLS.has(transform) && (
@@ -257,14 +257,14 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
                               const nums = parseSourceColsInput(e.target.value);
                               onColumnChange(index, { source_cols: nums });
                             }}
-                            className="h-8 px-2 text-[13px] font-mono border-input bg-card hover:border-input focus-visible:ring-1 focus-visible:ring-blue-500 rounded-md transition-all shadow-sm"
+                            className="h-8 px-2 text-[13px] font-mono border-input bg-card hover:border-input focus-visible:ring-1 focus-visible:ring-ring rounded-md transition-all shadow-sm"
                           />
                         )}
                         {NEEDS_BACKUP_COL.has(transform) && (
                           <select
                             value={col.backup_col ?? ""}
                             onChange={(e) => onColumnChange(index, { backup_col: e.target.value ? Number(e.target.value) : undefined })}
-                            className="w-full h-8 px-2 text-[13px] border border-input bg-card rounded-md text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-blue-500 hover:border-input transition-all shadow-sm"
+                            className="w-full h-8 px-2 text-[13px] border border-input bg-card rounded-md text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-ring hover:border-input transition-all shadow-sm"
                           >
                             <option value="">보조열 없음</option>
                             {sourceColOptions.map((n) => (
@@ -273,7 +273,7 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
                           </select>
                         )}
                         {DERIVES_COLUMNS.has(transform) && (
-                          <span className="text-[11px] text-amber-600 font-bold flex items-center gap-1.5 px-1 py-1">
+                          <span className="text-[11px] text-warning font-bold flex items-center gap-1.5 px-1 py-1">
                             ⚡ 파생열 자동 생성
                           </span>
                         )}
@@ -292,7 +292,7 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
                           checked={col.include_in_slicer ?? false}
                           disabled={isExcluded}
                           onCheckedChange={(val) => onColumnChange(index, { include_in_slicer: !!val })}
-                          className="border-input rounded-sm data-[state=checked]:bg-primary data-[state=checked]:border-blue-600 h-4 w-4"
+                          className="border-input rounded-sm data-[state=checked]:bg-primary data-[state=checked]:border-primary h-4 w-4"
                         />
                       </div>
                     </TableCell>

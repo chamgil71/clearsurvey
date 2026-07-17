@@ -359,7 +359,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
           >
             ◀ 프로젝트 목록으로
           </Button>
-          <div className="h-5 w-px bg-slate-300" />
+          <div className="h-5 w-px bg-muted" />
           <h2 className="text-[17px] font-bold text-primary flex items-center gap-2">
             <Settings className="h-5 w-5" />
             대시보드 설정 <span className="text-muted-foreground font-normal">{projectName}</span>
@@ -471,7 +471,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
             <Button
               variant="secondary"
               onClick={handleSave}
-              className="bg-primary/10 text-primary hover:bg-blue-100 gap-2 h-12 px-6 rounded-lg border border-primary/30 font-bold"
+              className="bg-primary/10 text-primary hover:bg-primary/20 gap-2 h-12 px-6 rounded-lg border border-primary/30 font-bold"
             >
               <Eye className="h-5 w-5" />
               미리보기
@@ -481,7 +481,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                 handleSave().then(() => onNext());
               }}
               disabled={loading}
-              className="bg-primary hover:bg-blue-700 text-white font-bold h-11 px-8 rounded-lg shadow-sm"
+              className="bg-primary hover:bg-primary text-white font-bold h-11 px-8 rounded-lg shadow-sm"
             >
               {loading ? "저장 중..." : "저장 후 대시보드로"}
             </Button>
@@ -491,7 +491,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                 onNextAndRun();
               }}
               disabled={loading}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 font-bold h-11 px-8 rounded-lg shadow-sm"
+              className="bg-success text-success-foreground hover:bg-success/90 gap-2 font-bold h-11 px-8 rounded-lg shadow-sm"
             >
               <Play className="h-4 w-4 fill-current" />
               저장 후 파이프라인 가동

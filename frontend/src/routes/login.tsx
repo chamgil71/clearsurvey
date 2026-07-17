@@ -88,7 +88,7 @@ function LoginPage() {
           </div>
           <p className="text-base text-muted-foreground">관리자 계정으로 로그인하세요</p>
           {isLocalDev && (
-            <div className="mt-3 inline-block px-3 py-1.5 rounded-full text-xs font-bold bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-950/20 dark:border-amber-800 dark:text-amber-300 animate-pulse">
+            <div className="mt-3 inline-block px-3 py-1.5 rounded-full text-xs font-bold bg-warning/15 border border-warning/40 text-warning-foreground dark:text-warning animate-pulse">
               ⚠️ 로컬 개발 모드 (임의 계정 우회 로그인 가능)
             </div>
           )}

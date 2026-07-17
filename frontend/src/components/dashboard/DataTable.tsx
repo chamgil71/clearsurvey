@@ -73,8 +73,9 @@ export function DataTable({
             <mark
               key={i}
               style={{
-                backgroundColor: "#fef08a",
-                color: "#1e293b",
+                // 검색어 형광펜 — 테마가 정할 수 있도록 토큰을 쓴다(기본값은 기존 노랑과 동일 톤).
+                backgroundColor: "var(--highlight)",
+                color: "var(--highlight-foreground)",
                 padding: "0 2px",
                 borderRadius: "3px",
                 fontWeight: "600",

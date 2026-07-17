@@ -175,8 +175,8 @@ export const GuideDrawer: React.FC<GuideDrawerProps> = ({ isOpen, onClose }) => 
                 </Table>
               </div>
 
-              <div className="p-3 bg-amber-50/50 border border-amber-200/60 rounded-md dark:bg-amber-950/10 dark:border-amber-900/30">
-                <p className="text-[11px] text-amber-700 dark:text-amber-400 font-semibold mb-1">
+              <div className="p-3 bg-warning/10 border border-warning/30 rounded-md">
+                <p className="text-[11px] text-warning font-semibold mb-1">
                   추가 인수가 필요한 규칙
                 </p>
                 <ul className="text-[11px] text-muted-foreground space-y-0.5">
@@ -276,8 +276,8 @@ export const GuideDrawer: React.FC<GuideDrawerProps> = ({ isOpen, onClose }) => 
                   </p>
                 </div>
 
-                <div className="p-3 rounded-md space-y-1.5 bg-green-50/40 border border-green-200/60 dark:bg-green-950/10 dark:border-green-900/30">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-green-700 dark:text-green-400">
+                <div className="p-3 rounded-md space-y-1.5 bg-success/10 border border-success/30">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-success">
                     <CheckCircle className="h-3.5 w-3.5" />
                     [권장] FastAPI 백엔드 서버 가동
                   </div>

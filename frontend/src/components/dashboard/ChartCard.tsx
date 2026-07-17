@@ -177,7 +177,7 @@ export function ChartCard({
               </PieChart>
             ) : chart.type === "hbar" || chart.type === "multibar" ? (
               <BarChart data={items} layout="vertical" margin={{ left: 20, right: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis type="number" tick={{ fontSize: 11 }} />
                 <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
                 <Tooltip formatter={formatTooltip} />
@@ -185,7 +185,7 @@ export function ChartCard({
               </BarChart>
             ) : (
               <BarChart data={items}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip formatter={formatTooltip} />

@@ -119,7 +119,7 @@ export const Step3_RunDeploy: React.FC<Step3Props> = ({
             </CardHeader>
             <CardContent className="space-y-3">
               {freshness?.is_stale && (
-                <div className="p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-md text-[11px] text-amber-700 dark:text-amber-400 font-semibold flex items-start gap-1.5">
+                <div className="p-2.5 bg-warning/10 border border-warning/30 rounded-md text-[11px] text-warning dark:text-warning font-semibold flex items-start gap-1.5">
                   <span>⚠</span>
                   <span>설정이 변경되었습니다. 최신 결과를 반영하려면 다시 실행해주세요.</span>
                 </div>
@@ -144,8 +144,8 @@ export const Step3_RunDeploy: React.FC<Step3Props> = ({
               </Button>
 
               {isSuccess && (
-                <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-md text-xs text-foreground space-y-2">
-                  <div className="flex items-center gap-1.5 font-bold text-green-500">
+                <div className="p-3 bg-success/10 border border-success/30 rounded-md text-xs text-foreground space-y-2">
+                  <div className="flex items-center gap-1.5 font-bold text-success">
                     <CheckCircle2 className="h-4 w-4" />
                     정제 및 배포 성공
                   </div>
@@ -162,7 +162,7 @@ export const Step3_RunDeploy: React.FC<Step3Props> = ({
             <Card className="border-border bg-card">
               <CardHeader className="py-4">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <Download className="h-4 w-4 text-green-500" />
+                  <Download className="h-4 w-4 text-success" />
                   정제 결과 다운로드
                 </CardTitle>
                 <CardDescription className="text-xs">
@@ -181,7 +181,7 @@ export const Step3_RunDeploy: React.FC<Step3Props> = ({
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <Button className="w-full text-xs font-semibold gap-1.5 h-9 bg-green-600 hover:bg-green-700 text-white">
+                  <Button className="w-full text-xs font-semibold gap-1.5 h-9 bg-success text-success-foreground hover:bg-success/90">
                     📈 대시보드 즉시 확인
                     <ExternalLink className="h-3.5 w-3.5" />
                   </Button>
@@ -210,11 +210,14 @@ export const Step3_RunDeploy: React.FC<Step3Props> = ({
                 </div>
               ) : (
                 <div className="space-y-1.5">
+                  {/* 터미널 로그 색 — 컨테이너가 bg-black 고정이라 테마 토큰을 쓰면 안 된다.
+                      라이트 테마의 --success/--warning 은 검은 배경 위에서 대비가 나오지 않는다.
+                      배경이 고정인 문맥이므로 색도 고정한다(PDF 인쇄 스타일과 같은 이유). */}
                   {logs.map((log, idx) => {
                     let colorClass = "text-zinc-300";
                     if (log.startsWith("[SYSTEM]")) colorClass = "text-sky-400 font-semibold";
-                    if (log.startsWith("[RUNNING]")) colorClass = "text-yellow-400";
-                    if (log.startsWith("[SUCCESS]")) colorClass = "text-green-400 font-bold";
+                    if (log.startsWith("[RUNNING]")) colorClass = "text-amber-400";
+                    if (log.startsWith("[SUCCESS]")) colorClass = "text-emerald-400 font-bold";
                     if (log.startsWith("[ERROR]")) colorClass = "text-rose-500 font-semibold";
 
                     return (
@@ -292,7 +295,7 @@ export const Step3_RunDeploy: React.FC<Step3Props> = ({
                         return (
                           <tr
                             key={colName}
-                            className={`hover:bg-muted/10 ${isChanged ? "bg-amber-500/5" : ""}`}
+                            className={`hover:bg-muted/10 ${isChanged ? "bg-warning/5" : ""}`}
                           >
                             <td
                               className="px-3 py-2 font-bold font-sans text-foreground truncate max-w-[130px]"
@@ -307,7 +310,7 @@ export const Step3_RunDeploy: React.FC<Step3Props> = ({
                               {rawVal || "—"}
                             </td>
                             <td
-                              className={`px-3 py-2 truncate max-w-[90px] font-bold ${isChanged ? "text-amber-600" : "text-muted-foreground"}`}
+                              className={`px-3 py-2 truncate max-w-[90px] font-bold ${isChanged ? "text-warning" : "text-muted-foreground"}`}
                               title={cleanedVal}
                             >
                               {cleanedVal}

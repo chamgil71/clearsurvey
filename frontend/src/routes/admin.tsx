@@ -300,7 +300,7 @@ function AdminDashboard({ user }: { user: User }) {
               서버 오프라인
             </Badge>
           ) : (
-            <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-300 dark:border-emerald-700 dark:text-emerald-400">
+            <Badge variant="outline" className="text-xs text-success border-success/40">
               서버 온라인
             </Badge>
           )}
@@ -586,7 +586,7 @@ function ProjectListView({
 
       {/* Backend offline notice */}
       {!isBackendAlive && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900/40 p-4 text-sm text-amber-800 dark:text-amber-400">
+        <div className="rounded-lg border border-warning/40 bg-warning/15 dark:bg-warning/15/20 dark:border-warning/40/40 p-4 text-sm text-warning dark:text-warning">
           백엔드 서버 오프라인. 설정 변경 및 파이프라인 실행이 제한됩니다.
         </div>
       )}
@@ -626,7 +626,7 @@ function ProjectListView({
                         </span>
                         {freshness[p.id]?.is_stale && (
                           <span
-                            className="text-[11px] font-bold text-amber-700 bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400 px-1.5 py-0.5 rounded"
+                            className="text-[11px] font-bold text-warning bg-warning/20 dark:bg-warning/15/40 dark:text-warning px-1.5 py-0.5 rounded"
                             title="config.yaml 또는 dashboard.json이 마지막 정제 실행 이후에 수정되었습니다. 다시 실행해주세요."
                           >
                             ⚠ 설정 변경 후 미실행
