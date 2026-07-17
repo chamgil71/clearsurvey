@@ -165,22 +165,43 @@ mode?, primaryColor?, brandTitle?, logoText?
 --sidebar-ring             ← --border-focus
 ```
 
-### 2-F. 대상 10종
+### 2-F. 대상 15종 (활성) + 나머지 백업
 
-색상·밀도·성향이 최대한 갈리도록 선정. 전부 라이트/다크 쌍 보유.
+**활성 15종** — 카탈로그에서 이 15개만 UI에 노출한다. 나머지 335개는 생성해 두되 백업.
 
-| 테마 | 특징 |
+| 구분 | 테마 |
 |---|---|
-| `toss` | 파랑 #0064FF, 플랫, 라운드 12–16 |
-| `apple-hig` | 시스템 블루 #007AFF, 절제, 은은한 depth |
-| `anthropic` | 크림/웜 뉴트럴 — 톤이 완전히 다름 |
-| `linear` | 다크 우선, 보라, 컴팩트·샤프 |
-| `vercel` | 순수 흑백, 극단적 미니멀 |
-| `duolingo` | 초록, 큰 라운드, 놀이감 |
-| `datadog` | 데이터 대시보드 — 원본에 차트 팔레트 보유 |
-| `kakao` | 노랑, 국내 |
-| `github-primer` | 개발자향 고밀도 뉴트럴 |
-| `airbnb` | 레드/핑크, 따뜻함 |
+| 가이드 파생 11 | `toss` · `apple-hig` · `anthropic` · `claude` · `linear` · `vercel` · `duolingo` · `datadog` · `kakao` · `github-primer` · `airbnb` |
+| 수작업 이관 2 | `ink`(다크·로즈·샤프) · `forest`(그린) — new-beginnings `themes.json` 출처 |
+| 기본 2 | `light` · `dark` (현행 `styles.css` 값) |
+
+> **`toss` 슬러그 충돌**: `themes.json`의 수작업 toss(`#3182f6`)와 가이드 파생 toss(`#0064FF`)가
+> 겹친다. **가이드 파생이 이긴다** — 공식 Toss Blue이고 전체 토큰셋을 갖췄다. 수작업 toss는 버린다.
+> (new-beginnings도 카탈로그가 레거시를 덮는 순서다.)
+
+### 2-G. new-beginnings 카탈로그 스크립트 이식
+
+`new-beginnings/scripts/build-design-catalog.mjs`(269줄)를 가져와 이 프로젝트 포맷으로 적응시킨다.
+350개를 이미 변환해 본 검증된 로직을 재발명하지 않는다.
+
+**가져오는 것**
+- 섹션 ③⑤⑥⑦⑩(색·spacing·radius·shadow·motion) 파싱
+- **frontmatter 활용** (`brand_ko`·`industry`·`mood`·`primary_color_hex`) — 레지스트리 라벨/설명에 그대로 쓴다
+- `\r\r\n` 등 비표준 개행 정규화 같은 실전 처리
+
+**바꾸는 것**
+
+| | new-beginnings | 여기 |
+|---|---|---|
+| 출력 색 | hex | **oklch로 변환**([§3](#3-색-표기--oklch-유지-hex-전환-폐기)) |
+| 출력 형태 | JSON only | JSON(런타임) **+ CSS 드롭인**(`theme/{id}.css`) |
+| 차트 팔레트 | `synthesizePalette()` 기계 도출 | **골격만 자동, 15종은 수작업 오버라이드**(아래) |
+| 노출 | 350개 전부 | **15개만**, 나머지 백업 |
+
+> **`synthesizePalette`를 그대로 쓰지 않는 이유**: 후보에 `error.fg`(빨강)가 들어 있다.
+> 중립 카테고리 차트에 빨강이 섞이면 "위험/이상치"로 오독된다([§2-D](#2-d-차트-팔레트--수작업-도출)의
+> 원칙 3). 자동 생성값은 **초안**으로 두고, 활성 15종은 `overrides/{id}.json`에서 손으로 확정한다.
+> 나머지 335개는 자동값 그대로 둔다(백업이므로).
 
 ### 2-G. 산출물 형태
 
@@ -195,24 +216,30 @@ cp src/theme/toss.css src/styles.css   # 이러면 즉시 토스 테마
 
 ---
 
-## 3. hex 전환
+## 3. 색 표기 — oklch 유지 (hex 전환 폐기)
 
-**현재 `styles.css`의 oklch를 포함해 전부 hex로 통일한다.**
+> **2026-07-17 결정 번복.** 초안은 "전부 hex로 통일"이었으나 **폐기**한다. 다행히 A-1을 실행하기
+> 전이라 되돌릴 것은 없다 — `styles.css`는 지금도 oklch 76건 / hex 0건이다.
 
-### 근거
+### 왜 번복했나
+
+hex의 근거로 "html2canvas가 oklch를 못 읽어 PDF가 깨진다"를 들었으나, 그 문제는
+**`pdfColorFix.ts`가 이미 해결하고 검증까지 끝낸 상태**다([chart_export_plan §10](complete/chart_export_plan.md)).
+**이미 값을 치른 문제를 새 결정의 근거로 삼은 것**이 오류였다. hex로 가도 `pdfColorFix`는
+`color-mix`(oklab) 잔여 때문에 어차피 남는다 — 즉 hex의 이득은 거의 없다.
+
+반면 oklch를 버리는 비용은 크다:
 
 | | |
 |---|---|
-| 원본 대조 | 가이드가 hex라 변환 오차 없이 1:1 대조 가능 |
-| **PDF 내보내기** | html2canvas가 oklch를 못 읽어 `pdfColorFix.ts`가 존재한다([chart_export_plan §10](complete/chart_export_plan.md)). hex는 네이티브로 읽으므로 **이 문제가 원천 소멸** |
-| 가독성 | `#0064FF`가 `oklch(0.646 0.222 41.116)`보다 브랜드 색임이 자명 |
+| **Tailwind v4** | 기본 팔레트가 oklch. 우리만 hex면 `bg-slate-100`과 `bg-muted`가 다른 색공간이 된다 |
+| **shadcn 관례** | 생성기·문서·커뮤니티 예제가 전부 oklch. hex면 붙여넣기가 안 맞는다 |
+| **지각 균일성** | 명도(L)를 같게 유지한 채 색상만 바꾸는 등, 테마 파생 작업이 oklch에서만 정확하다 |
 
-### 유의
+### 카탈로그는 빌드 시 oklch로 변환
 
-- `pdfColorFix.ts`는 **제거하지 않는다.** Tailwind의 `bg-x/10` 같은 불투명도 유틸은 `color-mix`를
-  `oklab`으로 계산하므로 hex 테마에서도 여전히 필요하다. 다만 처리량이 크게 준다.
-- shadcn 관례는 oklch이나, 이 저장소는 hex를 표준으로 삼는다(위 PDF 근거). 이 결정을
-  `styles.css` 상단 주석에 남긴다.
+원본 가이드는 hex다. **빌드 타임에 1회 oklch로 변환**해 저장한다(런타임 비용 0, 색상 변화 없음 —
+같은 색의 다른 표기). 이로써 기본 테마와 테마 팩의 표기가 통일된다.
 
 ---
 
@@ -384,20 +411,15 @@ rgba(0,0,0,.05)   → var(--border)  (차트 그리드 stroke)
 
 | 파일 | 내용 |
 |---|---|
-| `frontend/src/theme/{10종}.css` | 드롭인 테마 팩 (`:root` + `.dark`) |
-| `frontend/src/theme/presets.css` | 런타임용 `[data-theme="{id}"]` 블록 모음 |
-| `frontend/src/theme/registry.ts` | 테마 목록·라벨·설명 (**테마 추가 시 유일한 수정 지점**) |
+| `frontend/scripts/build-themes.mjs` | new-beginnings 스크립트 이식 — 가이드 md 350개 → 카탈로그 + 드롭인 CSS. hex→oklch 변환 포함 |
+| `frontend/src/theme/catalog.json` | 350종 전체 (생성물, 활성 15 + 백업 335) |
+| `frontend/src/theme/{15종}.css` | 활성 테마 드롭인 (`:root` + `.dark`) |
+| `frontend/src/theme/presets.css` | 런타임용 `[data-theme="{id}"]` 블록 (활성 15종만) |
+| `frontend/src/theme/registry.ts` | 활성 목록·라벨·설명 (**테마 추가 시 유일한 수정 지점**). frontmatter의 `brand_ko`·`mood` 활용 |
 | `frontend/src/theme/tokens.ts` | 토큰 이름 단일 정의 (스크립트·테스트 공유) |
-| `frontend/src/theme/overrides/{id}.json` | 수작업 값(차트 팔레트 등) — 스크립트가 덮지 않음 |
-| `frontend/src/theme/README.md` | 사용법, 토큰 매핑표, 차트 팔레트 근거 |
-| `frontend/scripts/build-themes.mjs` | 가이드 md → `{id}.css` + `presets.css` 동시 생성 |
-| `frontend/src/theme/__tests__/theme.test.ts` | 토큰 누락·두 산출물 값 불일치 검증 |
-
-### Part A — hex 전환 (수정)
-
-| 파일 | 내용 |
-|---|---|
-| `frontend/src/styles.css` | oklch → hex (값 동일, 표기만). 결정 근거 주석 |
+| `frontend/src/theme/overrides/{id}.json` | 차트 팔레트 수작업 값 — 스크립트가 덮지 않음 |
+| `frontend/src/theme/README.md` | 사용법, 토큰 매핑표, 차트 팔레트 근거, 출처 |
+| `frontend/src/theme/__tests__/theme.test.ts` | 토큰 누락·두 산출물 값 불일치·oklch 형식 검증 |
 
 ### Part B — 런타임 (수정)
 
@@ -463,15 +485,19 @@ bun run build
 Part C → A → B 순으로 간다. **하드코딩이 남아 있으면 테마를 바꿔도 안 바뀌는 부분이 생기므로
 Part C가 선행**해야 하고, 런타임 전환(B)은 테마 팩(A)이 있어야 고를 대상이 생긴다.
 
-| 단계 | 내용 | 커밋 |
+| 단계 | 내용 | 상태 |
 |---|---|---|
-| **C-1** | 하드코딩 276건 → 토큰 치환 (어드민 6개 파일) | 별도 |
-| **C-2** | `--highlight` 토큰 신설, `rgba` → `var(--border)` | 별도 |
-| **A-1** | `styles.css` oklch → hex | 별도 |
-| **A-2** | `tokens.ts`·`registry.ts`·변환 스크립트 골격 | 별도 |
-| **A-3** | 10종 테마 팩 + 차트 팔레트 수작업 + 검증 테스트 | 별도 |
-| **B-1** | 타입 통일 + `cfg.theme` 런타임 반영 | 별도 |
-| **B-2** | registry 기반 설정 UI 연결 | 별도 |
+| **C-1** | 하드코딩 276건 → 토큰 치환 (어드민 6개 파일) | ✅ `66e0c3d` |
+| **C-2** | `--success`/`--warning`/`--highlight` 신설, `rgba` → `var(--border)` | ✅ `717c4d8` |
+| ~~**A-1**~~ | ~~`styles.css` oklch → hex~~ | ❌ **폐기**([§3](#3-색-표기--oklch-유지-hex-전환-폐기)) |
+| **A-2** | 카탈로그 스크립트 이식 + `tokens.ts`·`registry.ts` + hex→oklch 변환 | 예정 |
+| **A-3** | 15종 확정(차트 팔레트 수작업 오버라이드) + 드롭인 CSS + 검증 테스트 | 예정 |
+| **B-1** | 타입 통일 + `cfg.theme` 런타임 반영 | 예정 |
+| **B-2** | registry 기반 설정 UI 연결 | 예정 |
+
+C-1·C-2 결과: 하드코딩 **276 → 33건**. 남은 33건은 의도적 유지다 —
+`GuideDrawer.GROUP_COLORS` 28건(범주형 배지 7색)과 `Step3` 터미널 로그 5건
+(`bg-black` 고정 배경이라 테마 토큰을 쓰면 라이트 테마에서 대비가 사라진다).
 
 각 단계마다 [§6 검증](#6-검증-계획)의 자동 검증을 통과시킨다. C는 **시각적 무변화**가 목표다
 (토큰 치환이 색을 바꾸면 매핑이 틀린 것).
