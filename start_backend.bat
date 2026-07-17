@@ -3,8 +3,14 @@ chcp 65001 >nul
 setlocal
 cd /d "%~dp0backend"
 
-REM C:\ai 아래 프로젝트들은 공용 가상환경 C:\ai\.venv314 를 함께 쓴다.
-REM 다른 경로를 쓰려면 CLEARSURVEY_PYTHON 에 python.exe 경로를 지정한다.
+REM Projects under C:\ai share one venv: C:\ai\.venv314
+REM To use another interpreter, set CLEARSURVEY_PYTHON to its python.exe path.
+REM
+REM NOTE: keep this file ASCII-only. cmd.exe reads a .bat line by line using the
+REM code page active at that moment, so `chcp 65001` above changes it mid-parse and
+REM garbles any multi-byte (Korean) line that follows -- the fragments then get run
+REM as commands ("'i' is not recognized ..."). The echo strings below are English
+REM for the same reason.
 if not defined CLEARSURVEY_PYTHON set "CLEARSURVEY_PYTHON=C:\ai\.venv314\Scripts\python.exe"
 
 if not exist "%CLEARSURVEY_PYTHON%" (

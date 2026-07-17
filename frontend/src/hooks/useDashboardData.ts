@@ -75,5 +75,20 @@ export function useDashboardData(initialUrl?: string) {
     }
   };
 
-  return { projects, data, url, loading, error, switchProject };
+  return {
+    projects,
+    data,
+    url,
+    loading,
+    error,
+    switchProject,
+    /**
+     * 서버가 새로 계산해 준 데이터로 통째 교체한다 (편집 저장 후).
+     *
+     * 부분 패치가 아니라 **교체**인 이유: 값 하나가 바뀌면 aggregates·unique_values·min/max 가
+     * 함께 변한다. 프런트가 그걸 흉내내면 서버 결과와 어긋나므로, 서버가 계산한 것을 그대로 쓴다
+     * (계획 §5.3 — 낙관적 업데이트를 하지 않는 이유).
+     */
+    applyData: setData,
+  };
 }

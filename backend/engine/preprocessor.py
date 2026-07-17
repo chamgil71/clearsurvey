@@ -82,7 +82,11 @@ def _apply_row_filter(df: pd.DataFrame, cfg: RowFilterConfig) -> pd.DataFrame:
             row_mask = col.apply(lambda v, r=rule: _matches_rule(v, r))
             mask = mask & ~row_mask  # OR semantics: any exclude match removes row
 
-    return df[mask].reset_index(drop=True)
+    # index 를 리셋하지 않는다 — index 가 원본 엑셀 행번호(`__row_id`)를 나르기 때문이다.
+    # reset_index(drop=True) 를 하면 행 필터를 켠 프로젝트에서 행 식별자가 조용히 사라져
+    # 대시보드 편집이 엉뚱한 행에 붙는다. (engine/config.py 의 ROW_ID_COL 주석 참고)
+    # 하위 코드는 모두 위치 기반(iloc / enumerate(iterrows()))이라 index 가 비연속이어도 안전하다.
+    return df[mask]
 
 
 class Preprocessor:

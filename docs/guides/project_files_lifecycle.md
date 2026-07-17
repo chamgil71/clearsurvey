@@ -30,6 +30,7 @@ storage/projects/mumhwa/
 | `style.yaml` | 프로젝트 생성 시 1회 복사 | `POST /api/projects/create` (backend `config/default_style.yaml` 복사) | `config.yaml`의 `style_file`이 이 경로를 **명시적으로 가리켜야만** `engine/styler.py`가 읽음 |
 | `draft_*.xlsx` | 프로젝트 생성 시 1회 생성 | `ExcelAnalyzer.generate_draft_xlsx()` | `config.yaml`이 없을 때만 `/config` GET의 폴백 소스로 읽음 (평소엔 안 읽힘) |
 | `{name}_config.json` | 파이프라인 실행(`/run`)이 끝날 때마다 갱신 | `pipeline.py` (`SurveyPipeline.run()` 마지막 단계) | 없음 — 순수 감사/디버그용 스냅샷 |
+| `overrides.json` | 대시보드에서 값을 직접 수정할 때 생성/갱신 | `PATCH /api/projects/{name}/rows/{row_id}` → `engine/overrides.py` | 파이프라인 실행(`/run`)이 매번 읽어 transform 결과 위에 덮어씀 (아래 4.9 참고) |
 | `{name}_data.json` | 내보내기(`/export`) 시 생성/갱신 | `export_to_json()` (`engine/exporter.py`) | `frontend/public/data/`로 복사된 사본을 웹 대시보드가 실제로 읽음 (아래 4.6 참고) |
 | `projects.json` (프로젝트 폴더 내부) | 내보내기(`/export`) 시 부수적으로 생성 | `exporter.py`의 `_update_manifest()` | **아무도 안 읽음** — 알려진 부산물 (아래 4.7 참고) |
 | `output/{name}_cleaned.xlsx` | 파이프라인 실행(`/run`) 시 생성/갱신 | `pipeline.py` + `slicer.py` | `/download`, `/export`, `/preview`, "엑셀 다운로드" 버튼 |
@@ -146,6 +147,30 @@ JSON으로 떠서 저장하는 감사(audit) 로그성 파일입니다. 파이�
 3. 원본(raw) 시트, `Config`/`Guide` 참고 시트 (`config_excel.py`)
 4. 슬라이서가 설정돼 있으면 `slicer.py`가 저장된 파일을 다시 열어 zip 레벨에서
    슬라이서 XML을 후처리 주입 (openpyxl이 슬라이서를 직접 지원하지 않기 때문)
+
+### 4.9 `overrides.json` — 대시보드에서 손으로 고친 값
+
+공개 대시보드의 **목록 탭 → 행 클릭 → 우측 드로어**에서 값을 수정하면 여기 쌓입니다.
+
+**왜 별도 파일인가**: `output/{name}_cleaned.xlsx` 는 원본이 아니라 `storage/raw` + `config.yaml`
+에서 파이프라인이 **매번 새로 만드는 파생물**입니다(위 4.8). 대시보드에서 고친 값을 거기 직접
+쓰면 **다음 `/run` 이 원본에서 전부 다시 만들면서 조용히 지워집니다.** 그래서 편집만 따로 모아
+두고, 파이프라인이 transform 을 끝낸 **직후·시트에 쓰기 직전**에 덮어씌웁니다.
+정제 규칙과 손 편집이 부딪히면 **손 편집이 이깁니다.**
+
+```
+raw.xlsx ──transform──> 값 ──[overrides.json 이 덮어씀]──> Cleaned 시트
+```
+
+- **이 파일이 편집의 진실**입니다. `cleaned.xlsx` 와 `{name}_data.json` 은 둘 다 여기서 파생됩니다.
+- 행은 `__row_id`(Cleaned 시트 맨 끝 **숨김 열**, 원본 엑셀 행번호)로 지목합니다 — 순번이 아니라
+  원본 기준이라 빈 행·행 필터·정렬과 무관합니다. **엑셀에서 이 열을 지우면** 수정본을 되돌려
+  올릴 때 거부됩니다.
+- `git` 에 올라가지 않습니다(`/storage/*` 규칙). 편집값이 곧 응답 내용이라 개인정보이기 때문입니다.
+  → **편집은 PC 를 따라가지 않습니다.** 다른 PC 에서 발행하면 편집 없는 상태가 올라갑니다.
+- 되돌리기: 드로어 옆 `편집 N건` 배지 → 검토 패널 → 개별·전체 되돌리기.
+
+상세: [../plan/pending/dashboard_edit_plan.md](../plan/pending/dashboard_edit_plan.md) §3
 
 ---
 

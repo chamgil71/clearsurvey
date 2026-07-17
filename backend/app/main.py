@@ -95,11 +95,28 @@ sys.path.append(str(BACKEND_ROOT))
 STORAGE_ROOT = BACKEND_ROOT.parent / "storage"
 FRONTEND_ROOT = BACKEND_ROOT.parent / "frontend"
 
-from engine.config import SurveyConfig, PathsConfig
+from engine.config import ROW_ID_COL, SurveyConfig, PathsConfig
 from engine.pipeline import SurveyPipeline
 from engine.analyzer import ExcelAnalyzer
 from engine.config_excel import read_config_from_excel
-from engine.exporter import export_to_json
+from engine.exporter import (
+    _read_cleaned_sheet,
+    build_data_json,
+    clean_value,
+    column_types_of,
+    export_to_json,
+    write_data_json,
+)
+from app.git_sync import DeployBlocked, deploy
+from engine.overrides import (
+    ORIGIN_DRAWER,
+    OVERRIDES_FILE,
+    Edit,
+    UploadRejected,
+    diff_against,
+    load_overrides,
+    save_overrides,
+)
 
 app = FastAPI(title="Survey Engine v2 API Server", version="2.0.0")
 
@@ -264,6 +281,70 @@ def _safe_filename(filename: str) -> str:
 def _get_project_dir(name: str) -> Path:
     proj_dir = STORAGE_ROOT / "projects" / name
     return proj_dir
+
+
+def _load_project_cfg(name: str) -> tuple["SurveyConfig", Path]:
+    """이름 검증 + 프로젝트 폴더 확인 + config.yaml 로드를 한 번에.
+
+    (편집 계열 엔드포인트가 전부 같은 3단계를 반복하던 것을 모았다.)
+    """
+    _validate_project_name(name)
+    proj_dir = _get_project_dir(name)
+    if not proj_dir.exists():
+        raise HTTPException(status_code=404, detail="프로젝트를 찾을 수 없습니다.")
+    config_yaml = proj_dir / "config.yaml"
+    if not config_yaml.exists():
+        raise HTTPException(status_code=404, detail="config.yaml 설정 파일이 없습니다.")
+    with open(config_yaml, encoding="utf-8") as f:
+        raw = yaml.safe_load(f)
+    return SurveyConfig.model_validate(raw), proj_dir
+
+
+def _data_json_paths(cfg: "SurveyConfig", proj_dir: Path) -> tuple[Path, Path]:
+    """(프로젝트 폴더 사본, 프런트가 실제로 fetch 하는 발행본)."""
+    return (
+        proj_dir / f"{cfg.project}_data.json",
+        FRONTEND_ROOT / "public" / "data" / f"{cfg.project}_data.json",
+    )
+
+
+def _cleaned_xlsx_path(cfg: "SurveyConfig", proj_dir: Path) -> Path:
+    out_dir = Path(cfg.paths.output_dir)
+    if not out_dir.is_absolute():
+        out_dir = proj_dir / out_dir
+    return out_dir / cfg.paths.output_file
+
+
+def _publish_data_json(result: dict, cfg: "SurveyConfig", proj_dir: Path) -> None:
+    """data.json 을 프로젝트 폴더에 쓰고 프런트 발행 폴더로 복사한다 (/export 와 동일 절차)."""
+    local_json, published_json = _data_json_paths(cfg, proj_dir)
+    write_data_json(result, local_json, cfg)
+    published_json.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(local_json, published_json)
+    _update_projects_manifest(cfg.project, published_json.name)
+
+
+def _rebuild_project(name: str) -> tuple[dict, list[dict]]:
+    """지연됐던 xlsx 를 지금 만든다 — 파이프라인 1회 + export (계획 §5.2).
+
+    편집 저장(PATCH /rows)은 data.json 만 갱신하고 xlsx 는 건드리지 않는다. 그래서 다운로드·
+    발행처럼 **xlsx 가 실제로 필요해지는 순간**에만 여기서 따라잡는다.
+    파이프라인이 overrides.json 을 다시 얹으므로 편집은 그대로 살아 있고, data.json 도
+    원본에서 전량 재생성되어 그간의 누적 오차가 교정된다.
+
+    Returns (export 결과, 충돌 목록)
+    """
+    cfg, proj_dir = _load_project_cfg(name)
+    pipeline = SurveyPipeline(cfg, config_path=proj_dir / "config.yaml")
+    save_path = pipeline.run()
+    conflicts = [c.to_dict() for c in getattr(pipeline, "override_conflicts", [])]
+
+    local_json, published_json = _data_json_paths(cfg, proj_dir)
+    result = export_to_json(save_path, cfg, output_path=local_json, project_dir=proj_dir)
+    published_json.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(local_json, published_json)
+    _update_projects_manifest(cfg.project, published_json.name)
+    return result, conflicts
 
 # ── API Endpoints ──────────────────────────────────────────────────────────
 
@@ -850,11 +931,16 @@ def _mtime_info(path: Path) -> tuple[Optional[float], Optional[str]]:
 
 @app.get("/api/projects/{name}/freshness")
 def get_project_freshness(name: str, user: dict = Depends(verify_supabase_token)):
-    """정제 결과물이 최신 설정을 반영하고 있는지 판정합니다.
+    """정제 결과물이 최신 설정·편집을 반영하고 있는지 판정합니다.
 
-    config.yaml/dashboard.json이 마지막 정제 실행(output 파일 생성) 이후에 수정되었다면
-    is_stale=True를 반환합니다. 서버 재시작으로 인메모리 잡 상태(_pipeline_jobs)가 초기화되어도
-    파일 mtime 기반이라 항상 정확합니다.
+    config.yaml/dashboard.json/overrides.json이 마지막 정제 실행(output 파일 생성) 이후에
+    수정되었다면 is_stale=True를 반환합니다. 서버 재시작으로 인메모리 잡 상태(_pipeline_jobs)가
+    초기화되어도 파일 mtime 기반이라 항상 정확합니다.
+
+    overrides.json(손 편집)도 같은 규칙에 얹혀 있습니다 — "설정이 산출물보다 앞서 있다"는
+    이미 있던 개념이고, "편집이 산출물보다 앞서 있다"는 그 한 사례일 뿐이라 새 개념을 만들지
+    않았습니다. 편집 저장은 data.json 만 갱신하고 xlsx 는 미루므로(계획 §5.2), 여기서
+    is_stale=True 가 곧 "xlsx 가 뒤처졌다 = 다운로드/발행 전에 rebuild 가 필요하다" 입니다.
     """
     _validate_project_name(name)
     proj_dir = _get_project_dir(name)
@@ -863,9 +949,11 @@ def get_project_freshness(name: str, user: dict = Depends(verify_supabase_token)
 
     config_path = proj_dir / "config.yaml"
     dashboard_path = proj_dir / "dashboard.json"
+    overrides_p = proj_dir / OVERRIDES_FILE
 
     config_ts, config_updated_at = _mtime_info(config_path)
     dashboard_ts, dashboard_updated_at = _mtime_info(dashboard_path)
+    overrides_ts, overrides_updated_at = _mtime_info(overrides_p)
 
     output_ts, output_generated_at = None, None
     if config_path.exists():
@@ -883,7 +971,8 @@ def get_project_freshness(name: str, user: dict = Depends(verify_supabase_token)
     is_stale = False
     if output_ts is not None:
         newest_config_ts = max(
-            (t for t in (config_ts, dashboard_ts) if t is not None), default=None
+            (t for t in (config_ts, dashboard_ts, overrides_ts) if t is not None),
+            default=None,
         )
         if newest_config_ts is not None and newest_config_ts > output_ts:
             is_stale = True
@@ -891,9 +980,15 @@ def get_project_freshness(name: str, user: dict = Depends(verify_supabase_token)
     return {
         "config_updated_at": config_updated_at,
         "dashboard_updated_at": dashboard_updated_at,
+        "overrides_updated_at": overrides_updated_at,
         "output_generated_at": output_generated_at,
         "has_output": output_ts is not None,
         "is_stale": is_stale,
+        # 손 편집 총 건수 — 헤더의 「편집 N건」 배지용.
+        # (계획 §4.3 은 pending_edits 라 적었으나, "아직 xlsx 에 안 들어간 수" 는 추적하지
+        #  않으면 알 수 없다. 배지가 실제로 필요한 건 총 건수이고, "뒤처졌는가" 는 is_stale
+        #  이 이미 답한다 — 셀 수 없는 값을 지어내지 않는다.)
+        "edit_count": len(load_overrides(proj_dir)),
     }
 
 
@@ -945,29 +1040,24 @@ def export_project_json(name: str, user: dict = Depends(verify_supabase_token)):
 
 @app.get("/api/projects/{name}/download")
 def download_cleaned_xlsx(name: str, user: dict = Depends(verify_supabase_token)):
-    """정제 완료된 결과 엑셀 파일을 다운로드합니다."""
-    _validate_project_name(name)
-    proj_dir = _get_project_dir(name)
-    if not proj_dir.exists():
-        raise HTTPException(status_code=404, detail="프로젝트를 찾을 수 없습니다.")
-        
-    config_yaml = proj_dir / "config.yaml"
-    if not config_yaml.exists():
-        raise HTTPException(status_code=404, detail="config.yaml 설정 파일이 없습니다.")
-        
+    """정제 완료된 결과 엑셀 파일을 다운로드합니다.
+
+    편집 저장은 xlsx 를 미루므로(계획 §5.1), 뒤처져 있으면 **여기서 먼저 따라잡는다.**
+    이게 없으면 사용자가 "내 편집이 빠진 엑셀"을 받게 되고, 그걸 고쳐 되올리면(§5.4)
+    편집이 통째로 되돌려진다.
+    """
+    cfg, proj_dir = _load_project_cfg(name)
     try:
-        with open(config_yaml, encoding="utf-8") as f:
-            raw = yaml.safe_load(f)
-        cfg = SurveyConfig.model_validate(raw)
-        
-        out_dir = Path(cfg.paths.output_dir)
-        if not out_dir.is_absolute():
-            out_dir = proj_dir / out_dir
-        xlsx_path = out_dir / cfg.paths.output_file
-        
+        xlsx_path = _cleaned_xlsx_path(cfg, proj_dir)
+
         if not xlsx_path.exists():
             raise HTTPException(status_code=404, detail="결과 엑셀 파일이 존재하지 않습니다. 먼저 정제를 실행하세요.")
-            
+
+        # 설정·편집이 xlsx 보다 새로우면 지연됐던 파이프라인을 지금 돌린다.
+        if get_project_freshness(name, user=user)["is_stale"]:
+            print(f"[다운로드] {name}: 결과물이 뒤처져 재생성합니다.")
+            _rebuild_project(name)
+
         return FileResponse(
             path=xlsx_path,
             filename=xlsx_path.name,
@@ -975,6 +1065,285 @@ def download_cleaned_xlsx(name: str, user: dict = Depends(verify_supabase_token)
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"다운로드 실패: {exc}")
+
+
+# ── 대시보드 손 편집 (dashboard_edit_plan §4.4 · §5.1) ──────────────────────
+
+@app.get("/api/projects/{name}/overrides")
+def get_overrides(name: str, user: dict = Depends(verify_supabase_token)):
+    """현재 편집 목록. 편집 검토 패널이 읽는다."""
+    _, proj_dir = _load_project_cfg(name)
+    ov = load_overrides(proj_dir)
+    return _sanitize_nans({"edits": [e.to_dict() for e in ov.edits], "count": len(ov)})
+
+
+@app.patch("/api/projects/{name}/rows/{row_id}")
+async def patch_row(
+    name: str,
+    row_id: str,
+    payload: dict,
+    user: dict = Depends(verify_supabase_token),
+):
+    """행 1건 저장 — 계획 §5.1 의 ④~⑧.
+
+    body: 변경된 컬럼만. 예) {"지역": "서울특별시", "연령": 34}
+
+    **xlsx 를 건드리지 않는다.** overrides.json 과 data.json 만 갱신하고 끝낸다.
+    셀 하나에 전체 파이프라인(원본 읽기 → transform → 시트 4장 쓰기 → 슬라이서 zip 재작성
+    → xlsx 재읽기)을 돌리면 수십 초가 걸리는데, 사용자가 보고 있는 건 차트뿐이다.
+    xlsx 는 다운로드·발행 때 `_rebuild_project()` 가 따라잡는다(§5.2).
+    """
+    cfg, proj_dir = _load_project_cfg(name)
+    if not payload:
+        raise HTTPException(status_code=400, detail="변경된 컬럼이 없습니다.")
+
+    local_json, _ = _data_json_paths(cfg, proj_dir)
+    if not local_json.exists():
+        raise HTTPException(
+            status_code=400,
+            detail="대시보드 데이터가 없습니다. 먼저 정제(run)와 내보내기(export)를 수행하세요.",
+        )
+
+    with open(local_json, encoding="utf-8") as f:
+        data = json.load(f)
+
+    rows = data.get("rows", [])
+    target = next((r for r in rows if r.get(ROW_ID_COL) == row_id), None)
+    if target is None:
+        raise HTTPException(status_code=404, detail=f"행 '{row_id}' 를 찾을 수 없습니다.")
+
+    if ROW_ID_COL in payload:
+        raise HTTPException(status_code=400, detail=f"'{ROW_ID_COL}' 은 편집할 수 없습니다.")
+    known_cols = {c["key"] for c in data.get("meta", {}).get("columns", [])}
+    unknown = [c for c in payload if c not in known_cols]
+    if unknown:
+        raise HTTPException(status_code=400, detail=f"알 수 없는 컬럼: {unknown}")
+
+    # 들어온 값을 data.json 과 같은 형태로 맞춘다. 아래 build_data_json 은 rows_are_clean=True
+    # 로 전 셀 재정제를 건너뛰므로, **새로 넣는 값은 여기서 직접 정제해야 한다.**
+    payload = {col: clean_value(v) for col, v in payload.items()}
+
+    # ④ overrides.json 갱신
+    ov = load_overrides(proj_dir)
+    now = datetime.now().isoformat(timespec="seconds")
+    by = str(user.get("user") or user.get("id") or "unknown")
+    for col, value in payload.items():
+        # prev 는 **파이프라인 산출값**이어야 한다(되돌리기의 목적지). 같은 칸을 두 번째로
+        # 고치는 경우 target[col] 은 이미 '직전 편집값'이므로, 기존 편집의 prev 를 물려받는다.
+        existing = ov.get(row_id, col)
+        prev = existing.prev if (existing is not None and existing.has_prev) else target.get(col)
+        ov.upsert(Edit(
+            row_id=row_id, col=col, value=value,
+            prev=prev, has_prev=True,
+            at=now, by=by, origin=ORIGIN_DRAWER,
+        ))
+    save_overrides(proj_dir, ov)
+
+    # ⑤ rows 패치 → ⑥ 재계산 → ⑦ 저장·복사
+    for col, value in payload.items():
+        target[col] = value
+    result = build_data_json(
+        rows,
+        cfg,
+        # 타입은 물려받는다 — 편집은 값을 바꾸는 것이지 컬럼의 타입을 바꾸는 게 아니다(§5.1 ⑥).
+        column_types=column_types_of(data),
+        # data.json 의 rows 는 이미 정제된 값이다 — 60만 셀 재정제(sangga 기준 493ms)를 건너뛴다.
+        # 위에서 payload 를 직접 clean_value 로 통과시킨 것이 이 생략의 전제다.
+        rows_are_clean=True,
+        project_dir=proj_dir,
+        source_file=data.get("meta", {}).get("source_file", ""),
+    )
+    _publish_data_json(result, cfg, proj_dir)
+
+    # ⑧ 갱신된 데이터를 그대로 돌려준다 — 프런트가 이걸로 교체하면 차트·KPI 가 따라 갱신된다.
+    return _sanitize_nans({
+        "status": "success",
+        "data": result,
+        "edit_count": len(ov),
+        "xlsx_stale": True,      # 저장은 xlsx 를 미룬다 — 다운로드·발행 시 rebuild
+    })
+
+
+@app.delete("/api/projects/{name}/overrides")
+async def delete_overrides(
+    name: str,
+    body: dict | None = None,
+    user: dict = Depends(verify_supabase_token),
+):
+    """편집 되돌리기. body 로 {"row_id":..., "col":...} 을 주면 그 칸만, 없으면 전체.
+
+    되돌린 뒤 data.json 을 **xlsx 에서** 다시 만든다 — 파이프라인 산출값이 진실이므로
+    되돌리기의 목적지도 거기다. (xlsx 자체는 편집을 반영한 상태일 수 있어 rebuild 가 필요)
+    """
+    cfg, proj_dir = _load_project_cfg(name)
+    ov = load_overrides(proj_dir)
+    if not len(ov):
+        return {"status": "success", "removed": 0, "edit_count": 0}
+
+    if body and body.get("row_id"):
+        rid = str(body["row_id"])
+        if body.get("col"):
+            removed = 1 if ov.remove(rid, str(body["col"])) else 0
+        else:
+            removed = ov.remove_row(rid)
+    else:
+        removed = len(ov)
+        ov.clear()
+    save_overrides(proj_dir, ov)
+
+    _, conflicts = _rebuild_project(name)
+    return _sanitize_nans({
+        "status": "success",
+        "removed": removed,
+        "edit_count": len(ov),
+        "conflicts": conflicts,
+    })
+
+
+@app.post("/api/projects/{name}/import-xlsx")
+async def import_edited_xlsx(
+    name: str,
+    file: UploadFile = File(...),
+    apply: bool = Query(False, description="true 면 실제로 반영. 기본은 미리보기만."),
+    user: dict = Depends(verify_supabase_token),
+):
+    """수정된 xlsx 를 되돌려 받는다 — 계획 §5.4.
+
+    **기본은 미리보기다(apply=false).** 엑셀 편집은 의도치 않은 변경(서식·자동 날짜 변환·
+    앞자리 0 소실 등)을 쉽게 만든다. 확인 없이 흡수하면 엑셀이 데이터를 조용히 망가뜨린다.
+    사용자가 목록을 보고 확인하면 apply=true 로 다시 불러 §5.1 ④~⑦ 과 같은 경로로 합류한다.
+    """
+    cfg, proj_dir = _load_project_cfg(name)
+    local_json, _ = _data_json_paths(cfg, proj_dir)
+    if not local_json.exists():
+        raise HTTPException(status_code=400, detail="대시보드 데이터가 없습니다. 먼저 정제를 수행하세요.")
+
+    tmp = proj_dir / f".upload_{_safe_filename(file.filename or 'upload.xlsx')}"
+    try:
+        tmp.write_bytes(await file.read())
+        try:
+            _, uploaded_rows = _read_cleaned_sheet(tmp, cfg)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"엑셀을 읽을 수 없습니다: {exc}",
+            )
+    finally:
+        tmp.unlink(missing_ok=True)
+
+    with open(local_json, encoding="utf-8") as f:
+        data = json.load(f)
+
+    editable = {c["key"] for c in data.get("meta", {}).get("columns", [])}
+    try:
+        edits = diff_against(uploaded_rows, data.get("rows", []), editable_cols=editable)
+    except UploadRejected as exc:
+        # 식별자가 성하지 않으면 어느 행인지 알 수 없다 — 추측해서 반영하면 안 된다.
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    preview = [e.to_dict() for e in edits]
+    if not apply:
+        return _sanitize_nans({"status": "preview", "changes": preview, "count": len(preview)})
+
+    if not edits:
+        return _sanitize_nans({"status": "success", "changes": [], "count": 0})
+
+    # ── 확인됨 → §5.1 ④~⑦ 과 같은 경로 ────────────────────────────────────
+    ov = load_overrides(proj_dir)
+    by = str(user.get("user") or user.get("id") or "unknown")
+    rows = data["rows"]
+    by_id = {str(r.get(ROW_ID_COL)): r for r in rows}
+    for e in edits:
+        existing = ov.get(e.row_id, e.col)
+        # prev 는 파이프라인 산출값이어야 한다 — 이미 손댄 칸이면 그 기록을 물려받는다.
+        if existing is not None and existing.has_prev:
+            e.prev = existing.prev
+        e.by = by
+        ov.upsert(e)
+        target = by_id.get(e.row_id)
+        if target is not None:
+            target[e.col] = e.value
+    save_overrides(proj_dir, ov)
+
+    result = build_data_json(
+        rows,
+        cfg,
+        column_types=column_types_of(data),
+        rows_are_clean=True,
+        project_dir=proj_dir,
+        source_file=data.get("meta", {}).get("source_file", ""),
+    )
+    _publish_data_json(result, cfg, proj_dir)
+    return _sanitize_nans({
+        "status": "success",
+        "changes": preview,
+        "count": len(preview),
+        "data": result,
+        "edit_count": len(ov),
+    })
+
+
+@app.post("/api/projects/{name}/rebuild")
+def rebuild_project(name: str, user: dict = Depends(verify_supabase_token)):
+    """지연됐던 xlsx 재생성 — 계획 §5.2.
+
+    편집 저장이 미뤄둔 파이프라인을 여기서 1회 돌린다. 다운로드·발행 직전에 호출된다.
+    """
+    started = time.time()
+    result, conflicts = _rebuild_project(name)
+    return _sanitize_nans({
+        "status": "success",
+        "conflicts": conflicts,
+        "elapsed_sec": round(time.time() - started, 2),
+        "total_rows": result.get("meta", {}).get("total_rows"),
+    })
+
+
+@app.post("/api/projects/{name}/deploy")
+def deploy_project(name: str, user: dict = Depends(verify_supabase_token)):
+    """발행 — 편집을 xlsx 에 반영하고(rebuild) 대시보드를 git 으로 밀어 Vercel 에 배포한다.
+
+    **「발행」 버튼 1회 = 커밋 1개 · 푸시 1회.** 저장마다 자동으로 밀지 않는 이유는 §6.1 참고:
+    Vercel 배포와 원격 충돌 기회가 편집 횟수만큼 생긴다.
+
+    가드 3종(§6.3)은 app/git_sync.py 가 갖고 있고, 여기서는 그것을 통과시키기만 한다.
+    """
+    cfg, proj_dir = _load_project_cfg(name)
+
+    # ③ 먼저 xlsx·data.json 을 최신으로 (지연됐던 파이프라인)
+    _, conflicts = _rebuild_project(name)
+
+    _, published_json = _data_json_paths(cfg, proj_dir)
+    manifest = FRONTEND_ROOT / "public" / "data" / "projects.json"
+
+    raw_file: Path | None = None
+    if cfg.source and cfg.source.file:
+        candidate = proj_dir / cfg.source.file
+        if not candidate.exists():
+            candidate = STORAGE_ROOT / "raw" / Path(cfg.source.file).name
+        raw_file = candidate
+
+    try:
+        result = deploy(
+            repo=BACKEND_ROOT.parent,
+            proj_dir=proj_dir,
+            raw_file=raw_file,
+            files=[published_json, manifest],   # 가드 2 — 딱 이 둘만
+            project=cfg.project,
+            edit_count=len(load_overrides(proj_dir)),
+        )
+    except DeployBlocked as exc:
+        # 가드에 걸린 것은 오류가 아니라 **의도된 정지**다. 이유를 그대로 보여준다.
+        raise HTTPException(status_code=409, detail=str(exc))
+
+    return _sanitize_nans({
+        "status": "success" if result.pushed else "partial",
+        "pushed": result.pushed,
+        "committed": result.committed,
+        "detail": result.detail,
+        "files": result.files,
+        "conflicts": conflicts,
+    })
 
 
 @app.get("/api/health")

@@ -11,7 +11,8 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
-from engine.config import SurveyConfig
+from engine.config import ROW_ID_COL, SurveyConfig, make_row_id
+from engine.overrides import OverrideApplier, load_overrides
 from engine.preprocessor import Preprocessor
 from engine.writer import CleanedSheetWriter
 from engine.summarizer import SummarySheetWriter
@@ -21,7 +22,16 @@ from transforms.registry import TransformRegistry
 
 
 def _sheet_to_dataframe(wb: openpyxl.Workbook, cfg: SurveyConfig) -> pd.DataFrame:
-    """Read source sheet into a positionally-indexed DataFrame."""
+    """Read source sheet into a positionally-indexed DataFrame.
+
+    DataFrame 의 **index 는 원본 엑셀의 실제 행번호**다(`__row_id` 의 출처, engine/config.py 참고).
+    빈 행을 건너뛰어도 번호는 원본 기준으로 유지되므로, 이후 원본에 행이 추가·삭제되어도
+    살아남은 행의 id 는 변하지 않는다.
+
+    행번호를 **컬럼이 아니라 index 로** 보존하는 이유: `_resolve_val` 이 `row.iloc[source_col-1]`
+    로 위치 기반 접근을 하고 `len(row)` 로 경계를 검사한다. 컬럼을 하나 늘리면 그 경계가 밀려
+    잘못 설정된 source_col 이 행번호를 데이터로 읽어갈 수 있다. index 는 iloc 에 관여하지 않는다.
+    """
     sheet_name  = cfg.source.sheet
     ws          = wb[sheet_name] if sheet_name and sheet_name in wb.sheetnames else wb.active
     if ws is None:
@@ -29,19 +39,25 @@ def _sheet_to_dataframe(wb: openpyxl.Workbook, cfg: SurveyConfig) -> pd.DataFram
 
     data_start = cfg.source.data_start_row or (cfg.source.header_row + 1)
     rows: list[list[Any]] = []
+    row_ids: list[int] = []
     # iter_rows(values_only=True)로 행 단위 스트리밍 — ws.cell(r, c) 개별 호출 대비
     # 좌표 조회/Cell 객체 생성 오버헤드가 없어 대용량 시트에서 수백 배 빠르다.
-    for row_vals in ws.iter_rows(min_row=data_start, values_only=True):
-        # skip entirely blank rows
+    # enumerate(start=data_start): iter_rows 가 내주는 첫 행이 곧 엑셀 data_start 행이다.
+    for excel_row, row_vals in enumerate(
+        ws.iter_rows(min_row=data_start, values_only=True), start=data_start
+    ):
+        # skip entirely blank rows — 건너뛰어도 excel_row 는 원본 번호를 유지한다
         if any(v is not None and str(v).strip() != "" for v in row_vals):
             rows.append(list(row_vals))
+            row_ids.append(excel_row)
 
     if not rows:
         return pd.DataFrame()
 
     n_cols = max(len(r) for r in rows)
     padded = [r + [None] * (n_cols - len(r)) for r in rows]
-    return pd.DataFrame(padded)   # columns: 0, 1, 2, ... (0-based integers)
+    # columns: 0, 1, 2, ... (0-based integers) / index: 원본 엑셀 행번호
+    return pd.DataFrame(padded, index=pd.Index(row_ids, name=ROW_ID_COL))
 
 
 def _write_raw_sheet(out_wb: Workbook, src_wb: openpyxl.Workbook | None,
@@ -228,9 +244,27 @@ class SurveyPipeline:
         out_wb = Workbook()
         out_wb.remove(out_wb.active)  # remove default sheet
 
+        # ── 손 편집 오버레이 ──────────────────────────────────────────────────
+        # cleaned.xlsx 는 매번 새로 만드는 파생물이라, 대시보드에서 고친 값은 여기서
+        # 다시 얹어주지 않으면 이 실행에서 사라진다. overrides.json 이 편집의 진실이다.
+        # (docs/plan/pending/dashboard_edit_plan.md §3)
+        applier = OverrideApplier(load_overrides(proj_dir)) if proj_dir else None
+
         writer  = CleanedSheetWriter(cfg, registry)
-        n_rows, col_index_map, cleaned_col_vals = writer.write(out_wb, df)
+        n_rows, col_index_map, cleaned_col_vals = writer.write(out_wb, df, applier)
         print(f"Cleaned 시트 기록: {n_rows}행")
+
+        self.override_conflicts: list = []
+        if applier is not None and applier.has_edits:
+            # 붙을 자리가 사라진 편집은 버리지 않고 보고한다 — 편집이 조용히 없어지는 것이
+            # 최악이다. known_* 는 이번 실행에 실제로 존재한 행·컬럼이다.
+            self.override_conflicts = applier.conflicts(
+                known_row_ids={make_row_id(i) for i in df.index},
+                known_cols=set(cleaned_col_vals.keys()),
+            )
+            print(f"손 편집 반영: {applier.applied_count}건")
+            if self.override_conflicts:
+                print(f"[경고] 적용하지 못한 편집 {len(self.override_conflicts)}건 — 검토 필요")
 
         # ── dashboard.json 차트 → summary.sections 자동 생성 ─────────────────
         # 웹 관리자 화면(Step2)은 dashboard.json의 charts만 편집할 뿐 config.yaml의

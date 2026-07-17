@@ -1,17 +1,10 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import type { DashboardConfig, ProjectListItem } from "@/types/dashboard";
-import { supabase } from "@/lib/supabase";
 import { migrateConfig } from "@/lib/dashboardConfig";
+import { API_BASE, useBackendStatus } from "@/hooks/useBackendStatus";
 
-/**
- * FastAPI 백엔드 URL.
- * 개발: http://localhost:8000 (기본값)
- * 변경: web/.env.local 에 VITE_API_BASE_URL=http://your-server 추가
- */
-const API_BASE =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ??
-  "http://localhost:8000";
+export { API_BASE };
 
 /**
  * 컬럼 정의 — Python engine/config.py ColumnDef 와 동일한 구조.
@@ -67,40 +60,13 @@ export interface ProjectFreshness {
 }
 
 export function useManagerApi() {
-  const [isBackendAlive, setIsBackendAlive] = useState<boolean>(false);
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
-  const [sessionToken, setSessionToken] = useState<string | null>(null);
 
-  const isLocalDev = (supabase as any).isPlaceholder;
-
-  // Supabase 세션 자동 구독 상태 연동
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    if (isLocalDev) {
-      const checkLocalSession = () => {
-        const localSession = localStorage.getItem("sb-local-session");
-        setSessionToken(localSession ? "local-dev-bypass-token" : null);
-      };
-      checkLocalSession();
-      const interval = setInterval(checkLocalSession, 2000);
-      return () => clearInterval(interval);
-    }
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSessionToken(session?.access_token ?? null);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_, session) => {
-      setSessionToken(session?.access_token ?? null);
-    });
-    return () => subscription.unsubscribe();
-  }, [isLocalDev]);
+  // health 폴링과 세션 구독은 useBackendStatus 한 곳에서만 돈다 (공개 대시보드와 공유).
+  const { isBackendAlive, sessionToken } = useBackendStatus();
 
   const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     const token = sessionToken;
@@ -133,30 +99,30 @@ export function useManagerApi() {
     return res;
   };
 
-  // Check health on mount
+  // 백엔드가 살아나면(또는 로그인 상태가 바뀌면) 프로젝트 목록을 다시 읽는다.
+  //
+  // 예전에는 health 폴링 안에서 목록까지 같이 읽었는데, 그 useEffect 가 deps=[] 라
+  // **첫 렌더의 fetchWithAuth(sessionToken=null)를 계속 붙들고 있었다** — 즉 목록 요청에
+  // 인증 헤더가 영영 실리지 않았다. sessionToken 을 deps 에 두어 현재 토큰으로 요청한다.
   useEffect(() => {
-    const checkHealth = async () => {
+    if (!isBackendAlive) {
+      setProjects([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/health`);
-        if (res.ok) {
-          setIsBackendAlive(true);
-          // Backend is alive, load projects
-          const projRes = await fetchWithAuth(`${API_BASE}/api/projects`);
-          if (projRes.ok) {
-            const list = await projRes.json();
-            setProjects(list);
-          }
-        } else {
-          setIsBackendAlive(false);
-        }
-      } catch (err) {
-        setIsBackendAlive(false);
+        const res = await fetchWithAuth(`${API_BASE}/api/projects`);
+        if (!cancelled && res.ok) setProjects(await res.json());
+      } catch {
+        /* health 가 곧 false 로 바뀐다 */
       }
+    })();
+    return () => {
+      cancelled = true;
     };
-    checkHealth();
-    const interval = setInterval(checkHealth, 10000); // Poll every 10s
-    return () => clearInterval(interval);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBackendAlive, sessionToken]);
 
   const refreshProjects = async () => {
     if (!isBackendAlive) return;

@@ -7,6 +7,34 @@ from pydantic import BaseModel, Field, model_validator
 
 
 # ---------------------------------------------------------------------------
+# 행 식별자 (__row_id)
+# ---------------------------------------------------------------------------
+# 대시보드 편집이 "몇 번째 행"이 아니라 "어느 행"에 붙는지 고정하기 위한 숨은 열.
+# 원본 엑셀의 행번호(빈 행을 건너뛰기 "전" 기준)에서 나오므로, 원본에 행이 추가·삭제되어도
+# 기존 행의 id 는 변하지 않는다. 대시보드·차트·필터·CSV 내보내기에는 노출되지 않는다.
+#
+# 파이프라인에서의 흐름:
+#   _sheet_to_dataframe()  원본 행번호를 DataFrame 의 **index** 로 보존
+#                          (컬럼이 아니라 index 인 이유: _resolve_val 이 row.iloc[n] 로
+#                           위치 기반 접근을 하므로 컬럼을 늘리면 source_col 이 밀린다)
+#   Preprocessor           index 를 보존한다 (reset_index 금지 — preprocessor.py 주석 참고)
+#   CleanedSheetWriter     Cleaned 시트 맨 끝 **숨김 열**에 "r{index}" 로 기록
+#   build_data_json()      rows 에는 포함, meta.columns·aggregates 에서는 제외
+#
+# 상세: docs/plan/pending/dashboard_edit_plan.md §2
+ROW_ID_COL = "__row_id"
+
+
+def make_row_id(index_value: Any) -> str:
+    """DataFrame index 값 → `__row_id` 문자열. 접두사를 한 곳에서만 정한다.
+
+    문자열로 두는 이유: 숫자로 두면 엑셀·JSON 을 오가며 정수로 재해석돼
+    `_detect_type` 이 numeric 으로 볼 여지가 생긴다. 식별자는 계산 대상이 아니다.
+    """
+    return f"r{index_value}"
+
+
+# ---------------------------------------------------------------------------
 # Preprocess
 # ---------------------------------------------------------------------------
 

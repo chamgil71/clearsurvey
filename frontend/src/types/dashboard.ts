@@ -17,6 +17,21 @@ export interface DataMeta {
 
 export type Row = Record<string, string | number | null | undefined>;
 
+/**
+ * 행 식별자 컬럼. 백엔드 `engine/config.py` 의 `ROW_ID_COL` 과 같은 값이어야 한다.
+ *
+ * 대시보드 편집이 "몇 번째 행"이 아니라 "어느 행"에 붙는지 고정하려고 rows 에 실려 오지만,
+ * **사용자에게 보여선 안 된다.** `meta.columns` 에는 애초에 없으므로 거기서 컬럼을 얻는
+ * 경로(차트·필터)는 자동으로 안전하다. 다만 `Object.keys(row)` 로 컬럼을 직접 구하는 곳은
+ * 이 값이 새므로 `visibleRowKeys()` 로 걸러야 한다.
+ */
+export const ROW_ID_COL = "__row_id";
+
+/** `Object.keys(row)` 대신 쓴다 — 행 식별자 같은 내부 컬럼을 제외한 키만 돌려준다. */
+export function visibleRowKeys(row: Row | null | undefined): string[] {
+  return Object.keys(row || {}).filter((k) => k !== ROW_ID_COL);
+}
+
 export interface ProjectData {
   meta: DataMeta;
   rows: Row[];

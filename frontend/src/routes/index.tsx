@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDashboardData } from "@/hooks/useDashboardData";
+import { useBackendStatus } from "@/hooks/useBackendStatus";
+import { useRowEdit } from "@/hooks/useRowEdit";
 import { buildDefaultConfig, loadConfig } from "@/lib/dashboardConfig";
 import { filterRows } from "@/lib/aggregate";
 import type { DashboardConfig } from "@/types/dashboard";
@@ -11,6 +13,7 @@ import { SummaryTab } from "@/components/dashboard/SummaryTab";
 import { resolveTheme, applyTheme, USER_MODE_KEY } from "@/theme/apply";
 import { DataTable } from "@/components/dashboard/DataTable";
 import { GuideDrawer } from "@/components/dashboard/GuideDrawer";
+import { EditReviewPanel } from "@/components/dashboard/EditReviewPanel";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +24,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, BookOpen, Settings, Moon, Sun, FileBarChart, FileText } from "lucide-react";
+import {
+  BarChart3,
+  BookOpen,
+  Settings,
+  Moon,
+  Sun,
+  FileBarChart,
+  FileText,
+  FileSpreadsheet,
+  LogIn,
+} from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
@@ -43,13 +56,30 @@ function DashboardPage() {
       ? new URLSearchParams(window.location.search).get("data") || undefined
       : undefined;
 
-  const { projects, data, url, loading, error, switchProject } = useDashboardData(initialUrl);
+  const { projects, data, url, loading, error, switchProject, applyData } =
+    useDashboardData(initialUrl);
+  // 편집·설정·원본 XLSX 는 로컬 백엔드가 있고 로그인했을 때만 가능하다.
+  // 정적 배포(Vercel)에는 백엔드가 없으므로 canEdit 는 항상 false 가 된다.
+  const {
+    isBackendAlive,
+    canEdit,
+    checked: backendChecked,
+    withToken,
+    sessionToken,
+  } = useBackendStatus();
+  const rowEdit = useRowEdit({
+    project: data?.meta.project,
+    enabled: canEdit,
+    sessionToken,
+    onData: applyData,
+  });
   const [tab, setTab] = useState<"dashboard" | "list" | "summary">("dashboard");
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<Record<string, string>>({});
   // null = 사용자가 아직 명암을 고르지 않음 → 프로젝트 기본(cfg.theme.mode)을 따른다.
   const [theme, setTheme] = useState<string | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [exporting, setExporting] = useState<"ppt" | "pdf" | "docx" | null>(null);
   // 카드별 캡처를 위해 그리드 컨테이너를 직접 참조한다 — 자식이 곧 ChartCard 들이다.
   const chartGridRef = useRef<HTMLDivElement>(null);
@@ -230,6 +260,33 @@ function DashboardPage() {
 
           <span className="flex-1" />
 
+          {/* 요구사항 1: 편집·설정이 왜 되고 안 되는지를 화면이 설명해야 한다.
+              버튼을 숨기기만 하면 "왜 없지?" 가 되므로 상태를 함께 보여준다. */}
+          {backendChecked && (
+            <span
+              title={
+                canEdit
+                  ? "로컬 백엔드에 연결되어 데이터 편집과 설정이 가능합니다."
+                  : isBackendAlive
+                    ? "백엔드는 실행 중이지만 로그인하지 않아 읽기 전용입니다."
+                    : "편집·설정은 로컬 백엔드가 실행 중일 때만 가능합니다. 지금은 읽기 전용입니다."
+              }
+              className={`hidden md:flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-full border ${
+                canEdit
+                  ? "border-success/40 text-success bg-success/10"
+                  : "border-border text-muted-foreground"
+              }`}
+            >
+              <span
+                aria-hidden
+                className={`inline-block h-1.5 w-1.5 rounded-full ${
+                  canEdit ? "bg-success" : "bg-muted-foreground/50"
+                }`}
+              />
+              {canEdit ? "로컬 API 연결됨" : isBackendAlive ? "로그인 필요" : "읽기 전용"}
+            </span>
+          )}
+
           <span className="text-[11px] text-muted-foreground hidden sm:block">
             {data.meta.generated_at?.slice(0, 16).replace("T", " ")}
           </span>
@@ -311,17 +368,73 @@ function DashboardPage() {
             가이드
           </Button>
 
-          <Link to="/admin">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs gap-1.5"
-              title="대시보드 관리자 설정"
+          {/* 요구사항 2·3: 원본 XLSX 와 설정은 API 가동 환경에서만 노출한다.
+              비활성 버튼으로 남기지 않고 숨긴다 — 정적 배포 방문자에게는 존재하지 않는
+              기능이고, 회색 버튼은 "고장난 것"처럼 보인다. 대신 위 상태 배지가 이유를 말한다.
+              <a> 는 헤더를 못 실어서 토큰을 쿼리로 붙인다(백엔드가 ?token= 을 받는다). */}
+          {/* 편집 N건 · xlsx 뒤처짐 배지 (9단계).
+              저장은 data.json 만 갱신하고 xlsx 는 미룬다(§5.2) — 그 사실을 화면이 말해준다.
+              is_stale 은 기존 개념 그대로다: 설정이든 편집이든 산출물보다 앞서면 뒤처진 것. */}
+          {canEdit && rowEdit.editCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setReviewOpen(true)}
+              title={
+                rowEdit.freshness?.is_stale
+                  ? "직접 수정한 값이 있습니다. 엑셀은 다운로드·발행할 때 다시 만들어집니다. 클릭하면 목록을 봅니다."
+                  : "직접 수정한 값이 엑셀에도 반영되어 있습니다. 클릭하면 목록을 봅니다."
+              }
+              className={`hidden lg:flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-full border cursor-pointer ${
+                rowEdit.freshness?.is_stale
+                  ? "border-warning/40 text-warning bg-warning/10 hover:bg-warning/20"
+                  : "border-border text-muted-foreground hover:bg-muted"
+              }`}
             >
-              <Settings className="h-3.5 w-3.5" />
-              설정
-            </Button>
-          </Link>
+              편집 {rowEdit.editCount}건{rowEdit.freshness?.is_stale ? " · 엑셀 뒤처짐" : ""}
+            </button>
+          )}
+
+          {canEdit && (
+            <a
+              href={withToken(`/api/projects/${data.meta.project}/download`)}
+              title={
+                rowEdit.freshness?.is_stale
+                  ? "정제된 엑셀 내려받기 — 편집이 반영되도록 먼저 다시 만들어 시간이 걸립니다"
+                  : "정제된 원본 엑셀 내려받기 (편집이 반영된 최신본)"
+              }
+            >
+              <Button variant="outline" size="sm" className="text-xs gap-1.5">
+                <FileSpreadsheet className="h-3.5 w-3.5" />
+                원본 XLSX
+              </Button>
+            </a>
+          )}
+
+          {canEdit && (
+            <Link to="/admin">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs gap-1.5"
+                title="대시보드 관리자 설정"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                설정
+              </Button>
+            </Link>
+          )}
+
+          {/* 백엔드는 있는데 로그인만 없는 상태 = 로그인하면 편집이 열린다. 그 길을 준다.
+              배지로 "로그인 필요" 라고만 하고 방법을 안 주면 막다른 길이 된다.
+              백엔드가 아예 없으면(정적 배포) 로그인해도 할 수 있는 게 없으므로 내보내지 않는다. */}
+          {isBackendAlive && !canEdit && (
+            <Link to="/login" search={{ redirect: "/" }}>
+              <Button variant="ghost" size="sm" className="text-xs gap-1.5" title="관리자 로그인">
+                <LogIn className="h-3.5 w-3.5" />
+                로그인
+              </Button>
+            </Link>
+          )}
         </header>
 
         {/* KPI */}
@@ -424,7 +537,16 @@ function DashboardPage() {
 
           {/* List Tab */}
           <TabsContent value="list" className="px-6 py-5 mt-0">
-            <DataTable rows={filtered} cfg={cfg} search={search} />
+            <DataTable
+              rows={filtered}
+              cfg={cfg}
+              search={search}
+              columns={data.meta.columns}
+              editable={canEdit}
+              saving={rowEdit.saving}
+              onSaveRow={rowEdit.saveRow}
+              editedCells={rowEdit.editedCells}
+            />
           </TabsContent>
 
           {/* Summary Tab */}
@@ -442,6 +564,19 @@ function DashboardPage() {
         </Tabs>
 
         <GuideDrawer isOpen={guideOpen} onClose={() => setGuideOpen(false)} />
+
+        {canEdit && (
+          <EditReviewPanel
+            open={reviewOpen}
+            onOpenChange={setReviewOpen}
+            edits={rowEdit.edits}
+            conflicts={rowEdit.conflicts}
+            busy={rowEdit.saving}
+            onRevert={rowEdit.revert}
+            onImport={rowEdit.importXlsx}
+            onDeploy={rowEdit.deploy}
+          />
+        )}
       </div>
     </ErrorBoundary>
   );

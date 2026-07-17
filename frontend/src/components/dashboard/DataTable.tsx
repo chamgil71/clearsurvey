@@ -1,8 +1,19 @@
 import { useMemo, useState } from "react";
-import type { DashboardConfig, Row } from "@/types/dashboard";
+import type { ColumnMeta, DashboardConfig, Row } from "@/types/dashboard";
+import { visibleRowKeys } from "@/types/dashboard";
 import { DetailPanel } from "./DetailPanel";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const PAGE_SIZE = 30;
 
@@ -10,17 +21,42 @@ export function DataTable({
   rows,
   cfg,
   search = "",
+  columns,
+  editable = false,
+  saving = false,
+  onSaveRow,
+  editedCells,
 }: {
   rows: Row[];
   cfg: DashboardConfig;
   search?: string;
+  /** data.meta.columns — 편집 위젯 선택에 쓴다. */
+  columns?: ColumnMeta[];
+  editable?: boolean;
+  saving?: boolean;
+  /** (row, 변경된 컬럼만) → 저장. 실패 시 throw 해야 draft 가 보존된다. */
+  onSaveRow?: (row: Row, changes: Record<string, string | number | null | undefined>) => Promise<void>;
+  /** __row_id → {컬럼: 원래값}. 이미 손 편집된 필드를 표시하는 데 쓴다. */
+  editedCells?: Record<string, Record<string, string | number | null | undefined>>;
 }) {
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<{ col: string | null; dir: 1 | -1 }>({ col: null, dir: 1 });
   const [selected, setSelected] = useState<Row | null>(null);
+  // 저장 안 된 변경이 있는데 드로어가 닫히면 입력이 사라진다. Sheet 는 오버레이 클릭·Esc 로도
+  // 닫히므로 패널 안에서는 막을 수 없다 — Sheet 를 가진 여기서 가로챈다.
+  const [dirty, setDirty] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
 
+  const closeDrawer = () => {
+    setDirty(false);
+    setConfirmClose(false);
+    setSelected(null);
+  };
+
+  // visible_cols 미설정 시 행의 키를 그대로 쓰는데, 그러면 내부 식별 컬럼(__row_id)까지
+  // 표에 뜬다 — visibleRowKeys 로 거른다.
   const visibleCols = useMemo(
-    () => (cfg.list?.visible_cols?.length ? cfg.list.visible_cols : Object.keys(rows[0] || {})),
+    () => (cfg.list?.visible_cols?.length ? cfg.list.visible_cols : visibleRowKeys(rows[0])),
     [cfg, rows],
   );
 
@@ -46,7 +82,8 @@ export function DataTable({
   };
 
   const exportCSV = (allColumns: boolean = false) => {
-    const colsToExport = allColumns ? Object.keys(rows[0] || {}) : visibleCols;
+    // "전체 컬럼" 은 사용자가 보는 전체이지 내부 식별 컬럼까지가 아니다.
+    const colsToExport = allColumns ? visibleRowKeys(rows[0]) : visibleCols;
     const header = colsToExport.join(",");
     const body = sorted
       .map((row) =>
@@ -180,11 +217,54 @@ export function DataTable({
         )}
       </div>
 
-      <Sheet open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
+      <Sheet
+        open={!!selected}
+        onOpenChange={(open) => {
+          if (open) return;
+          // 저장 안 된 변경이 있으면 닫지 않고 먼저 묻는다.
+          // selected 를 그대로 두면 controlled Sheet 라 열린 상태가 유지된다.
+          if (dirty) {
+            setConfirmClose(true);
+            return;
+          }
+          closeDrawer();
+        }}
+      >
         <SheetContent side="right" className="w-[460px] sm:w-[460px] max-w-full p-6">
-          <DetailPanel row={selected} cfg={cfg} onClose={() => setSelected(null)} />
+          <DetailPanel
+            row={selected}
+            cfg={cfg}
+            columns={columns}
+            editable={editable}
+            saving={saving}
+            onSave={
+              onSaveRow && selected ? (changes) => onSaveRow(selected, changes) : undefined
+            }
+            onDirtyChange={setDirty}
+            editedCols={
+              selected && editedCells
+                ? editedCells[String(selected["__row_id"] ?? "")]
+                : undefined
+            }
+            onClose={() => (dirty ? setConfirmClose(true) : closeDrawer())}
+          />
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>저장하지 않은 변경이 있습니다</AlertDialogTitle>
+            <AlertDialogDescription>
+              닫으면 수정한 내용이 사라집니다. 계속 편집하시겠습니까?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>계속 편집</AlertDialogCancel>
+            <AlertDialogAction onClick={closeDrawer}>변경 버리고 닫기</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

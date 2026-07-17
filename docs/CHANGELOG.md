@@ -2,6 +2,69 @@
 
 All notable changes to the ClearSurvey project will be documented in this file.
 
+## [2026-07-17] 대시보드 행 편집 (1~11단계) · 로컬 실행 환경 수정
+
+[plan/pending/dashboard_edit_plan.md](plan/pending/dashboard_edit_plan.md) 의 1~11단계 구현 완료.
+대시보드에서 행을 고치면 차트·KPI 가 따라 바뀌고, 엑셀·발행까지 왕복한다.
+
+**결과**: 백엔드 421개(282 → +139) · 프런트 417개(+69) 테스트 및 `tsc --noEmit`·`build` 전부 통과.
+
+> 🔴 **아직 실제 데이터로 돌아본 적이 없다.** 작업 PC 에 `storage/projects/` 가 비어 있어
+> (multi_pc §2.1 의 "보기 전용 PC") 화면에서 끝까지 확인하지 못했다. 자동 테스트는
+> 자체 fixture 를 쓰므로 무관하다. **원본 PC 에서 확인할 항목은 계획서 §12 에 체크리스트로 있다.**
+> 특히 **기존 프로젝트는 `/run` 을 한 번 다시 돌려야** 편집이 열린다(`__row_id` 가 없어서).
+
+### Added
+- **`engine/overrides.py`** — 손 편집 오버레이(`storage/projects/<name>/overrides.json`).
+  `cleaned.xlsx` 는 raw+config 에서 매번 재생성되는 파생물이라 거기 직접 쓰면 다음 `/run` 이
+  지운다. 편집을 따로 쌓아 파이프라인 **최종 단계**(transform 이후·시트 기록 직전)에 얹는다.
+- **`__row_id`** (`engine/config.py`의 `ROW_ID_COL`) — 편집을 "몇 번째 행"이 아니라 "어느 행"에
+  고정하는 숨은 열. 원본 엑셀 행번호 기반이라 빈 행·행 필터·정렬과 무관하다.
+- **편집 API** — `GET/DELETE /overrides`, `PATCH /rows/{row_id}`, `POST /rebuild`,
+  `POST /import-xlsx`, `POST /deploy`.
+  저장은 `data.json` 만 갱신하고 xlsx 는 다운로드·발행 때 지연 생성한다.
+- **드로어 편집** (`DetailPanel`) — 행 클릭 → 우측 드로어 → 수정 → 저장.
+  표는 `visible_cols` 만 보여주지만 드로어는 **전 컬럼**을 보여줘서 편집 창구로 택했다.
+  편집 모드에선 **빈 값 컬럼도 렌더**한다 — 안 그리면 비어 있는 값을 채울 수 없다.
+  category 는 `<input list>`(datalist)로 **제안 + 자유입력**을 함께 준다(설문 정제는 새 표기를
+  넣는 일이 잦아 고정 Select 로는 절반이 죽는다).
+- **역방향 xlsx** (`POST /import-xlsx`) — 「원본 XLSX」로 받아 엑셀에서 고친 파일을 되돌려 올리면
+  바뀐 셀만 골라 흡수한다. **기본은 미리보기**이고 확인해야 반영된다 — 엑셀은 서식·자동 날짜
+  변환으로 값을 조용히 망가뜨린다. `__row_id` 검증(열 삭제·중복·미지의 id)이 유일한 방어 지점이다.
+- **발행** (`app/git_sync.py`, `POST /deploy`) — 「발행」 1회 = **커밋 1개 · 푸시 1회**.
+  저장마다 밀면 Vercel 배포와 원격 충돌 기회가 편집 횟수만큼 생긴다.
+  가드 3종(원본 존재 · 경로 2개 제한 · 원격 선행 시 거부)을 **먼저 테스트로 통과시킨 뒤** 붙였다
+  — multi_pc §3 이 금지하는 "원본 없는 PC 의 커밋"에 손이 닿는 기능이라서다.
+- **`build_data_json()`** — `export_to_json` 에서 분리. xlsx 없이 rows 만으로 대시보드 JSON 을
+  만든다(지연 생성의 전제). 두 경로가 같은 함수를 써 산출물이 어긋날 수 없다.
+- **`useBackendStatus`** — health 폴링·세션 구독을 한 곳에 모아 공개 대시보드와 어드민이 공유.
+  `canEdit = 백엔드 + 로그인` 으로 `설정`·`원본 XLSX` 노출을 판단하고 헤더에 상태 배지를 띄운다.
+
+### Fixed
+- 🔴 **`preprocessor.py` 의 `reset_index(drop=True)` 가 행 식별자를 지우고 있었다.**
+  행 필터를 켠 프로젝트에서 편집이 통째로 밀린 행에 붙을 수 있었다.
+- 🔴 **`useManagerApi` 의 프로젝트 목록 요청에 인증 헤더가 안 실렸다.** health 폴링 `useEffect`
+  의 `deps=[]` 가 첫 렌더의 `fetchWithAuth(sessionToken=null)` 를 계속 붙들고 있었다.
+  로컬은 바이패스라 안 터졌지만 Supabase 환경에선 401 → 자동 로그아웃 루프가 났을 것이다.
+- **`__row_id` 가 프런트 3곳으로 샐 뻔했다** — 표 헤더 폴백·**CSV 전체 컬럼 내보내기**·상세
+  드로어(+PDF). `meta.columns` 를 안 거치고 `Object.keys(row)` 를 쓰던 곳들 →
+  `visibleRowKeys()` 로 통일.
+- **백엔드 호출마다 ~210ms 낭비** (`useBackendStatus.ts`): `start_backend.bat` 은
+  `--host 127.0.0.1`(IPv4)인데 프런트 기본값이 `http://localhost:8000` 이었다. Windows 에서
+  `localhost` 는 `::1` 로 **먼저** 풀려 IPv6 시도 → 실패 → IPv4 폴백을 매번 반복했다.
+  기본값을 `127.0.0.1:8000` 으로 맞춰 **210ms → 24ms**.
+- **`start_web.bat` 의 `--force` 가 매 실행마다 ~5.4초를 버렸다** (첫 페이지까지 14.1s → 8.7s).
+  `node_modules/.vite`(25MB 사전 번들)를 통째로 재생성한다. 응급 옵션이지 상시 옵션이 아니다.
+  같이 `npm` → `bun` 으로 통일(`bun.lock` 이 정본인데 이 파일만 npm 을 썼다).
+- **`start_backend.bat` 이 실행 시 알 수 없는 명령 에러 2줄을 뱉었다.** UTF-8 파일인데
+  `chcp 65001` 이 파일 중간에서 코드페이지를 바꿔, 그 뒤 한글 REM 2줄이 조각나 명령으로
+  해석됐다. 배치 파일을 ASCII 전용으로 통일(이유를 주석에 명시).
+
+### Changed
+- `/freshness` 가 `overrides.json` 도 본다 — "설정이 산출물보다 앞서 있다"는 기존 개념에
+  "편집이 앞서 있다"를 얹었을 뿐이라 새 개념을 만들지 않았다. `edit_count` 추가.
+- `/download` 가 뒤처졌으면 먼저 rebuild 한다 — 사용자가 "편집이 빠진 엑셀"을 받으면 안 된다.
+
 ## [2026-07-17] 차트 PDF 재작성 · 내보내기 색상 테마 연동
 
 차트 PDF는 화면을 통째로 찍는 대신 카드별로 캡처해 A4에 직접 배치한다. PDF·PPT 모두 이제
