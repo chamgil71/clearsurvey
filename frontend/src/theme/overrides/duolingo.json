@@ -1,0 +1,7 @@
+{
+  "_": "Duolingo 브랜드 팔레트 그대로 — green(feather)/blue(macaw)/orange(fox)/purple(beetle)/gold(bee). 자동 도출은 primary 램프만 반복했다.",
+  "chart": {
+    "light": ["#58CC02", "#1CB0F6", "#FF9600", "#CE82FF", "#FFC800"],
+    "dark":  ["#61E002", "#3BC4FF", "#FFA83B", "#D89AFF", "#FFD43B"]
+  }
+}

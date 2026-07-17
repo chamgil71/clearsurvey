@@ -1,0 +1,7 @@
+{
+  "_": "clay/sage/teal 웜 톤. 자동 도출의 chart-5는 무채색(sage #6F7864)이라 조각이 죽었다. 브랜드의 teal(info)·green(success)·ochre(warning)를 쓰고 뮤트 보라를 더했다.",
+  "chart": {
+    "light": ["#C96442", "#3F6F73", "#4F7A35", "#B07A1F", "#7A6A8F"],
+    "dark":  ["#D88861", "#5B9296", "#6B9B4C", "#D19A3A", "#9A8AB0"]
+  }
+}

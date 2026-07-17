@@ -1,0 +1,7 @@
+{
+  "_": "GitHub 이 실제 그래프(기여도·인사이트)에서 쓰는 데이터 색 — blue/green/yellow/purple/orange. 자동 도출은 primary 램프(#0969DA 계열)만 반복했다.",
+  "chart": {
+    "light": ["#0969DA", "#1A7F37", "#9A6700", "#8250DF", "#BC4C00"],
+    "dark":  ["#2F81F7", "#3FB950", "#D29922", "#A371F7", "#DB6D28"]
+  }
+}

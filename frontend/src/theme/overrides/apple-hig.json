@@ -1,0 +1,7 @@
+{
+  "_": "Apple 시스템 컬러 그대로. Blue/Green/Orange/Purple/Teal — iOS가 실제로 쓰는 구분색이다. 라이트/다크 각각 Apple이 정의한 값(다크는 명도를 올린 별도 값).",
+  "chart": {
+    "light": ["#007AFF", "#34C759", "#FF9500", "#AF52DE", "#5AC8FA"],
+    "dark":  ["#0A84FF", "#30D158", "#FF9F0A", "#BF5AF2", "#64D2FF"]
+  }
+}

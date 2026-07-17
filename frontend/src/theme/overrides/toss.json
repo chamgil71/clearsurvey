@@ -1,0 +1,7 @@
+{
+  "_": "브랜드 색: primary #0064FF, success #00A85A, warning #FF9500. 자동 도출은 secondary(#191F28 본문 네이비)를 골라 도넛이 검게 나왔고 chart-5가 chart-1과 같은 파랑이었다. 네이비를 빼고 보라·시안으로 색상을 벌렸다.",
+  "chart": {
+    "light": ["#0064FF", "#00A85A", "#FF9500", "#8B5CF6", "#00C2D1"],
+    "dark":  ["#2D82FF", "#22C55E", "#FBBF24", "#A78BFA", "#22D3EE"]
+  }
+}

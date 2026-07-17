@@ -1,0 +1,7 @@
+{
+  "_": "Airbnb 브랜드 컬러 Rausch(#FF385C)·Babu(#00A699)를 살렸다. Arches(#FC642D)는 Rausch 와 색상이 가까워 뺐고, gold·purple 로 벌렸다.",
+  "chart": {
+    "light": ["#FF385C", "#00A699", "#FFB400", "#6D28D9", "#2E7D32"],
+    "dark":  ["#FF6B85", "#26C6B9", "#FFC633", "#9061F9", "#4CAF50"]
+  }
+}
