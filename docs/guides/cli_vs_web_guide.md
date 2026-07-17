@@ -28,7 +28,9 @@ ClearSurvey v2 시스템은 기존 엑셀 기반(CLI) 인터페이스의 강력�
 ### 3.1. CLI 방식 (전통적 엑셀 편집)
 1. **분석(Analyze)**
    ```bash
-   uv run backend/cli.py analyze --file raw/원본데이터.xlsx --project 프로젝트명
+   # 가상환경 활성화 후 backend/ 에서 실행
+   cd backend
+   python main.py analyze ../storage/raw/원본데이터.xlsx --project 프로젝트명 --save-project
    ```
    이 명령을 치면 `storage/projects/프로젝트명/draft_원본데이터.xlsx` 가 생성됩니다.
 2. **설정(Config) 변경**
@@ -37,7 +39,7 @@ ClearSurvey v2 시스템은 기존 엑셀 기반(CLI) 인터페이스의 강력�
    - 파일 저장을 누르고 엑셀을 닫습니다.
 3. **정제 및 실행(Run)**
    ```bash
-   uv run backend/cli.py run --project 프로젝트명
+   python main.py run ../storage/projects/프로젝트명/config.yaml
    ```
    - 엔진이 `draft_...xlsx`의 Config 시트를 읽어서, 원본을 정제한 뒤 `output/프로젝트명_cleaned.xlsx` 를 최종 결과물로 만듭니다.
 

@@ -135,12 +135,24 @@ sequenceDiagram
 ### 환경 준비 (최초 1회)
 
 ```bash
+# Python 가상환경 활성화 (C:\ai 아래 프로젝트 공용 — C:\ai\.venv314)
+#   PowerShell: & C:\ai\.venv314\Scripts\Activate.ps1
+#   bash      : source /c/ai/.venv314/Scripts/activate
+
 # Python 의존성 (backend/pyproject.toml 기준)
-cd backend && uv sync && cd ..
+cd backend && pip install -e ".[dev]" && cd ..
 
 # 웹 의존성 (start_web.bat 또는 직접 설치)
 cd frontend && bun install && cd ..
 ```
+
+> 이 프로젝트는 `C:\ai\.venv314` 가상환경을 다른 `C:\ai\*` 프로젝트와 **공유**한다.
+> `start_backend.bat`도 이 경로를 기본값으로 쓰며, 다른 환경을 쓰려면 `CLEARSURVEY_PYTHON`에
+> `python.exe` 경로를 지정하면 된다.
+>
+> `backend/uv.lock`이 남아 있지만 현재 워크플로(공용 venv)와 CI(`pip install -e ".[dev]"`)는
+> uv를 쓰지 않는다. `uv sync`는 잠금 파일에 없는 패키지를 **제거**하므로 공용 venv에 대고
+> 실행하면 다른 프로젝트의 의존성이 날아간다 — 쓰지 말 것.
 
 ### 1단계: CLI 모드 (백엔드 없이)
 
@@ -152,17 +164,17 @@ cd frontend && bun install && cd ..
 
 ```bash
 # 1. 엑셀 파일 분석 + Draft 설정 생성
-uv run main.py analyze ../storage/raw/gpu_raw_data_3.xlsx
+python main.py analyze ../storage/raw/gpu_raw_data_3.xlsx
 # → ../storage/raw/draft_gpu_raw_data_3.xlsx 자동 생성
 
 # 2. Draft xlsx에서 Config 시트 수정 (transform, output_col 등)
 
 # 3. 파이프라인 실행 (프로젝트 설정으로 저장 구동 가능)
-uv run main.py run ../storage/raw/draft_gpu_raw_data_3.xlsx --input ../storage/raw/gpu_raw_data_3.xlsx
+python main.py run ../storage/raw/draft_gpu_raw_data_3.xlsx --input ../storage/raw/gpu_raw_data_3.xlsx
 # → ../storage/projects/gpu_raw_data_3/output/gpu_raw_data_3_cleaned.xlsx
 
 # 4. 웹 대시보드용 JSON 내보내기 및 프론트엔드 배포
-uv run main.py export ../storage/projects/gpu_raw_data_3/config.yaml
+python main.py export ../storage/projects/gpu_raw_data_3/config.yaml
 
 # 5. 웹 대시보드 확인 (프로젝트 최상위 루트로 복귀 후)
 cd ..
@@ -285,7 +297,7 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ### CLI 명령어 레퍼런스
 
 > [!NOTE]
-> CLI 실행은 모든 파이썬 환경과 의존성이 세팅된 `backend/` 디렉토리로 이동하여 `uv run main.py`를 사용해 구동해야 오동작이 없습니다.
+> CLI 실행은 모든 파이썬 환경과 의존성이 세팅된 `backend/` 디렉토리로 이동하여 `python main.py`를 사용해 구동해야 오동작이 없습니다.
 > ```bash
 > cd backend
 > ```
@@ -293,35 +305,35 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```bash
 # ── 분석 ──────────────────────────────────────────────────────────────
 # 기본: 원본 파일과 같은 폴더에 draft_*.xlsx 자동 생성
-uv run main.py analyze ../storage/raw/gpu_raw_data_3.xlsx
+python main.py analyze ../storage/raw/gpu_raw_data_3.xlsx
 
 # 화면 출력(JSON)만, 파일 생성 없음
-uv run main.py analyze ../storage/raw/gpu_raw_data_3.xlsx --dry-run
+python main.py analyze ../storage/raw/gpu_raw_data_3.xlsx --dry-run
 
 # 프로젝트 폴더 구조로 저장 (storage/projects/ 에 자동 보관)
-uv run main.py analyze ../storage/raw/gpu_raw_data_3.xlsx --project my_survey --save-project
+python main.py analyze ../storage/raw/gpu_raw_data_3.xlsx --project my_survey --save-project
 
 # ── 실행 ──────────────────────────────────────────────────────────────
 # draft xlsx로 실행 (빠른 검증)
-uv run main.py run ../storage/raw/draft_gpu_raw_data_3.xlsx --input ../storage/raw/gpu_raw_data_3.xlsx
+python main.py run ../storage/raw/draft_gpu_raw_data_3.xlsx --input ../storage/raw/gpu_raw_data_3.xlsx
 
 # yaml로 실행 (전처리 fill_down/row_filter 포함)
-uv run main.py run ../storage/projects/my_survey/config.yaml --input ../storage/raw/gpu_raw_data_3.xlsx
+python main.py run ../storage/projects/my_survey/config.yaml --input ../storage/raw/gpu_raw_data_3.xlsx
 
 # 결과물 Config 시트 수정 후 재실행 (라운드트립)
-uv run main.py run ../storage/projects/my_survey/output/my_survey_cleaned.xlsx --input ../storage/raw/gpu_raw_data_3.xlsx
+python main.py run ../storage/projects/my_survey/output/my_survey_cleaned.xlsx --input ../storage/raw/gpu_raw_data_3.xlsx
 
 # ── 내보내기 ──────────────────────────────────────────────────────────
 # 웹 대시보드용 JSON 생성 (storage/projects/ 내부 및 frontend/public/data/ 로 이중 자동복사 배포)
-uv run main.py export ../storage/projects/my_survey/config.yaml
+python main.py export ../storage/projects/my_survey/config.yaml
 
 # ── 배포 ──────────────────────────────────────────────────────────────
 # 단일 프로젝트 독립 웹 패키지 생성
-uv run main.py deploy ../storage/projects/my_survey/config.yaml --dest dist/my_survey
+python main.py deploy ../storage/projects/my_survey/config.yaml --dest dist/my_survey
 
 # ── 유틸리티 ──────────────────────────────────────────────────────────
-uv run main.py new-project <name>         # 빈 프로젝트 폴더 생성
-uv run scripts/gen_dummy.py               # 더미 데이터 재생성
+python main.py new-project <name>         # 빈 프로젝트 폴더 생성
+python scripts/gen_dummy.py               # 더미 데이터 재생성
 ```
 
 ### Phase별 상세 설명
@@ -400,7 +412,7 @@ summary:
 
 ```bash
 # JSON 내보내기
-uv run main.py export ../storage/projects/my_survey/config.yaml
+python main.py export ../storage/projects/my_survey/config.yaml
 # → ../storage/projects/my_survey/my_survey_data.json
 # → ../frontend/public/data/my_survey_data.json 배포 복사 및 projects.json 갱신
 
@@ -607,8 +619,8 @@ merge:
 ```
 
 ```bash
-uv run main.py merge ../storage/projects/multi/config.yaml --output merged.xlsx
-uv run main.py run ../storage/projects/multi/config.yaml   # merge 후 pipeline 자동 실행
+python main.py merge ../storage/projects/multi/config.yaml --output merged.xlsx
+python main.py run ../storage/projects/multi/config.yaml   # merge 후 pipeline 자동 실행
 ```
 
 ---

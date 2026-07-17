@@ -176,8 +176,9 @@ docker compose up --build -d
 
 ### Python 단위 테스트
 ```bash
+# 가상환경 활성화: & C:\ai\.venv314\Scripts\Activate.ps1
 cd backend
-uv sync
+pip install -e ".[dev]"
 pytest -v
 ```
 
@@ -206,10 +207,14 @@ npx playwright test
 ### 1. 로컬 백엔드 API 서버 가동
 파이썬 환경에 필수 의존성을 설치하고 FastAPI 서버를 가동합니다:
 ```bash
+# 가상환경 활성화 (C:\ai 아래 프로젝트 공용)
+#   PowerShell: & C:\ai\.venv314\Scripts\Activate.ps1
 cd backend
-uv sync
+pip install -e ".[dev]"
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
+> 윈도우에서는 `start_backend.bat`이 위 과정을 대신한다(`C:\ai\.venv314` 기본 사용,
+> `CLEARSURVEY_PYTHON`으로 경로 변경 가능).
 * 서버 가동이 성공하면 `http://localhost:8000/api/health` 핑을 통해 백엔드가 활성화되어 설정 매니저와 동기화됩니다.
 
 ### 2. 프론트엔드 마법사 및 대시보드 구동
