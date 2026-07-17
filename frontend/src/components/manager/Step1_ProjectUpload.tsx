@@ -411,7 +411,7 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
                             e.stopPropagation();
                             removeMergeFile(idx);
                           }}
-                          className="text-destructive hover:text-red-700 transition-colors p-0.5"
+                          className="text-destructive hover:text-destructive transition-colors p-0.5"
                           title="삭제"
                         >
                           <Trash2 className="h-3 w-3" />

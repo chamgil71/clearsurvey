@@ -59,10 +59,10 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
   return (
     <div className="space-y-6">
       {/* 1. KPI 카드 */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <div className="bg-card rounded-xl shadow-sm border border-input p-6">
         <div className="flex items-center gap-2 mb-6">
-          <Pin className="h-5 w-5 text-red-500 fill-red-500" />
-          <h3 className="text-[15px] font-bold text-slate-800">KPI 카드 <span className="text-slate-400 font-normal text-[13px] ml-1">(최대 4개 권장)</span></h3>
+          <Pin className="h-5 w-5 text-destructive fill-destructive" />
+          <h3 className="text-[15px] font-bold text-foreground">KPI 카드 <span className="text-muted-foreground font-normal text-[13px] ml-1">(최대 4개 권장)</span></h3>
         </div>
 
         <div className="space-y-3">
@@ -71,7 +71,7 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
               <select
                 value={k.type}
                 onChange={(e) => onUpdateKpi(i, { type: e.target.value })}
-                className="w-[160px] h-10 px-3 rounded-md border border-slate-200 bg-white text-[13px] font-medium text-slate-700 outline-none focus:border-blue-400"
+                className="w-[160px] h-10 px-3 rounded-md border border-input bg-card text-[13px] font-medium text-foreground outline-none focus:border-ring"
               >
                 <option value="total_rows">전체 행수</option>
                 <option value="count_value">값 카운트</option>
@@ -82,7 +82,7 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
                 value={(k as any).col ?? ""}
                 onChange={(e) => onUpdateKpi(i, { col: e.target.value })}
                 disabled={k.type === "total_rows"}
-                className="flex-1 h-10 px-3 rounded-md border border-slate-200 bg-white text-[13px] font-medium text-slate-700 outline-none focus:border-blue-400 disabled:bg-slate-50 disabled:text-slate-400"
+                className="flex-1 h-10 px-3 rounded-md border border-input bg-card text-[13px] font-medium text-foreground outline-none focus:border-ring disabled:bg-muted disabled:text-muted-foreground"
               >
                 <option value="">-- 컬럼 --</option>
                 {allAvailableChartCols.map((cname) => (
@@ -95,14 +95,14 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
                 value={(k as any).value ?? ""}
                 onChange={(e) => onUpdateKpi(i, { value: e.target.value })}
                 disabled={k.type !== "count_value"}
-                className="flex-1 h-10 text-[13px] font-medium border-slate-200 disabled:bg-slate-50"
+                className="flex-1 h-10 text-[13px] font-medium border-input disabled:bg-muted"
               />
 
               <Input
                 placeholder="총 응답수"
                 value={k.label ?? ""}
                 onChange={(e) => onUpdateKpi(i, { label: e.target.value })}
-                className="flex-1 h-10 text-[13px] font-medium border-slate-200"
+                className="flex-1 h-10 text-[13px] font-medium border-input"
               />
 
               <Button
@@ -112,7 +112,7 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
                   // If onDeleteKpi exists, call it. Otherwise fallback to mutating locally or ignore.
                   if (onDeleteKpi) onDeleteKpi(i);
                 }}
-                className="h-10 w-10 text-red-400 hover:text-red-600 hover:bg-red-50 shrink-0 border border-slate-100"
+                className="h-10 w-10 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0 border border-border"
               >
                 <span className="text-lg leading-none font-light">×</span>
               </Button>
@@ -124,11 +124,11 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
               variant="outline"
               size="sm"
               onClick={onAddKpi}
-              className="text-[13px] text-slate-600 font-semibold gap-1 border-slate-200 h-9 px-4"
+              className="text-[13px] text-muted-foreground font-semibold gap-1 border-input h-9 px-4"
             >
               + KPI 추가
             </Button>
-            <p className="text-[12px] text-slate-400 mt-3">
+            <p className="text-[12px] text-muted-foreground mt-3">
               전체 행수 - 데이터 총 건수 | 값 카운트 - 특정 컬럼의 특정 값 개수 | 합계 - 숫자 컬럼 합계
             </p>
           </div>
@@ -136,21 +136,21 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
       </div>
 
       {/* 2. 차트 구성 */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <div className="bg-card rounded-xl shadow-sm border border-input p-6">
         <div className="mb-4">
           <div className="flex items-center justify-between gap-2 mb-1.5">
             <div className="flex items-center gap-2">
-              <BarChart2 className="h-5 w-5 text-amber-500 fill-amber-500" />
-              <h3 className="text-[15px] font-bold text-slate-800">차트 구성 <span className="text-slate-400 font-normal text-[13px] ml-1">(드래그로 순서 변경)</span></h3>
+              <BarChart2 className="h-5 w-5 text-primary fill-primary" />
+              <h3 className="text-[15px] font-bold text-foreground">차트 구성 <span className="text-muted-foreground font-normal text-[13px] ml-1">(드래그로 순서 변경)</span></h3>
             </div>
             {onUpdateLayout && (
               <div className="flex items-center gap-2 shrink-0">
-                <label className="text-[12px] font-semibold text-slate-500">가로 배열 최대 개수</label>
+                <label className="text-[12px] font-semibold text-muted-foreground">가로 배열 최대 개수</label>
                 <select
                   value={dashboard.layout?.maxColumns ?? 4}
                   title="화면이 넓어도 한 줄에 표시할 차트 개수의 최대치입니다."
                   onChange={(e) => onUpdateLayout({ maxColumns: Number(e.target.value) })}
-                  className="h-8 px-2 rounded-md border border-slate-200 bg-white text-[12px] font-medium text-slate-700 outline-none focus:border-blue-400"
+                  className="h-8 px-2 rounded-md border border-input bg-card text-[12px] font-medium text-foreground outline-none focus:border-ring"
                 >
                   <option value={2}>최대 2개</option>
                   <option value={3}>최대 3개</option>
@@ -161,14 +161,14 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
               </div>
             )}
           </div>
-          <p className="text-[12px] text-slate-400">
+          <p className="text-[12px] text-muted-foreground">
             donut - 도넛 차트 (category) | bar - 세로막대 | hbar - 가로막대 | histogram - 분포도 (numeric) | multibar - 여러 0/1 응답 비교 (0, * 목적 등)
           </p>
 
           {/* 요약 탭은 위 차트를 순서대로 표로 옮긴다. 차트는 전부 포함, 표에 보일 열만 고른다. */}
           {onUpdateSummary && (
-            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-3 flex-wrap">
-              <label className="text-[12px] font-semibold text-slate-500 shrink-0">
+            <div className="mt-3 pt-3 border-t border-border flex items-center gap-3 flex-wrap">
+              <label className="text-[12px] font-semibold text-muted-foreground shrink-0">
                 요약 탭 표시 열
               </label>
               {SUMMARY_COLUMN_ORDER.map((col) => {
@@ -176,7 +176,7 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
                 return (
                   <label
                     key={col}
-                    className="flex items-center gap-1.5 text-[12px] font-medium text-slate-700 cursor-pointer"
+                    className="flex items-center gap-1.5 text-[12px] font-medium text-foreground cursor-pointer"
                   >
                     <input
                       type="checkbox"
@@ -193,7 +193,7 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
                   </label>
                 );
               })}
-              <span className="text-[11px] text-slate-400">
+              <span className="text-[11px] text-muted-foreground">
                 &quot;항목&quot; 열은 항상 표시됩니다.
               </span>
             </div>
@@ -207,23 +207,23 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
               ? ((c as any).cols || [])
               : [];
             return (
-            <div key={i} className="flex flex-col gap-2 bg-white border border-slate-100 rounded-lg p-3">
+            <div key={i} className="flex flex-col gap-2 bg-card border border-border rounded-lg p-3">
               <div className="flex items-center gap-3">
                 <div className="flex flex-col gap-0.5 w-6 cursor-grab">
-                  <Button variant="ghost" size="icon" onClick={() => onMoveChart(i, -1)} disabled={i === 0} className="h-4 w-4 text-slate-400 p-0 m-0"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="m18 15-6-6-6 6"/></svg></Button>
-                  <GripVertical className="h-4 w-4 text-slate-300 mx-auto" />
-                  <Button variant="ghost" size="icon" onClick={() => onMoveChart(i, 1)} disabled={i === dashboard.charts.length - 1} className="h-4 w-4 text-slate-400 p-0 m-0"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="m6 9 6 6 6-6"/></svg></Button>
+                  <Button variant="ghost" size="icon" onClick={() => onMoveChart(i, -1)} disabled={i === 0} className="h-4 w-4 text-muted-foreground p-0 m-0"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="m18 15-6-6-6 6"/></svg></Button>
+                  <GripVertical className="h-4 w-4 text-muted-foreground/60 mx-auto" />
+                  <Button variant="ghost" size="icon" onClick={() => onMoveChart(i, 1)} disabled={i === dashboard.charts.length - 1} className="h-4 w-4 text-muted-foreground p-0 m-0"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="m6 9 6 6 6-6"/></svg></Button>
                 </div>
 
                 {isMultibar ? (
-                  <div className="flex-1 h-10 px-3 rounded-md border border-dashed border-slate-200 bg-slate-50 text-[12px] text-slate-400 flex items-center">
+                  <div className="flex-1 h-10 px-3 rounded-md border border-dashed border-input bg-muted text-[12px] text-muted-foreground flex items-center">
                     ※ 아래 다중 분석 열에서 설정하세요
                   </div>
                 ) : (
                   <select
                     value={"col" in c ? (c.col as string) : ""}
                     onChange={(e) => onUpdateChart(i, { col: e.target.value })}
-                    className="flex-1 h-10 px-3 rounded-md border border-slate-200 bg-white text-[13px] font-medium text-slate-700 outline-none focus:border-blue-400"
+                    className="flex-1 h-10 px-3 rounded-md border border-input bg-card text-[13px] font-medium text-foreground outline-none focus:border-ring"
                   >
                     <option value="">-- 컬럼 --</option>
                     {allAvailableChartCols.map((cname) => (
@@ -246,7 +246,7 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
                       });
                     }
                   }}
-                  className="w-[140px] h-10 px-3 rounded-md border border-slate-200 bg-white text-[13px] font-medium text-slate-700 outline-none focus:border-blue-400"
+                  className="w-[140px] h-10 px-3 rounded-md border border-input bg-card text-[13px] font-medium text-foreground outline-none focus:border-ring"
                 >
                   {chartTypes.map((t) => (
                     <option key={t} value={t}>{t}</option>
@@ -257,22 +257,22 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
                   placeholder="차트 제목"
                   value={c.title ?? ""}
                   onChange={(e) => onUpdateChart(i, { title: e.target.value })}
-                  className="flex-1 h-10 text-[13px] font-medium border-slate-200"
+                  className="flex-1 h-10 text-[13px] font-medium border-input"
                 />
 
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => onDeleteChart(i)}
-                  className="h-10 w-10 text-red-400 hover:text-red-600 hover:bg-red-50 shrink-0 border border-slate-100"
+                  className="h-10 w-10 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0 border border-border"
                 >
                   <span className="text-lg leading-none font-light">×</span>
                 </Button>
               </div>
 
               {isMultibar && (
-                <div className="ml-9 border border-dashed border-slate-200 rounded-md p-2 bg-slate-50/60 min-h-[36px] flex flex-wrap items-center gap-1.5 text-xs">
-                  <span className="font-semibold text-slate-400 mr-1 text-[11px]">다중 분석 열:</span>
+                <div className="ml-9 border border-dashed border-input rounded-md p-2 bg-muted/60 min-h-[36px] flex flex-wrap items-center gap-1.5 text-xs">
+                  <span className="font-semibold text-muted-foreground mr-1 text-[11px]">다중 분석 열:</span>
                   {multibarCols.map((colObj, colIdx) => (
                     <Badge key={colIdx} variant="secondary" className="text-[11px] font-semibold flex items-center gap-1">
                       {colObj.label || colObj.col}
@@ -282,7 +282,7 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
                           const nextCols = multibarCols.filter((_, ci) => ci !== colIdx);
                           onUpdateChart(i, { cols: nextCols });
                         }}
-                        className="hover:text-red-500 text-slate-400 font-bold ml-0.5"
+                        className="hover:text-destructive text-muted-foreground font-bold ml-0.5"
                       >
                         ×
                       </button>
@@ -296,7 +296,7 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
                       if (multibarCols.some((co) => co.col === selected)) return;
                       onUpdateChart(i, { cols: [...multibarCols, { col: selected, label: selected }] });
                     }}
-                    className="h-6 px-1 rounded border border-slate-200 bg-white text-[11px] shadow-sm font-semibold max-w-[140px] outline-none cursor-pointer"
+                    className="h-6 px-1 rounded border border-input bg-card text-[11px] shadow-sm font-semibold max-w-[140px] outline-none cursor-pointer"
                   >
                     <option value="">+ 컬럼 추가...</option>
                     {allAvailableChartCols.map((cname) => (
@@ -312,7 +312,7 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
                     value={(c as any).value_col ?? ""}
                     title="합산할 값 열 (선택)"
                     onChange={(e) => onUpdateChart(i, { value_col: e.target.value || undefined })}
-                    className="h-8 px-2 rounded-md border border-slate-200 bg-white text-[12px] max-w-[170px] flex-1 font-medium text-slate-700 outline-none focus:border-blue-400"
+                    className="h-8 px-2 rounded-md border border-input bg-card text-[12px] max-w-[170px] flex-1 font-medium text-foreground outline-none focus:border-ring"
                   >
                     <option value="">-- 단순 건수(Count) --</option>
                     {allAvailableChartCols.map((cname) => (
@@ -324,7 +324,7 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
                   value={c.sort_by ?? "value_desc"}
                   title="차트 데이터 정렬 순서"
                   onChange={(e) => onUpdateChart(i, { sort_by: e.target.value })}
-                  className="h-8 px-2 rounded-md border border-slate-200 bg-white text-[12px] max-w-[150px] flex-1 font-medium text-slate-700 outline-none focus:border-blue-400"
+                  className="h-8 px-2 rounded-md border border-input bg-card text-[12px] max-w-[150px] flex-1 font-medium text-foreground outline-none focus:border-ring"
                 >
                   <option value="value_desc">정렬: 값 내림차순</option>
                   <option value="value_asc">정렬: 값 오름차순</option>
@@ -336,7 +336,7 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
                   value={c.max_items ?? 20}
                   title="표시할 항목 갯수 제한"
                   onChange={(e) => onUpdateChart(i, { max_items: Number(e.target.value) })}
-                  className="h-8 px-2 rounded-md border border-slate-200 bg-white text-[12px] max-w-[140px] flex-1 font-medium text-slate-700 outline-none focus:border-blue-400"
+                  className="h-8 px-2 rounded-md border border-input bg-card text-[12px] max-w-[140px] flex-1 font-medium text-foreground outline-none focus:border-ring"
                 >
                   <option value={20}>상위 20개 표시</option>
                   <option value={15}>상위 15개 표시</option>
@@ -348,7 +348,7 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
                   value={c.show_percent ? "yes" : "no"}
                   title="비중(%) 표시 여부"
                   onChange={(e) => onUpdateChart(i, { show_percent: e.target.value === "yes" })}
-                  className="h-8 px-2 rounded-md border border-slate-200 bg-white text-[12px] max-w-[140px] flex-1 font-medium text-slate-700 outline-none focus:border-blue-400"
+                  className="h-8 px-2 rounded-md border border-input bg-card text-[12px] max-w-[140px] flex-1 font-medium text-foreground outline-none focus:border-ring"
                 >
                   <option value="no">비율: 표시 안 함</option>
                   <option value="yes">비율: % 표시함</option>
@@ -357,7 +357,7 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
                   value={c.layout ?? "1x1"}
                   title="차트 크기(비율)"
                   onChange={(e) => onUpdateChart(i, { layout: e.target.value as any })}
-                  className="h-8 px-2 rounded-md border border-slate-200 bg-white text-[12px] max-w-[150px] flex-1 font-medium text-slate-700 outline-none focus:border-blue-400"
+                  className="h-8 px-2 rounded-md border border-input bg-card text-[12px] max-w-[150px] flex-1 font-medium text-foreground outline-none focus:border-ring"
                 >
                   <option value="1x1">크기: 기본 (1:1)</option>
                   <option value="2x1">크기: 가로 2배 (2:1)</option>
@@ -375,7 +375,7 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
               variant="outline"
               size="sm"
               onClick={onAddChart}
-              className="text-[13px] text-slate-600 font-semibold gap-1 border-slate-200 h-9 px-4"
+              className="text-[13px] text-muted-foreground font-semibold gap-1 border-input h-9 px-4"
             >
               + 차트 추가
             </Button>
@@ -384,16 +384,16 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
       </div>
 
       {/* 3. 목록 컬럼 선택 */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <div className="bg-card rounded-xl shadow-sm border border-input p-6">
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-1.5">
-            <List className="h-5 w-5 text-red-400" />
-            <h3 className="text-[15px] font-bold text-slate-800">목록 컬럼 선택</h3>
+            <List className="h-5 w-5 text-destructive" />
+            <h3 className="text-[15px] font-bold text-foreground">목록 컬럼 선택</h3>
           </div>
-          <p className="text-[12px] text-slate-400">표시할 항목을 선택하세요</p>
+          <p className="text-[12px] text-muted-foreground">표시할 항목을 선택하세요</p>
         </div>
 
-        <div className="border border-slate-200 rounded-lg p-5 bg-white">
+        <div className="border border-input rounded-lg p-5 bg-card">
           <div className="flex flex-wrap gap-x-6 gap-y-4">
             {allAvailableChartCols.map((colName) => {
               const isVisible = (dashboard.list?.visible_cols || []).includes(colName);
@@ -408,9 +408,9 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
                         : current.filter((c: string) => c !== colName);
                       onUpdateDashboardList({ visible_cols: next });
                     }}
-                    className="h-4 w-4 rounded-sm border-slate-300 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                    className="h-4 w-4 rounded-sm border-input data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                   />
-                  <span className="text-[13px] font-bold text-slate-700 group-hover:text-slate-900 transition-colors">
+                  <span className="text-[13px] font-bold text-foreground group-hover:text-foreground transition-colors">
                     {colName}
                   </span>
                 </label>
@@ -421,11 +421,11 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
       </div>
 
       {/* 4. 필터 컬럼 선택 */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <div className="bg-card rounded-xl shadow-sm border border-input p-6">
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-1.5">
-            <Filter className="h-5 w-5 text-blue-500 fill-blue-500" />
-            <h3 className="text-[15px] font-bold text-slate-800">필터 컬럼 선택 <span className="text-slate-400 font-normal text-[13px] ml-1">(category 타입만 지원)</span></h3>
+            <Filter className="h-5 w-5 text-primary fill-primary" />
+            <h3 className="text-[15px] font-bold text-foreground">필터 컬럼 선택 <span className="text-muted-foreground font-normal text-[13px] ml-1">(category 타입만 지원)</span></h3>
           </div>
         </div>
 
@@ -443,9 +443,9 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
                       : current.filter((c: string) => c !== colName);
                     onUpdateDashboardList({ filter_cols: next });
                   }}
-                  className="h-4 w-4 rounded-sm border-slate-300 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                  className="h-4 w-4 rounded-sm border-input data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                 />
-                <span className="text-[13px] font-bold text-slate-700 group-hover:text-slate-900 transition-colors">
+                <span className="text-[13px] font-bold text-foreground group-hover:text-foreground transition-colors">
                   {colName}
                 </span>
               </label>

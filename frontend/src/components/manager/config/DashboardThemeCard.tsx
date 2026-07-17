@@ -32,7 +32,7 @@ export const DashboardThemeCard: React.FC<DashboardThemeCardProps> = ({
 }) => {
   return (
     <>
-      <Card className="border-border bg-white shadow-sm hover:shadow-md transition-shadow">
+      <Card className="border-border bg-card shadow-sm hover:shadow-md transition-shadow">
         <CardHeader className="py-4 border-b bg-muted/10">
           <CardTitle className="text-sm font-bold flex items-center gap-2">
             <Palette className="h-4 w-4 text-primary" />
@@ -93,7 +93,7 @@ export const DashboardThemeCard: React.FC<DashboardThemeCardProps> = ({
         </CardContent>
       </Card>
 
-      <Card className="border-border bg-white shadow-sm hover:shadow-md transition-shadow">
+      <Card className="border-border bg-card shadow-sm hover:shadow-md transition-shadow">
         <CardHeader className="py-4 border-b bg-muted/10">
           <CardTitle className="text-sm font-bold flex items-center gap-2">
             <LayoutTemplate className="h-4 w-4 text-primary" />

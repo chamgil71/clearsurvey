@@ -101,6 +101,10 @@ const TRANSFORM_RULES = [
   },
 ];
 
+// 정제 규칙 그룹 배지 — 7개 그룹이 서로 구분돼야 하는 범주형 팔레트다.
+// 차트 팔레트(--chart-1~5)와 같은 성격이라 테마 토큰(primary/muted 등)으로 치환하지 않는다.
+// 전부 테마 색을 따르게 하면 7색이 한 가지 톤으로 뭉쳐 그룹을 구별할 수 없다.
+// TODO: 테마별 범주형 팔레트가 생기면 그때 --chart-N 계열로 옮긴다(theme_system_plan §2-D).
 const GROUP_COLORS: Record<string, string> = {
   기본: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
   정규화: "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300",

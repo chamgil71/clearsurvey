@@ -341,7 +341,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
 
   if (!localConfig) {
     return (
-      <div className="p-12 text-center text-muted-foreground bg-white border rounded-xl shadow-sm animate-pulse max-w-6xl mx-auto mt-8">
+      <div className="p-12 text-center text-muted-foreground bg-card border rounded-xl shadow-sm animate-pulse max-w-6xl mx-auto mt-8">
         ⏳ 1단계에서 프로젝트를 로드하거나 엑셀을 업로드하면 상세 편집기가 활성화됩니다.
       </div>
     );
@@ -350,22 +350,22 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
   return (
     <div className="flex flex-col h-full bg-[#f8fafc]">
       {/* ── 헤더 ── */}
-      <div className="bg-white px-8 md:px-12 py-5 flex items-center justify-between border-b shadow-sm shrink-0">
+      <div className="bg-card px-8 md:px-12 py-5 flex items-center justify-between border-b shadow-sm shrink-0">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
             onClick={onBack}
-            className="text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-bold gap-2 text-[15px]"
+            className="text-muted-foreground hover:text-foreground hover:bg-muted font-bold gap-2 text-[15px]"
           >
             ◀ 프로젝트 목록으로
           </Button>
           <div className="h-5 w-px bg-slate-300" />
-          <h2 className="text-[17px] font-bold text-blue-600 flex items-center gap-2">
+          <h2 className="text-[17px] font-bold text-primary flex items-center gap-2">
             <Settings className="h-5 w-5" />
-            대시보드 설정 <span className="text-slate-500 font-normal">{projectName}</span>
+            대시보드 설정 <span className="text-muted-foreground font-normal">{projectName}</span>
           </h2>
         </div>
-        <div className="text-[15px] font-bold text-slate-600 bg-slate-100 px-4 py-2 rounded-full">
+        <div className="text-[15px] font-bold text-muted-foreground bg-muted px-4 py-2 rounded-full">
           총 {localConfig.columns.length}건 구성 중
         </div>
       </div>
@@ -379,14 +379,14 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
           <TabsList className="flex w-fit bg-transparent gap-2 mb-6 p-0">
             <TabsTrigger 
               value="columns" 
-              className="text-[14px] font-bold gap-2 py-2.5 px-5 rounded-t-lg data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-[0_-2px_10px_rgba(0,0,0,0.05)] data-[state=active]:border-b-2 data-[state=active]:border-b-blue-600 data-[state=inactive]:text-slate-500"
+              className="text-[14px] font-bold gap-2 py-2.5 px-5 rounded-t-lg data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-[0_-2px_10px_rgba(0,0,0,0.05)] data-[state=active]:border-b-2 data-[state=active]:border-b-blue-600 data-[state=inactive]:text-muted-foreground"
             >
               <ListCollapse className="h-4 w-4" />
               1. 컬럼 정제 및 매핑 설정
             </TabsTrigger>
             <TabsTrigger 
               value="dashboard" 
-              className="text-[14px] font-bold gap-2 py-2.5 px-5 rounded-t-lg data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-[0_-2px_10px_rgba(0,0,0,0.05)] data-[state=active]:border-b-2 data-[state=active]:border-b-blue-600 data-[state=inactive]:text-slate-500"
+              className="text-[14px] font-bold gap-2 py-2.5 px-5 rounded-t-lg data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-[0_-2px_10px_rgba(0,0,0,0.05)] data-[state=active]:border-b-2 data-[state=active]:border-b-blue-600 data-[state=inactive]:text-muted-foreground"
             >
               <BarChart3 className="h-4 w-4" />
               2. 대시보드 비주얼 레이아웃
@@ -394,7 +394,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
           </TabsList>
 
           <TabsContent value="columns" className="mt-0">
-            <div className="bg-white rounded-b-xl rounded-tr-xl shadow-sm border border-slate-200 p-6">
+            <div className="bg-card rounded-b-xl rounded-tr-xl shadow-sm border border-input p-6">
               <ColumnConfigTab
                 columns={localConfig.columns as ColumnDef[]}
                 onColumnChange={handleColumnChange}
@@ -431,13 +431,13 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
       </div>
 
       {/* ── Sticky Bottom Bar ── */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center p-6 bg-white border-t border-slate-200 shadow-[0_-10px_30px_rgba(0,0,0,0.03)]">
+      <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center p-6 bg-card border-t border-input shadow-[0_-10px_30px_rgba(0,0,0,0.03)]">
         <div className="flex items-center justify-between w-full px-4 max-w-5xl">
           <div className="flex gap-3">
             <Button
               variant="outline"
               onClick={handleReset}
-              className="bg-white hover:bg-slate-50 text-slate-600 gap-2 h-12 px-6 rounded-lg border-slate-200 font-bold"
+              className="bg-card hover:bg-muted text-muted-foreground gap-2 h-12 px-6 rounded-lg border-input font-bold"
             >
               <RotateCcw className="h-5 w-5" />
               기본값으로 초기화
@@ -445,7 +445,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
             <Button
               variant="outline"
               onClick={handleSaveToFile}
-              className="bg-white hover:bg-slate-50 text-slate-600 gap-2 h-12 px-6 rounded-lg border-slate-200 font-bold"
+              className="bg-card hover:bg-muted text-muted-foreground gap-2 h-12 px-6 rounded-lg border-input font-bold"
             >
               <Download className="h-5 w-5" />
               파일로 저장
@@ -460,7 +460,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
               />
               <Button
                 variant="outline"
-                className="bg-white hover:bg-slate-50 text-slate-600 gap-2 h-12 px-6 rounded-lg border-slate-200 font-bold pointer-events-none"
+                className="bg-card hover:bg-muted text-muted-foreground gap-2 h-12 px-6 rounded-lg border-input font-bold pointer-events-none"
               >
                 <Upload className="h-5 w-5" />
                 설정 불러오기 (JSON)
@@ -471,7 +471,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
             <Button
               variant="secondary"
               onClick={handleSave}
-              className="bg-blue-50 text-blue-600 hover:bg-blue-100 gap-2 h-12 px-6 rounded-lg border border-blue-200 font-bold"
+              className="bg-primary/10 text-primary hover:bg-blue-100 gap-2 h-12 px-6 rounded-lg border border-primary/30 font-bold"
             >
               <Eye className="h-5 w-5" />
               미리보기
@@ -481,7 +481,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                 handleSave().then(() => onNext());
               }}
               disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-11 px-8 rounded-lg shadow-sm"
+              className="bg-primary hover:bg-blue-700 text-white font-bold h-11 px-8 rounded-lg shadow-sm"
             >
               {loading ? "저장 중..." : "저장 후 대시보드로"}
             </Button>

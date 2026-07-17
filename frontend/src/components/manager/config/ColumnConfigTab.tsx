@@ -112,26 +112,26 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
 }) => {
   return (
     <div className="space-y-4">
-      <div className="border border-slate-200 bg-white rounded-xl shadow-sm">
-        <div className="px-5 py-4 border-b border-slate-100 flex flex-col gap-1">
-          <h3 className="text-[15px] font-bold text-slate-800">컬럼 정제 정의 시트</h3>
-          <p className="text-[13px] text-slate-500">
+      <div className="border border-input bg-card rounded-xl shadow-sm">
+        <div className="px-5 py-4 border-b border-border flex flex-col gap-1">
+          <h3 className="text-[15px] font-bold text-foreground">컬럼 정제 정의 시트</h3>
+          <p className="text-[13px] text-muted-foreground">
             각 설문 문항의 정제 규칙과 원본 컬럼(1-based 인덱스) 번호를 매핑합니다. 타입 선택은 표시용이며, 내보내기 시 실제 데이터로 감지됩니다.
           </p>
         </div>
 
         <div className="w-full overflow-auto">
           <Table className="w-full min-w-[1000px] text-[13px]">
-            <TableHeader className="bg-slate-50/50">
-              <TableRow className="border-b border-slate-100 hover:bg-transparent">
-                <TableHead className="w-[50px] text-center font-semibold text-slate-600 h-10">순서</TableHead>
-                <TableHead className="w-[50px] text-center font-semibold text-slate-600 h-10">제외</TableHead>
-                <TableHead className="w-[200px] font-semibold text-slate-600 h-10">출력 컬럼명</TableHead>
-                <TableHead className="w-[120px] font-semibold text-slate-600 h-10">타입 (표시용)</TableHead>
-                <TableHead className="w-[100px] text-center font-semibold text-slate-600 h-10">원본 열번호</TableHead>
-                <TableHead className="w-[220px] font-semibold text-slate-600 h-10">정제 규칙 (Transform)</TableHead>
-                <TableHead className="w-[180px] font-semibold text-slate-600 h-10">추가 인수 설정</TableHead>
-                <TableHead className="w-[70px] text-center font-semibold text-slate-600 h-10">필터 여부</TableHead>
+            <TableHeader className="bg-muted/50">
+              <TableRow className="border-b border-border hover:bg-transparent">
+                <TableHead className="w-[50px] text-center font-semibold text-muted-foreground h-10">순서</TableHead>
+                <TableHead className="w-[50px] text-center font-semibold text-muted-foreground h-10">제외</TableHead>
+                <TableHead className="w-[200px] font-semibold text-muted-foreground h-10">출력 컬럼명</TableHead>
+                <TableHead className="w-[120px] font-semibold text-muted-foreground h-10">타입 (표시용)</TableHead>
+                <TableHead className="w-[100px] text-center font-semibold text-muted-foreground h-10">원본 열번호</TableHead>
+                <TableHead className="w-[220px] font-semibold text-muted-foreground h-10">정제 규칙 (Transform)</TableHead>
+                <TableHead className="w-[180px] font-semibold text-muted-foreground h-10">추가 인수 설정</TableHead>
+                <TableHead className="w-[70px] text-center font-semibold text-muted-foreground h-10">필터 여부</TableHead>
                 <TableHead className="w-[50px] text-center h-10"></TableHead>
               </TableRow>
             </TableHeader>
@@ -144,8 +144,8 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
                 return (
                   <TableRow
                     key={index}
-                    className={`border-b border-slate-100 transition-colors ${
-                      isExcluded ? "bg-slate-50/50 opacity-60" : "hover:bg-slate-50/30"
+                    className={`border-b border-border transition-colors ${
+                      isExcluded ? "bg-muted/50 opacity-60" : "hover:bg-muted/30"
                     }`}
                   >
                     <TableCell className="text-center p-2">
@@ -154,16 +154,16 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
                           type="button"
                           onClick={() => onMoveColumn(index, -1)}
                           disabled={index === 0}
-                          className="text-slate-300 hover:text-slate-600 disabled:opacity-30"
+                          className="text-muted-foreground/60 hover:text-muted-foreground disabled:opacity-30"
                         >
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>
                         </button>
-                        <span className="text-[12px] font-medium text-slate-500">{index + 1}</span>
+                        <span className="text-[12px] font-medium text-muted-foreground">{index + 1}</span>
                         <button
                           type="button"
                           onClick={() => onMoveColumn(index, 1)}
                           disabled={index === totalCols - 1}
-                          className="text-slate-300 hover:text-slate-600 disabled:opacity-30"
+                          className="text-muted-foreground/60 hover:text-muted-foreground disabled:opacity-30"
                         >
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                         </button>
@@ -175,7 +175,7 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
                         <Checkbox
                           checked={isExcluded}
                           onCheckedChange={() => onExcludeToggle(index, isExcluded)}
-                          className="border-slate-300 rounded-sm data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 h-4 w-4"
+                          className="border-input rounded-sm data-[state=checked]:bg-primary data-[state=checked]:border-blue-600 h-4 w-4"
                         />
                       </div>
                     </TableCell>
@@ -185,10 +185,10 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
                         <Input
                           value={col.output_col}
                           onChange={(e) => onColumnChange(index, { output_col: e.target.value })}
-                          className="h-8 px-2 text-[13px] font-bold border-slate-200 bg-white hover:border-slate-300 focus-visible:ring-1 focus-visible:ring-blue-500 rounded-md transition-all shadow-sm"
+                          className="h-8 px-2 text-[13px] font-bold border-input bg-card hover:border-input focus-visible:ring-1 focus-visible:ring-blue-500 rounded-md transition-all shadow-sm"
                         />
                         {col.source_col_name && (
-                          <span className="text-[11px] text-slate-400 pl-1 truncate">
+                          <span className="text-[11px] text-muted-foreground pl-1 truncate">
                             ← {col.source_col_name}
                           </span>
                         )}
@@ -199,7 +199,7 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
                       <select
                         value={col.type ?? ""}
                         onChange={(e) => onColumnChange(index, { type: e.target.value })}
-                        className="w-full h-8 px-2 text-[13px] border border-slate-200 bg-white rounded-md text-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 hover:border-slate-300 transition-all shadow-sm"
+                        className="w-full h-8 px-2 text-[13px] border border-input bg-card rounded-md text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-blue-500 hover:border-input transition-all shadow-sm"
                       >
                         <option value="">자동 감지</option>
                         {COL_TYPES.map((t) => (
@@ -213,7 +213,7 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
                         value={col.source_col ?? ""}
                         disabled={isExcluded}
                         onChange={(e) => onColumnChange(index, { source_col: e.target.value ? Number(e.target.value) : undefined })}
-                        className="w-full h-8 px-1 text-center text-[13px] font-mono border border-slate-200 bg-white rounded-md text-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 hover:border-slate-300 disabled:opacity-50 transition-all shadow-sm"
+                        className="w-full h-8 px-1 text-center text-[13px] font-mono border border-input bg-card rounded-md text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-blue-500 hover:border-input disabled:opacity-50 transition-all shadow-sm"
                       >
                         <option value="">-</option>
                         {sourceColOptions.map((n) => (
@@ -226,7 +226,7 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
                       <select
                         value={transform}
                         onChange={(e) => onTransformChange(index, e.target.value)}
-                        className="w-full h-8 px-2 text-[13px] border border-slate-200 bg-white rounded-md text-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 hover:border-slate-300 transition-all shadow-sm"
+                        className="w-full h-8 px-2 text-[13px] border border-input bg-card rounded-md text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-blue-500 hover:border-input transition-all shadow-sm"
                       >
                         <option value="">기본 통과 (변경 없음)</option>
                         {TRANSFORM_GROUP_ORDER.map((group) => (
@@ -246,7 +246,7 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
                             placeholder="키워드 (예: 예, 동의)"
                             value={col.flag_keyword ?? ""}
                             onChange={(e) => onColumnChange(index, { flag_keyword: e.target.value })}
-                            className="h-8 px-2 text-[13px] border-slate-200 bg-white hover:border-slate-300 focus-visible:ring-1 focus-visible:ring-blue-500 rounded-md transition-all shadow-sm"
+                            className="h-8 px-2 text-[13px] border-input bg-card hover:border-input focus-visible:ring-1 focus-visible:ring-blue-500 rounded-md transition-all shadow-sm"
                           />
                         )}
                         {NEEDS_SOURCE_COLS.has(transform) && (
@@ -257,14 +257,14 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
                               const nums = parseSourceColsInput(e.target.value);
                               onColumnChange(index, { source_cols: nums });
                             }}
-                            className="h-8 px-2 text-[13px] font-mono border-slate-200 bg-white hover:border-slate-300 focus-visible:ring-1 focus-visible:ring-blue-500 rounded-md transition-all shadow-sm"
+                            className="h-8 px-2 text-[13px] font-mono border-input bg-card hover:border-input focus-visible:ring-1 focus-visible:ring-blue-500 rounded-md transition-all shadow-sm"
                           />
                         )}
                         {NEEDS_BACKUP_COL.has(transform) && (
                           <select
                             value={col.backup_col ?? ""}
                             onChange={(e) => onColumnChange(index, { backup_col: e.target.value ? Number(e.target.value) : undefined })}
-                            className="w-full h-8 px-2 text-[13px] border border-slate-200 bg-white rounded-md text-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 hover:border-slate-300 transition-all shadow-sm"
+                            className="w-full h-8 px-2 text-[13px] border border-input bg-card rounded-md text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-blue-500 hover:border-input transition-all shadow-sm"
                           >
                             <option value="">보조열 없음</option>
                             {sourceColOptions.map((n) => (
@@ -281,7 +281,7 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
                           !NEEDS_SOURCE_COLS.has(transform) &&
                           !NEEDS_BACKUP_COL.has(transform) &&
                           !DERIVES_COLUMNS.has(transform) && (
-                            <span className="text-[12px] text-slate-300 text-center">—</span>
+                            <span className="text-[12px] text-muted-foreground/60 text-center">—</span>
                           )}
                       </div>
                     </TableCell>
@@ -292,7 +292,7 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
                           checked={col.include_in_slicer ?? false}
                           disabled={isExcluded}
                           onCheckedChange={(val) => onColumnChange(index, { include_in_slicer: !!val })}
-                          className="border-slate-300 rounded-sm data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 h-4 w-4"
+                          className="border-input rounded-sm data-[state=checked]:bg-primary data-[state=checked]:border-blue-600 h-4 w-4"
                         />
                       </div>
                     </TableCell>
@@ -302,7 +302,7 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
                         variant="ghost"
                         size="icon"
                         onClick={() => onDeleteColumn(index)}
-                        className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-md"
+                        className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-md"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -320,9 +320,9 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
           variant="outline"
           size="sm"
           onClick={onAddColumn}
-          className="bg-white hover:bg-slate-50 text-slate-700 font-bold gap-1.5 border-slate-200 h-9 px-4 rounded-lg shadow-sm"
+          className="bg-card hover:bg-muted text-foreground font-bold gap-1.5 border-input h-9 px-4 rounded-lg shadow-sm"
         >
-          <Plus className="h-4 w-4 text-slate-500" />
+          <Plus className="h-4 w-4 text-muted-foreground" />
           컬럼 정의 행 추가
         </Button>
       </div>
