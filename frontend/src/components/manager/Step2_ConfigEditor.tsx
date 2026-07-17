@@ -349,7 +349,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#f8fafc]">
+    <div className="flex flex-col h-full bg-background">
       {/* ── 헤더 ── */}
       <div className="bg-card px-8 md:px-12 py-5 flex items-center justify-between border-b shadow-sm shrink-0">
         <div className="flex items-center gap-4">
