@@ -21,9 +21,12 @@ cp src/theme/toss.css src/styles.css   # 앱 전체가 토스 테마로
 bun scripts/build-themes.mjs
 ```
 
-> **옆 저장소가 필요하다.** 원본 가이드는 `../../new-beginnings/design/design_system_guides` 에 있다.
-> 그래서 `catalog.json`(약 720KB, 230종)을 **커밋한다** — 그 저장소가 없어도 이 저장소만으로
-> 테마 데이터가 자립하도록. 스크립트는 재생성이 필요할 때만 쓴다.
+원본 가이드는 **이 저장소 안**에 있다 — [`docs/design/design_system_guides/`](../../../docs/design/design_system_guides)
+(350개). 다른 저장소에 의존하지 않으므로 어디서든 재생성된다.
+
+> `catalog.json`(약 720KB)은 생성물이지만 **커밋한다.** `registry.ts` 가 import 하므로 앱 빌드에
+> 필요하고, 커밋해 두면 CI·Vercel 이 테마 빌드를 먼저 돌리지 않아도 된다.
+> 가이드를 고쳤다면 스크립트를 다시 돌려 생성물을 함께 커밋할 것.
 
 ## 구성
 

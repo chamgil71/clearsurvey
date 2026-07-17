@@ -184,6 +184,11 @@ mode?, primaryColor?, brandTitle?, logoText?
 `new-beginnings/scripts/build-design-catalog.mjs`(269줄)를 가져와 이 프로젝트 포맷으로 적응시킨다.
 350개를 이미 변환해 본 검증된 로직을 재발명하지 않는다.
 
+> **원본 가이드도 이 저장소로 복사했다** — `docs/design/design_system_guides/`(350개, 6.5MB).
+> 처음에는 `../../new-beginnings/...` 를 직접 참조했으나, 옆 저장소가 없으면 테마를 재생성할 수
+> 없어 자립시켰다. 복사 후 재빌드해 카탈로그가 `generated_at` 한 줄을 빼고 바이트 단위로
+> 동일함을 확인했다.
+
 **가져오는 것**
 - 섹션 ③⑤⑥⑦⑩(색·spacing·radius·shadow·motion) 파싱
 - **frontmatter 활용** (`brand_ko`·`industry`·`mood`·`primary_color_hex`) — 레지스트리 라벨/설명에 그대로 쓴다

@@ -23,14 +23,9 @@ import { convertValueToOklch, hexToOklchString } from "./lib/color.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FRONTEND = path.resolve(__dirname, "..");
-const GUIDES_DIR = path.resolve(
-  FRONTEND,
-  "..",
-  "..",
-  "new-beginnings",
-  "design",
-  "design_system_guides",
-);
+const REPO = path.resolve(FRONTEND, "..");
+/** 가이드 원본은 이 저장소 안에 있다 — 다른 저장소에 의존하지 않는다. */
+const GUIDES_DIR = path.join(REPO, "docs", "design", "design_system_guides");
 const THEME_DIR = path.join(FRONTEND, "src", "theme");
 const OVERRIDES_DIR = path.join(THEME_DIR, "overrides");
 const CATALOG_FILE = path.join(THEME_DIR, "catalog.json");
