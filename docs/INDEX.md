@@ -5,7 +5,7 @@
 > 시작점은 프로젝트 루트의 [`GUIDE.md`](../GUIDE.md)(빠른 시작·CLI·Config 레퍼런스)입니다. 이 인덱스는 그보다 더 깊은 개별 주제 문서를 찾을 때 사용하세요.
 
 **분류 기준**
-- **`plan/`** — 앞으로 할 일 또는 "왜 이렇게 만들었는지"를 설명하는 설계/기획 문서. 구현 완료 여부와 무관하게 기획 의도를 남기기 위해 보관합니다. 완료된 계획은 `plan/complete/`, 착수하지 않은 항목은 `plan/pending/`에 두고, `plan/` 최상위에는 살아있는 문서(`prd.md`)만 남깁니다.
+- **`plan/`** — 앞으로 할 일 또는 "왜 이렇게 만들었는지"를 설명하는 설계/기획 문서. 구현 완료 여부와 무관하게 기획 의도를 남기기 위해 보관합니다. 완료된 계획은 `plan/complete/`, 착수하지 않은 항목의 상세 스펙은 `plan/pending/`에 두고, `plan/` 최상위에는 살아있는 문서(`ROADMAP.md`·`prd.md`)만 남깁니다. **앞으로 할 일은 `plan/ROADMAP.md` 가 단일 출처**입니다.
 - **`guides/`** — 지금 이 순간의 운영/사용 방법을 설명하는 살아있는 참조 문서. 코드가 바뀌면 같이 갱신되어야 합니다.
 - **`design/`** — 브랜드 350종의 디자인 시스템 가이드. 읽는 문서이자 **테마 팩의 원본 데이터**로, `frontend/scripts/build-themes.mjs` 가 파싱해 `frontend/src/theme/` 을 생성합니다. 상세: [design/README.md](design/README.md)
 - **`logs/`** — 과거 시점의 작업 이력·테스트 결과 기록. 사후에 고치지 않는 append-only 기록입니다.
@@ -18,8 +18,8 @@
 프로젝트의 제품 요구사항 사양서(PRD) 및 설계/기획 로드맵 문서입니다. 완료된 기획도 "왜 이렇게 설계했는가"를
 남기기 위해 삭제하지 않고 `complete/` 하위 폴더에 그대로 보존합니다.
 
+* **[plan/ROADMAP.md](plan/ROADMAP.md)** — 🗺 **앞으로 할 일의 단일 출처.** 6개 항목(디자인 시스템 완성 · Railway 이전 · 클라우드 스토리지 · Tauri · 지도 · 로컬 GUI)의 우선순위·종속·중복 관계와 "무엇이 막고 있는가"를 정리했습니다. **"다음에 뭐 하지?"는 여기부터 봅니다.** `pending/` 의 개별 문서는 상세 스펙 보관소이고, 착수 여부·우선순위는 이 파일이 기준입니다.
 * **[plan/prd.md](plan/prd.md)**: ClearSurvey 서비스의 제품 정의, 핵심 기능 스코프, 기술 아키텍처를 정의한 제품 요구사항 정의서(PRD).
-* **[plan/complete/theme_system_plan.md](plan/complete/theme_system_plan.md)** — 🚧 진행 예정: 테마 시스템 기획서. Part A 테마 팩 10종(`theme/{id}.css` 드롭인) · Part B 런타임 프로젝트별 테마(`cfg.theme`, 현재 죽은 코드) · Part C 하드코딩 색상 276건 토큰 치환. oklch → hex 전환 포함. §4-E에 350종 확장을 견디는 설계 원칙.
 
 ### 완료된 계획 (`docs/plan/complete/`)
 
@@ -31,17 +31,20 @@
 * **[plan/complete/remaining_improvements.md](plan/complete/remaining_improvements.md)** — ✅ 5개 항목 전부 완료: 1.다중 엑셀 병합 웹 UI·2.번들 최적화·3.차트 그리드 auto-fit/가로 4열+설정 UI·4."정제 규칙 최신 반영 여부" 배지·5.transform 테스트 공백(→ transform_test_plan.md). §3·§4는 2026-07-16 브라우저 시각 검증까지 완료. 클라우드 스토리지 연동 및 Supabase 세션 개선(완료)은 [plan/pending/cloud_storage_plan.md](plan/pending/cloud_storage_plan.md)로 분리 이관.
 * **[plan/complete/transform_test_plan.md](plan/complete/transform_test_plan.md)** — ✅ 완료(2026-07-15): 정제 규칙(transform) 함수별 단위테스트 커버리지 공백 및 보강 계획서. 전체 282개 테스트 통과.
 * **[plan/complete/package_upgrade_plan.md](plan/complete/package_upgrade_plan.md)** — ✅ 완료(2026-07-17): 프론트엔드 의존성 업그레이드(recharts 3 · lucide-react 1 · vite 8) 위험도 분석과 단계별 실행 계획. 락파일 bun 일원화, 미사용 의존성(zod·@tanstack/start) 제거 포함.
+* **[plan/complete/theme_system_plan.md](plan/complete/theme_system_plan.md)** — ✅ 완료(2026-07-17): 테마 시스템 기획서. Part A 테마 팩(`theme/{id}.css` 드롭인, 활성 15종) · Part B 런타임 프로젝트별 테마(`cfg.theme.preset`) · Part C 하드코딩 색상 276건 토큰 치환. 가이드(`docs/design/`)를 `build-themes.mjs` 가 파싱해 oklch 로 생성. §4-E에 350종 확장을 견디는 설계 원칙. ⚠️ **색과 radius 만 토큰화됐고 타이포·간격·그림자는 남아 있습니다** → [ROADMAP §1](plan/ROADMAP.md#1-디자인-시스템-완성--타이포간격그림자).
 * **[plan/complete/summary_tab_plan.md](plan/complete/summary_tab_plan.md)** — ✅ 완료(2026-07-17): 공개 대시보드 **요약 탭** 기획서. 차트 집계를 차트 순서대로 표(항목/값/비중)로 정리하고 PDF(A4 세로)·DOCX로 내보낸다. §8에 설계 결정 근거(집계 재사용, `max_items` 절단 시 비중 기준 등).
 
 ### 착수하지 않은 계획 (`docs/plan/pending/`)
 
-확정되지 않았거나 우선순위가 낮아 보류 중인 계획입니다. 실제 요구가 확정되면 이 문서를 기준으로 착수합니다.
+확정되지 않았거나 우선순위가 낮아 보류 중인 계획의 **상세 스펙**입니다. 실제 요구가 확정되면 이 문서를 기준으로
+착수합니다. 다만 **우선순위·종속·중복 관계와 착수 판단은 [ROADMAP.md](plan/ROADMAP.md) 를 먼저 보세요** —
+아래 5건은 거기서 각각 2~6번 항목으로 정리돼 있습니다.
 
 * **[plan/pending/cloud_storage_plan.md](plan/pending/cloud_storage_plan.md)**: 클라우드 스토리지 연동(Supabase Storage, `StorageEngine` 추상화) 계획. (참고: Supabase 세션 토큰 개선 항목은 이미 구현 완료 상태로 §4에 기록됨). 상태: 검토 중(미착수).
-* **[plan/pending/gui_plan.md](plan/pending/gui_plan.md)**: 오프라인 데스크탑 GUI(Gradio → CustomTkinter → PyQt6) 구현 계획.
+* **[plan/pending/gui_plan.md](plan/pending/gui_plan.md)**: 오프라인 데스크탑 GUI(Gradio → CustomTkinter → PyQt6) 구현 계획. ⚠️ tauri 계획과 목적이 중복되며, "비개발자용 시각적 설정"은 React 어드민 마법사로 이미 상당 부분 달성됨 → [ROADMAP §6](plan/ROADMAP.md#6-로컬-gui-gradiopyqt).
 * **[plan/pending/map_plan.md](plan/pending/map_plan.md)**: 지도(Leaflet + GeoJSON) 탭 확장 계획. ⚠️ React 전환 이전의 vanilla-JS 구조를 전제로 작성되어 재검토 필요.
 * **[plan/pending/railway_migration_plan.md](plan/pending/railway_migration_plan.md)**: 어드민 API 서버(FastAPI)를 Railway로 이전하는 계획. 상태: 검토 중.
-* **[plan/pending/tauri_integration_plan.md](plan/pending/tauri_integration_plan.md)**: Tauri + Python Sidecar 기반 데스크톱 독립 실행 앱 패키징 계획. 상태: 미착수(`desktop/` 폴더 없음).
+* **[plan/pending/tauri_integration_plan.md](plan/pending/tauri_integration_plan.md)**: Tauri + Python Sidecar 기반 데스크톱 독립 실행 앱 패키징 계획. 상태: 미착수(`desktop/` 폴더 없음). gui_plan 과 택일 대상 → [ROADMAP §4](plan/ROADMAP.md#4-데스크톱-앱-tauri).
 
 ---
 
