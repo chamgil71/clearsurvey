@@ -19,7 +19,7 @@
 남기기 위해 삭제하지 않고 `complete/` 하위 폴더에 그대로 보존합니다.
 
 * **[plan/prd.md](plan/prd.md)**: ClearSurvey 서비스의 제품 정의, 핵심 기능 스코프, 기술 아키텍처를 정의한 제품 요구사항 정의서(PRD).
-* **[plan/theme_system_plan.md](plan/theme_system_plan.md)** — 🚧 진행 예정: 테마 시스템 기획서. Part A 테마 팩 10종(`theme/{id}.css` 드롭인) · Part B 런타임 프로젝트별 테마(`cfg.theme`, 현재 죽은 코드) · Part C 하드코딩 색상 276건 토큰 치환. oklch → hex 전환 포함. §4-E에 350종 확장을 견디는 설계 원칙.
+* **[plan/complete/theme_system_plan.md](plan/complete/theme_system_plan.md)** — 🚧 진행 예정: 테마 시스템 기획서. Part A 테마 팩 10종(`theme/{id}.css` 드롭인) · Part B 런타임 프로젝트별 테마(`cfg.theme`, 현재 죽은 코드) · Part C 하드코딩 색상 276건 토큰 치환. oklch → hex 전환 포함. §4-E에 350종 확장을 견디는 설계 원칙.
 
 ### 완료된 계획 (`docs/plan/complete/`)
 

@@ -3,17 +3,41 @@
 이 폴더는 **생성물**이다. `{id}.css` / `presets.css` / `catalog.json` 을 직접 수정하지 말 것 —
 다음 빌드에서 덮어써진다. 손으로 정할 값은 [`overrides/`](#차트-팔레트-수작업-오버라이드)에 둔다.
 
-계획: [`docs/plan/theme_system_plan.md`](../../../docs/plan/theme_system_plan.md)
+계획: [`docs/plan/theme_system_plan.md`](../../../docs/plan/complete/theme_system_plan.md)
 
-## 테마 바꾸기
+## 테마 바꾸는 두 가지 방법
 
-```bash
-cp src/theme/toss.css src/styles.css   # 앱 전체가 토스 테마로
+### ① 앱 기본 테마 (코드)
+
+`registry.ts` 의 `DEFAULT_THEME_ID` 를 바꾼다. **현재 기본값은 `toss`.**
+
+```ts
+export const DEFAULT_THEME_ID = "toss";
 ```
 
-`{id}.css` 는 현행 `styles.css` 와 **같은 구조의 완전한 독립 파일**이다
+> `routes/__root.tsx` 의 `THEME_BOOT` 인라인 스크립트가 같은 값을 첫 페인트 전에 심는다.
+> 두 값이 어긋나면 색이 번쩍이므로(FOUC) 함께 바꿔야 한다 — 테스트가 잡는다.
+
+### ② 프로젝트별 테마 (어드민)
+
+Step 2 → "대시보드 비주얼 레이아웃" → **테마 및 디자인 설정**에서 15종 중 고른다.
+`dashboard.theme.preset` 에 저장되고 `<html data-theme="{id}">` 로 반영된다.
+
+> ⚠ **저장만으로는 공개 대시보드에 반영되지 않는다.** 공개 대시보드는
+> `public/data/{name}_data.json` 을 읽는데 그 안의 `dashboard` 는 export 시점의 스냅샷이다.
+> 설정 저장 후 **내보내기(export)** 를 해야 반영된다. 테마만의 제약이 아니라 차트·KPI 등
+> 모든 dashboard 설정에 해당하는 기존 구조다.
+
+### ③ styles.css 통째로 교체 (드롭인)
+
+```bash
+cp src/theme/toss.css src/styles.css
+```
+
+`{id}.css` 는 **그 테마 하나만 담는 완전한 독립 파일**이다
 (`@import "tailwindcss"` + `@theme inline` + `:root` + `.dark` + `@layer base`).
-되돌리려면 `cp src/theme/light.css src/styles.css`.
+런타임 프리셋(`presets.css`) import 는 빠져 있으므로 이 방법을 쓰면 **어드민의 테마 선택이
+동작하지 않는다.** ①/②로 충분하며, 이 방법은 프리셋 시스템 없이 단일 테마로 쓸 때만 권한다.
 
 ## 다시 생성하기
 
@@ -34,7 +58,7 @@ bun scripts/build-themes.mjs
 |---|---|
 | `catalog.json` | 230종 전체. 활성 15 + 백업 215. **단일 출처** |
 | `{id}.css` × 15 | 드롭인 (`styles.css` 교체용) |
-| `presets.css` | 런타임용 `[data-theme="{id}"]` 블록. `.dark` 조합은 `[data-theme="{id}"].dark` |
+| `presets.css` | 런타임용 `html[data-theme="{id}"]:not(.dark)` 블록. 다크 조합은 `html[data-theme="{id}"].dark`. `html`·`:not()` 은 명시도 때문 — 자세한 건 build-themes.mjs 주석 |
 | `tokens.ts` | 토큰 이름 단일 정의 — 스크립트·테스트가 공유 |
 | `registry.ts` | 활성 목록·라벨 (UI 가 참조) |
 | `overrides/{id}.json` | 차트 팔레트 수작업 값 |
@@ -43,7 +67,7 @@ bun scripts/build-themes.mjs
 
 | id | 출처 |
 |---|---|
-| `light` · `dark` | 현행 `styles.css` (기본) |
+| `light` · `dark` | 현행 `styles.css` 의 `:root`/`.dark` (shadcn 기본값) |
 | `toss` · `apple-hig` · `anthropic` · `claude` · `linear` · `vercel` · `duolingo` · `datadog` · `kakao` · `github-primer` · `airbnb` | 디자인 가이드 파생 |
 | `ink` · `forest` | `new-beginnings/public/data/themes.json` 수작업 이관 |
 

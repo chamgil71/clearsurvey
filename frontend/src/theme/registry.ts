@@ -46,7 +46,14 @@ export const THEME_PRESETS: ThemePreset[] = activeIds
     darkFirst: Boolean(e.handmadeDarkMode),
   }));
 
-export const DEFAULT_THEME_ID = "light";
+/**
+ * 앱 기본 테마. 프로젝트가 preset 을 지정하지 않으면 이 테마를 쓴다.
+ *
+ * `light`(= styles.css 의 :root, shadcn 기본값)로 되돌리려면 이 값을 "light" 로 바꾼다.
+ * routes/__root.tsx 의 THEME_BOOT 인라인 스크립트가 같은 값을 첫 페인트 전에 심으므로
+ * 함께 바꿔야 한다(어긋나면 FOUC 가 난다).
+ */
+export const DEFAULT_THEME_ID = "toss";
 
 /**
  * 모르는 id 는 기본 테마로 떨군다.

@@ -60,9 +60,10 @@ export function applyTheme(r: ResolvedTheme): void {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
 
-  // 기본 테마는 속성을 지운다 — styles.css 의 :root 가 그대로 살아 있어야 한다.
-  if (r.presetId === DEFAULT_THEME_ID) root.removeAttribute(THEME_ATTR);
-  else root.setAttribute(THEME_ATTR, r.presetId);
+  // 기본 테마도 속성을 붙인다. 기본값이 곧 styles.css 의 :root 라는 보장이 없기 때문이다
+  // (DEFAULT_THEME_ID 는 toss 이고 :root 는 shadcn 기본값이다). 항상 붙이면 두 값이
+  // 어긋날 여지가 없고, __root.tsx 의 THEME_BOOT 가 심어둔 속성과도 일치한다.
+  root.setAttribute(THEME_ATTR, r.presetId);
 
   root.classList.toggle("dark", r.dark);
 

@@ -22,8 +22,8 @@
 
 > **작성일**: 2026-07-17  
 > **대상 범위**: `frontend/` 전용 (백엔드 수정 없음)  
-> **관련**: [complete/design-migration-plan.md](complete/design-migration-plan.md)(현 토큰 체계의 출처),
-> [complete/chart_export_plan.md](complete/chart_export_plan.md)(PDF의 oklch 이슈 — Part A의 hex 전환과 직결)
+> **관련**: [design-migration-plan.md](design-migration-plan.md)(현 토큰 체계의 출처),
+> [chart_export_plan.md](chart_export_plan.md)(PDF의 oklch 이슈 — Part A의 hex 전환과 직결)
 
 ---
 
@@ -50,7 +50,7 @@
 | `cfg.theme` | 런타임에서 읽는 곳 **0곳** — 저장돼도 무시됨 |
 | 실데이터 | 6개 프로젝트 `dashboard.json` 전부 `theme` 값 **없음** |
 
-이는 [remaining_improvements.md §3](complete/remaining_improvements.md)이 이미 지적한 문제다. 그때
+이는 [remaining_improvements.md §3](remaining_improvements.md)이 이미 지적한 문제다. 그때
 `layout`(가로 배열 개수)만 `ChartConfigCard`에 연결해 살렸고 `theme`은 남겨뒀다.
 
 ### 1-A. 타입이 두 벌로 갈라져 있다
@@ -229,7 +229,7 @@ cp src/theme/toss.css src/styles.css   # 이러면 즉시 토스 테마
 ### 왜 번복했나
 
 hex의 근거로 "html2canvas가 oklch를 못 읽어 PDF가 깨진다"를 들었으나, 그 문제는
-**`pdfColorFix.ts`가 이미 해결하고 검증까지 끝낸 상태**다([chart_export_plan §10](complete/chart_export_plan.md)).
+**`pdfColorFix.ts`가 이미 해결하고 검증까지 끝낸 상태**다([chart_export_plan §10](chart_export_plan.md)).
 **이미 값을 치른 문제를 새 결정의 근거로 삼은 것**이 오류였다. hex로 가도 `pdfColorFix`는
 `color-mix`(oklab) 잔여 때문에 어차피 남는다 — 즉 hex의 이득은 거의 없다.
 
@@ -495,10 +495,24 @@ Part C가 선행**해야 하고, 런타임 전환(B)은 테마 팩(A)이 있어�
 | **C-1** | 하드코딩 276건 → 토큰 치환 (어드민 6개 파일) | ✅ `66e0c3d` |
 | **C-2** | `--success`/`--warning`/`--highlight` 신설, `rgba` → `var(--border)` | ✅ `717c4d8` |
 | ~~**A-1**~~ | ~~`styles.css` oklch → hex~~ | ❌ **폐기**([§3](#3-색-표기--oklch-유지-hex-전환-폐기)) |
-| **A-2** | 카탈로그 스크립트 이식 + `tokens.ts`·`registry.ts` + hex→oklch 변환 | 예정 |
-| **A-3** | 15종 확정(차트 팔레트 수작업 오버라이드) + 드롭인 CSS + 검증 테스트 | 예정 |
-| **B-1** | 타입 통일 + `cfg.theme` 런타임 반영 | 예정 |
-| **B-2** | registry 기반 설정 UI 연결 | 예정 |
+| **A-2** | 카탈로그 스크립트 이식 + `tokens.ts`·`registry.ts` + hex→oklch 변환 | ✅ `993db1a` |
+| — | 가이드 350개를 저장소로 이관(옆 저장소 의존 제거) | ✅ `f8b4969` |
+| **A-3** | 15종 확정(차트 팔레트 수작업 오버라이드) + 드롭인 CSS + 검증 테스트 | ✅ `4c8c298` |
+| **B-1** | 타입 통일 + `cfg.theme` 런타임 반영 | ✅ `4da0426` |
+| **B-2** | registry 기반 설정 UI 연결 + 기본 테마 toss | ✅ |
+
+**전체 완료.** 최종: tsc 통과 · vitest **344개** 통과(시작 시 173) · build 성공 ·
+lint 313(기준선 314). 하드코딩 색상 276 → 33건(남은 33은 의도적 유지).
+
+### 알아둘 것 — 테마가 공개 대시보드에 도달하는 경로
+
+어드민에서 테마를 저장하면 `storage/projects/{name}/dashboard.json` 에 쓰인다. 그러나 공개
+대시보드는 `frontend/public/data/{name}_data.json` 을 읽고, 그 안의 `dashboard` 는 **정제
+파이프라인 export 시점의 스냅샷**이다.
+
+→ **설정 저장만으로는 공개 대시보드에 반영되지 않는다. 내보내기(export)를 해야 한다.**
+이는 테마만의 문제가 아니라 차트·KPI 등 모든 `dashboard` 설정에 해당하는 기존 구조다.
+end-to-end 검증에서 이 단계를 빠뜨려 "저장했는데 안 바뀐다"로 오인했다가 확인했다.
 
 C-1·C-2 결과: 하드코딩 **276 → 33건**. 남은 33건은 의도적 유지다 —
 `GuideDrawer.GROUP_COLORS` 28건(범주형 배지 7색)과 `Step3` 터미널 로그 5건

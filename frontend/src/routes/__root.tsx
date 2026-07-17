@@ -8,6 +8,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
+import { DEFAULT_THEME_ID } from "@/theme/registry";
 import "../styles.css";
 import appCss from "../styles.css?url";
 
@@ -100,11 +101,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
+/**
+ * 첫 페인트 전에 테마를 심는다. React 가 붙은 뒤 applyTheme 가 돌면 기본 테마(:root)로
+ * 한 번 그려졌다가 바뀌어 색이 번쩍인다(FOUC). 하이드레이션 이전에 실행돼야 하므로
+ * 인라인 스크립트일 수밖에 없다.
+ *
+ * 여기서는 앱 기본값과 사용자의 명암 선택만 처리한다. 프로젝트별 테마(cfg.theme)는
+ * 데이터를 받아야 알 수 있어 이 시점에 알 수 없다 — routes/index.tsx 의 applyTheme 가 맡는다.
+ * 값이 theme/registry.ts 의 DEFAULT_THEME_ID 와 어긋나면 안 되므로 함께 바꿀 것.
+ */
+const THEME_BOOT = `(function(){try{
+  var d=document.documentElement;
+  d.setAttribute("data-theme","${DEFAULT_THEME_ID}");
+  if(localStorage.getItem("theme")==="dark")d.classList.add("dark");
+}catch(e){}})();`;
+
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" suppressHydrationWarning>
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
       </head>
       <body>
         {children}

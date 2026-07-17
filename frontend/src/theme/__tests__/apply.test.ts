@@ -63,10 +63,11 @@ describe("applyTheme", () => {
     document.documentElement.style.removeProperty("--radius");
   });
 
-  it("기본 테마는 data-theme 를 붙이지 않는다", () => {
-    // 속성이 붙으면 styles.css 의 :root 대신 프리셋 블록이 켜진다 — 기본은 :root 여야 한다.
+  it("설정이 없으면 기본 테마를 data-theme 로 붙인다", () => {
+    // 기본값이 곧 styles.css 의 :root 라는 보장이 없다(DEFAULT_THEME_ID=toss, :root=shadcn).
+    // 항상 붙여야 __root.tsx 의 THEME_BOOT 가 심어둔 속성과도 일치한다.
     applyTheme(resolveTheme(undefined, null));
-    expect(document.documentElement.hasAttribute(THEME_ATTR)).toBe(false);
+    expect(document.documentElement.getAttribute(THEME_ATTR)).toBe(DEFAULT_THEME_ID);
   });
 
   it("프리셋을 data-theme 로 붙인다", () => {
@@ -88,9 +89,15 @@ describe("applyTheme", () => {
     expect(document.documentElement.style.getPropertyValue("--radius")).toBe("");
   });
 
-  it("테마를 바꾸면 이전 속성이 남지 않는다", () => {
+  it("테마를 바꾸면 이전 값이 남지 않는다", () => {
+    applyTheme(resolveTheme({ preset: "kakao" }, null));
+    expect(document.documentElement.getAttribute(THEME_ATTR)).toBe("kakao");
     applyTheme(resolveTheme({ preset: "toss" }, null));
-    applyTheme(resolveTheme(undefined, null));
-    expect(document.documentElement.hasAttribute(THEME_ATTR)).toBe(false);
+    expect(document.documentElement.getAttribute(THEME_ATTR)).toBe("toss");
+  });
+
+  it("모르는 프리셋도 기본 테마로 떨궈 붙인다", () => {
+    applyTheme(resolveTheme({ preset: "없는테마" }, null));
+    expect(document.documentElement.getAttribute(THEME_ATTR)).toBe(DEFAULT_THEME_ID);
   });
 });

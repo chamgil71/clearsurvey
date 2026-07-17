@@ -23,6 +23,7 @@ import {
   NEEDS_SOURCE_COLS
 } from "./config/ColumnConfigTab";
 import { ChartConfigCard } from "./config/ChartConfigCard";
+import { DashboardThemeCard } from "./config/DashboardThemeCard";
 
 const CHART_TYPES = ["donut", "bar", "hbar", "histogram", "multibar"] as const;
 
@@ -409,6 +410,12 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
 
           <TabsContent value="dashboard" className="mt-0 outline-none">
              <div className="bg-transparent space-y-6 max-w-[1000px] mx-auto pb-12 pt-4">
+              <DashboardThemeCard
+                theme={localDashboard.theme}
+                layout={localDashboard.layout}
+                onUpdateTheme={updateTheme}
+                onUpdateLayout={updateLayout}
+              />
               <ChartConfigCard
                 dashboard={localDashboard}
                 config={localConfig}

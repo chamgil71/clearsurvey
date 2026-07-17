@@ -185,4 +185,15 @@ describe("registry", () => {
     expect(resolveThemeId(undefined)).toBe(DEFAULT_THEME_ID);
     expect(resolveThemeId("toss")).toBe("toss");
   });
+
+  it("기본 테마는 활성 목록에 있다", () => {
+    expect(activeIds).toContain(DEFAULT_THEME_ID);
+  });
+
+  it("__root.tsx 의 부트 스크립트가 DEFAULT_THEME_ID 와 같은 값을 심는다", () => {
+    // 두 값이 어긋나면 첫 페인트에 A 테마가 그려졌다가 B 로 바뀌어 색이 번쩍인다(FOUC).
+    // 인라인 스크립트라 import 로 묶을 수 없어 테스트로 고정한다.
+    const root = readFileSync(path.join(THEME_DIR, "..", "routes", "__root.tsx"), "utf-8");
+    expect(root).toContain('d.setAttribute("data-theme","${DEFAULT_THEME_ID}")');
+  });
 });
