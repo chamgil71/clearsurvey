@@ -135,9 +135,9 @@ sequenceDiagram
 ### 환경 준비 (최초 1회)
 
 ```bash
-# Python 가상환경 활성화 (C:\ai 아래 프로젝트 공용 — C:\ai\.venv314)
-#   PowerShell: & C:\ai\.venv314\Scripts\Activate.ps1
-#   bash      : source /c/ai/.venv314/Scripts/activate
+# Python 가상환경 활성화 (C:\ai 아래 프로젝트 공용 — C:\ai\.venv)
+#   PowerShell: & C:\ai\.venv\Scripts\Activate.ps1
+#   bash      : source /c/ai/.venv/Scripts/activate
 
 # Python 의존성 (backend/pyproject.toml 기준)
 cd backend && pip install -e ".[dev]" && cd ..
@@ -146,7 +146,7 @@ cd backend && pip install -e ".[dev]" && cd ..
 cd frontend && bun install && cd ..
 ```
 
-> 이 프로젝트는 `C:\ai\.venv314` 가상환경을 다른 `C:\ai\*` 프로젝트와 **공유**한다.
+> 이 프로젝트는 `C:\ai\.venv` 가상환경을 다른 `C:\ai\*` 프로젝트와 **공유**한다.
 > `start_backend.bat`도 이 경로를 기본값으로 쓰며, 다른 환경을 쓰려면 `CLEARSURVEY_PYTHON`에
 > `python.exe` 경로를 지정하면 된다.
 >

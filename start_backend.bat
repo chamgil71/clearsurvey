@@ -3,7 +3,7 @@ chcp 65001 >nul
 setlocal
 cd /d "%~dp0backend"
 
-REM Projects under C:\ai share one venv: C:\ai\.venv314
+REM Projects under C:\ai share one venv: C:\ai\.venv
 REM To use another interpreter, set CLEARSURVEY_PYTHON to its python.exe path.
 REM
 REM NOTE: keep this file ASCII-only. cmd.exe reads a .bat line by line using the
@@ -11,7 +11,7 @@ REM code page active at that moment, so `chcp 65001` above changes it mid-parse 
 REM garbles any multi-byte (Korean) line that follows -- the fragments then get run
 REM as commands ("'i' is not recognized ..."). The echo strings below are English
 REM for the same reason.
-if not defined CLEARSURVEY_PYTHON set "CLEARSURVEY_PYTHON=C:\ai\.venv314\Scripts\python.exe"
+if not defined CLEARSURVEY_PYTHON set "CLEARSURVEY_PYTHON=C:\ai\.venv\Scripts\python.exe"
 
 if not exist "%CLEARSURVEY_PYTHON%" (
     echo [ERROR] Python not found: %CLEARSURVEY_PYTHON%
