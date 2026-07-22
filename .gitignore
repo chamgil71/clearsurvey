@@ -36,7 +36,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-.claude
+.claude/*
+!.claude/agents/
+!.claude/rules/
+!.claude/skills/
+!.claude/reference/
 *.egg-info/
 dist/
 build/
