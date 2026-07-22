@@ -101,7 +101,10 @@ export function buildSummary(
   search: string,
   filters: Record<string, string>,
 ): SummaryDoc {
-  const charts = Array.isArray(cfg.charts) ? cfg.charts : [];
+  // 텍스트 박스는 집계 대상이 아니므로 요약 표에서 제외한다.
+  const charts: ChartItem[] = Array.isArray(cfg.charts)
+    ? cfg.charts.filter((c): c is ChartItem => c.type !== "text")
+    : [];
   const activeFilters = Object.entries(filters).filter(([, v]) => Boolean(v)) as [string, string][];
 
   return {

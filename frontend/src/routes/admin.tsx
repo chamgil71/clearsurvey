@@ -10,11 +10,14 @@ import { Step3_RunDeploy } from "@/components/manager/Step3_RunDeploy";
 import { GuideDrawer } from "@/components/dashboard/GuideDrawer";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { supabase } from "@/lib/supabase";
+import { DEFAULT_THEME_ID } from "@/theme/registry";
 import type { User } from "@supabase/supabase-js";
 import {
   BarChart3,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   ExternalLink,
   FolderOpen,
   Globe,
@@ -27,6 +30,7 @@ import {
   FileText,
   CheckCircle2,
   Circle,
+  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -55,6 +59,17 @@ function AdminPage() {
   const navigate = useNavigate();
 
   const isLocalDev = (supabase as any).isPlaceholder;
+
+  // 공개 대시보드(routes/index.tsx)는 방문자가 헤더에서 고른 프로젝트 테마 프리셋/모서리
+  // 반경을 <html> 에 직접 적용한다(theme/apply.ts::applyTheme). SPA 라우팅이라 그 속성이
+  // 그대로 남은 채 /admin 으로 넘어오면 관리자 화면이 방문자가 실험 중이던 브랜드 색으로
+  // 보이는 버그가 났다 — 관리자 화면은 프로젝트 브랜딩과 무관해야 하므로 진입 시 리셋한다.
+  // 명암(.dark)은 별개의 전역 사용자 선호라 건드리지 않는다.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute("data-theme", DEFAULT_THEME_ID);
+    root.style.removeProperty("--radius");
+  }, []);
 
   useEffect(() => {
     if (isLocalDev) {
@@ -362,6 +377,27 @@ function AdminDashboard({ user }: { user: User }) {
                     );
                   }
                 }}
+                onSetDefault={async (name, isDefault) => {
+                  try {
+                    await api.setDefaultProject(name, isDefault);
+                    toast.success(
+                      isDefault ? `'${name}'을(를) 기본 프로젝트로 지정했습니다.` : `기본 프로젝트 지정을 해제했습니다.`,
+                    );
+                  } catch (err: unknown) {
+                    toast.error(
+                      `기본 프로젝트 지정 실패: ${err instanceof Error ? err.message : String(err)}`,
+                    );
+                  }
+                }}
+                onReorder={async (order) => {
+                  try {
+                    await api.reorderProjects(order);
+                  } catch (err: unknown) {
+                    toast.error(
+                      `프로젝트 순서 변경 실패: ${err instanceof Error ? err.message : String(err)}`,
+                    );
+                  }
+                }}
                 onNew={() => {
                   setView("new");
                   setSelectedProject("");
@@ -486,6 +522,8 @@ function ProjectListView({
   onOpenRun,
   onTogglePublish,
   onDelete,
+  onSetDefault,
+  onReorder,
   onNew,
 }: {
   projects: ProjectListItem[];
@@ -494,10 +532,14 @@ function ProjectListView({
   onOpenRun: (name: string) => void;
   onTogglePublish: (name: string, published: boolean) => Promise<void>;
   onDelete: (name: string) => Promise<void>;
+  onSetDefault: (name: string, isDefault: boolean) => Promise<void>;
+  onReorder: (order: string[]) => Promise<void>;
   onNew: () => void;
 }) {
   const [toggling, setToggling] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [settingDefault, setSettingDefault] = useState<string | null>(null);
+  const [reordering, setReordering] = useState<string | null>(null);
   const [freshness, setFreshness] = useState<Record<string, ProjectFreshness>>({});
   const api = useManagerApi();
 
@@ -551,6 +593,29 @@ function ProjectListView({
       setToggling(null);
     }
   };
+
+  const handleSetDefault = async (name: string, current: boolean) => {
+    setSettingDefault(name);
+    try {
+      await onSetDefault(name, !current);
+    } finally {
+      setSettingDefault(null);
+    }
+  };
+
+  const handleMove = async (index: number, dir: -1 | 1) => {
+    const target = index + dir;
+    if (target < 0 || target >= projects.length) return;
+    const order = projects.map((p) => p.id);
+    [order[index], order[target]] = [order[target], order[index]];
+    setReordering(projects[index].id);
+    try {
+      await onReorder(order);
+    } finally {
+      setReordering(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -599,9 +664,13 @@ function ProjectListView({
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
+          <table className="w-full text-[13px]">
             <thead className="bg-muted/50 text-muted-foreground font-semibold border-b border-border">
               <tr>
+                <th className="px-3 py-3.5 text-center text-xs">순서</th>
+                <th className="px-3 py-3.5 text-center text-xs" title="공개 대시보드가 첫 화면으로 여는 프로젝트">
+                  기본
+                </th>
                 <th className="px-6 py-3.5 text-left text-xs">프로젝트명</th>
                 <th className="px-6 py-3.5 text-left text-xs">마지막 업데이트</th>
                 <th className="px-6 py-3.5 text-center text-xs">게시 상태</th>
@@ -609,10 +678,48 @@ function ProjectListView({
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {projects.map((p) => {
+              {projects.map((p, index) => {
                 const isPublished = p.published !== false;
+                const isDefault = !!p.is_default;
                 return (
                   <tr key={p.id} className="hover:bg-muted/50 transition-colors group">
+                    <td className="px-3 py-4">
+                      <div className="flex items-center justify-center gap-0.5">
+                        <button
+                          type="button"
+                          disabled={!isBackendAlive || index === 0 || reordering !== null}
+                          onClick={() => handleMove(index, -1)}
+                          className="p-1 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed text-muted-foreground"
+                          title="위로 이동"
+                        >
+                          <ChevronUp className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!isBackendAlive || index === projects.length - 1 || reordering !== null}
+                          onClick={() => handleMove(index, 1)}
+                          className="p-1 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed text-muted-foreground"
+                          title="아래로 이동"
+                        >
+                          <ChevronDown className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-3 py-4">
+                      <div className="flex items-center justify-center">
+                        <button
+                          type="button"
+                          disabled={!isBackendAlive || settingDefault !== null}
+                          onClick={() => handleSetDefault(p.id, isDefault)}
+                          className="p-1 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={isDefault ? "기본 프로젝트 지정 해제" : "기본 프로젝트로 지정"}
+                        >
+                          <Star
+                            className={`h-4 w-4 ${isDefault ? "fill-warning text-warning" : "text-muted-foreground"}`}
+                          />
+                        </button>
+                      </div>
+                    </td>
                     <td className="px-6 py-4">
                       <div
                         className="flex items-center gap-3 cursor-pointer w-fit"
@@ -621,9 +728,14 @@ function ProjectListView({
                         <div className="p-2 bg-muted rounded-lg group-hover:bg-primary/10 transition-colors">
                           <Settings className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                         </div>
-                        <span className="font-bold text-[15px] text-foreground group-hover:text-primary transition-colors">
+                        <span className="font-bold text-[13px] text-foreground group-hover:text-primary transition-colors">
                           {p.name}
                         </span>
+                        {isDefault && (
+                          <span className="text-[11px] font-bold text-warning bg-warning/20 dark:bg-warning/15/40 px-1.5 py-0.5 rounded">
+                            기본
+                          </span>
+                        )}
                         {freshness[p.id]?.is_stale && (
                           <span
                             className="text-[11px] font-bold text-warning bg-warning/20 dark:bg-warning/15/40 dark:text-warning px-1.5 py-0.5 rounded"

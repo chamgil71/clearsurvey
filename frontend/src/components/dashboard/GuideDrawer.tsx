@@ -258,7 +258,7 @@ export const GuideDrawer: React.FC<GuideDrawerProps> = ({ isOpen, onClose }) => 
                   </pre>
                   <p className="text-[10px] text-muted-foreground">
                     cleaned.xlsx에서 대시보드 렌더링용 JSON을 생성하여{" "}
-                    <code className="bg-muted px-1 rounded">web/public/data/</code>에 저장합니다.
+                    <code className="bg-muted px-1 rounded">frontend/public/data/</code>에 저장합니다.
                   </p>
                 </div>
 

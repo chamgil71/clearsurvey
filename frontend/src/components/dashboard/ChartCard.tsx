@@ -5,6 +5,7 @@ import {
   Pie,
   BarChart,
   Bar,
+  LabelList,
   XAxis,
   YAxis,
   Tooltip,
@@ -59,15 +60,79 @@ export function ChartCard({
   const total = useMemo(() => items.reduce((sum, item) => sum + item.value, 0), [items]);
 
   // recharts 3의 PieLabelRenderProps는 name/percent를 optional로 넘긴다.
-  const renderPieLabel = ({ name, percent }: { name?: string | number; percent?: number }) => {
-    if (!chart.show_percent) return null;
+  // 문자열만 반환하면 recharts가 폰트 크기를 지정하지 않은 <Text>로 감싸버려 범례(11px)보다
+  // 훨씬 크게 렌더링되고 카드 밖으로 넘친다 — 위치·크기를 직접 계산한 <text>를 반환해야 한다.
+  const RADIAN = Math.PI / 180;
+  const renderPieLabel = (props: {
+    cx?: number;
+    cy?: number;
+    midAngle?: number;
+    innerRadius?: number;
+    outerRadius?: number;
+    name?: string | number;
+    percent?: number;
+  }) => {
+    if (!chart.show_labels) return null;
+    const { cx, cy, midAngle, innerRadius, outerRadius, name, percent } = props;
     if (percent == null || percent < 0.05) return null;
-    return `${name} (${(percent * 100).toFixed(1)}%)`;
+    if (cx == null || cy == null || midAngle == null || innerRadius == null || outerRadius == null) {
+      return null;
+    }
+    const radius = outerRadius + 14;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+    const text = chart.show_percent ? `${name} (${(percent * 100).toFixed(1)}%)` : `${name}`;
+    return (
+      <text
+        x={x}
+        y={y}
+        fontSize={11}
+        fill="var(--muted-foreground)"
+        textAnchor={x > cx ? "start" : "end"}
+        dominantBaseline="central"
+      >
+        {text}
+      </text>
+    );
   };
 
   const hasData = items.length > 0 && items.some((item) => item.value > 0);
   const title = chart.title || (chart.type === "multibar" ? "" : chart.col);
   const unit = (chart as any).value_col ? "" : "건";
+
+  // 막대 위/옆에 값 라벨을 표시할지는 show_labels로, 그 라벨에 비율(%)을 같이 적을지는
+  // show_percent로 따로 제어한다. vertical(세로 막대)은 막대 위쪽, horizontal(가로 막대)은
+  // 막대 오른쪽에 표시.
+  // recharts 3의 LabelList content prop 타입이 x/y/width/height/value를 string|number|null
+  // 등 넓게 잡아줘 좁히지 않는다(formatTooltip과 같은 이유) — any로 받아 직접 좁힌다.
+  const renderBarLabel = (orientation: "vertical" | "horizontal") => (props: any) => {
+      if (!chart.show_labels) return null;
+      if (props.x == null || props.y == null || props.width == null || props.height == null || props.value == null) {
+        return null;
+      }
+      const x = Number(props.x);
+      const y = Number(props.y);
+      const width = Number(props.width);
+      const height = Number(props.height);
+      const value = Number(props.value);
+      const text = chart.show_percent
+        ? `${value}${unit} (${total > 0 ? ((value / total) * 100).toFixed(1) : "0.0"}%)`
+        : `${value}${unit}`;
+      const labelX = orientation === "horizontal" ? x + width + 4 : x + width / 2;
+      const labelY = orientation === "horizontal" ? y + height / 2 : y - 6;
+      return (
+        <text
+          x={labelX}
+          y={labelY}
+          fontSize={11}
+          fill="var(--muted-foreground)"
+          textAnchor={orientation === "horizontal" ? "start" : "middle"}
+          dominantBaseline="central"
+        >
+          {text}
+        </text>
+      );
+    };
 
   // 교차필터 대상: 카테고리형 donut/bar/hbar만 (histogram/multibar 제외).
   // numeric 컬럼이라도 고유값이 적으면(예: 연도) unique_count가 채워져 있으므로
@@ -169,6 +234,13 @@ export function ChartCard({
                   nameKey="name"
                   innerRadius={pieInnerRadius}
                   outerRadius={pieOuterRadius}
+                  // recharts 기본값(startAngle=0, endAngle=360)은 3시 방향에서 시작해
+                  // 반시계로 돈다 — 조각이 몇 개인지·값 분포가 어떤지에 따라 그 이음매를
+                  // 넘나드는 조각이 매번 달라 카드마다 "시작점이 제각각"으로 보인다.
+                  // 12시에서 시작해 정렬된 순서(sort_by, 기본 value_desc) 그대로
+                  // 시계 방향으로 돌게 고정한다.
+                  startAngle={90}
+                  endAngle={-270}
                   label={renderPieLabel}
                   labelLine={false}
                   onClick={handleChartClick}
@@ -183,7 +255,9 @@ export function ChartCard({
                 <XAxis type="number" tick={{ fontSize: 11 }} />
                 <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
                 <Tooltip formatter={formatTooltip} />
-                <Bar dataKey="value" radius={[0, 4, 4, 0]} onClick={handleChartClick} cursor={clickable ? "pointer" : undefined} />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} onClick={handleChartClick} cursor={clickable ? "pointer" : undefined}>
+                  <LabelList dataKey="value" content={renderBarLabel("horizontal")} />
+                </Bar>
               </BarChart>
             ) : (
               <BarChart data={items}>
@@ -191,7 +265,9 @@ export function ChartCard({
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip formatter={formatTooltip} />
-                <Bar dataKey="value" radius={[4, 4, 0, 0]} onClick={handleChartClick} cursor={clickable ? "pointer" : undefined} />
+                <Bar dataKey="value" radius={[4, 4, 0, 0]} onClick={handleChartClick} cursor={clickable ? "pointer" : undefined}>
+                  <LabelList dataKey="value" content={renderBarLabel("vertical")} />
+                </Bar>
               </BarChart>
             )}
           </ResponsiveContainer>

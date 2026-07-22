@@ -40,7 +40,23 @@ export function useDashboardData(initialUrl?: string) {
         const published = projList.filter((p) => p.published !== false);
         setProjects(published);
 
-        let target = initialUrl || null;
+        // 버그: initialUrl(?data= 쿼리파라미터)만 normalizeUrl을 안 거쳐 상대경로("x_data.json")로
+        // 그대로 fetch되고 있었다 — 현재 페이지 경로 기준으로 풀려 항상 404, 데이터 없음 화면으로
+        // 떨어졌다(실측 확인: /?data=books_data.json 접속 시 재현). 다른 분기는 전부 정상 경유.
+        let target = initialUrl ? normalizeUrl(initialUrl) : null;
+        // 버그: ?data= 가 published 필터를 안 거치고 무조건 그 프로젝트를 열었다 — 관리자가
+        // 비공개로 돌려도 예전에 열어봤던 링크(북마크·주소창에 남은 ?data=)가 있으면 그 브라우저는
+        // 계속 비공개 프로젝트를 보고 있었다. 매니페스트에 실제로 있는 항목인데 비공개면 무시하고
+        // 아래 기본 프로젝트 선정 로직으로 넘어간다. 매니페스트에 아예 없는 파일명(레거시 링크 등)
+        // 이거나 매니페스트 로드 자체가 실패했으면(published=[]) 판단할 근거가 없으므로 그대로 신뢰.
+        if (target) {
+          const manifestEntry = projList.find((p) => normalizeUrl(p.file) === target);
+          if (manifestEntry && manifestEntry.published === false) target = null;
+        }
+        // 공개된 프로젝트 중 is_default로 지정된 것이 있으면 그걸 첫 화면으로 연다.
+        // 없으면(레거시 매니페스트 포함) 기존처럼 목록 맨 앞 항목을 쓴다.
+        const defaultProject = published.find((p) => p.is_default);
+        if (!target && defaultProject) target = normalizeUrl(defaultProject.file);
         if (!target && published.length) target = normalizeUrl(published[0].file);
         if (!target && projList.length) target = normalizeUrl(projList[0].file);
         if (!target) target = "/data/survey_data.json";

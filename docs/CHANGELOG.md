@@ -2,6 +2,206 @@
 
 All notable changes to the ClearSurvey project will be documented in this file.
 
+## [2026-07-22] (3) 관리자 테마 오염·도넛 시작점 버그 수정 · `web/`→`frontend/` 경로 문자열 정리
+
+(2) 배치를 실사용해보면서 나온 후속 버그 리포트 3건을 조사·수정했다.
+
+**결과**: 프런트 474개(468 → +6) 테스트 및 `tsc --noEmit` 전부 통과. 백엔드는 이번 배치에서
+변경 없음(437개 유지).
+
+### Fixed
+- 🔴 **관리자 설정 화면이 방문자가 공개 대시보드에서 고른 테마 색을 물려받음**: 헤더의 테마 선택은
+  `<html>`에 `data-theme` 속성과 `--radius`를 직접 적용하는데(`theme/apply.ts::applyTheme`), SPA
+  라우팅이라 `/admin`으로 이동해도 그 속성이 안 지워지고 남아있었다 — 관리자 화면은 그 프로젝트
+  브랜딩과 무관해야 하는데 방문자가 실험 중이던 색을 그대로 보여주고 있었다. `admin.tsx` 진입 시
+  `data-theme`를 기본값으로, `--radius` 오버라이드를 리셋하도록 수정(다크/라이트는 별개의 전역
+  취향이라 안 건드림).
+- **관리자가 설정화면에서 테마를 다시 저장해도 공개 대시보드에 예전 색이 계속 남음**: 공개
+  대시보드 헤더의 테마 선택은 `localStorage`에 프로젝트별로 저장되어 서버 설정보다 항상 우선하는
+  구조라, 관리자가 새 테마를 저장해도 **같은 브라우저**에 남은 예전 오버라이드가 계속 가리고
+  있었다. `Step2_ConfigEditor.tsx::handleSave`가 저장 성공 시 그 브라우저의
+  `theme-preset-override-{project}` 키를 같이 지우도록 수정.
+- 🔴 **도넛 차트 시작점이 카드마다 들쭉날쭉함**: recharts의 기본값(`startAngle=0, endAngle=360`)은
+  3시 방향에서 시작해 반시계로 도는데, 이 값을 지정하지 않고 있었다. 조각 개수·값 분포가 카드마다
+  달라 그 고정된 3시 이음매를 어느 조각이 걸치는지가 매번 달라 보였다. `ChartCard.tsx`의 `<Pie>`에
+  `startAngle={90} endAngle={-270}`을 명시해 모든 donut이 12시에서 시작해 정렬된 순서(기본
+  `sort_by: value_desc`) 그대로 시계 방향으로 돌게 고정.
+- **`web/public/data/...` 경로 문자열 잔재 정리**: 프로젝트 폴더가 `web/`에서 `frontend/`로
+  개명된 뒤에도 리네임 전 이름이 그대로 남아있던 곳 5곳(`useManagerApi.ts`의 내보내기 완료
+  로그 메시지, `backend/app/main.py`의 docstring, `GuideDrawer.tsx`의 사용자 노출 안내 문구,
+  `GUIDE.md`, `docs/guides/integrated_guide.md`)을 `frontend/`로 정정. 실제 저장 경로와는 무관한
+  표시용 문자열이라 동작 버그는 아니었음.
+
+### Investigated (버그 아님으로 결론)
+- 🟡 **"비공개 프로젝트가 여전히 첫 화면으로 뜬다"**: `frontend/public/data/projects.json`과
+  `useDashboardData.ts`의 선택 로직을 직접 재현(새 탭으로 `/`와 `/?data=...` 둘 다 확인)했으나
+  재현되지 않았다 — is_default·published 필터가 정상 동작함을 확인. (2) 배치의 `?data=` 정규화
+  수정이 이미 적용된 상태였고, 남은 원인은 신고 시점에 사용자가 보고 있던 브라우저 탭이 그 수정
+  이전의 상태를 그대로 들고 있었을 가능성이 가장 크다(SPA는 최초 마운트 시 한 번만 프로젝트를
+  고르고, 이후 admin 변경을 다시 확인하러 가지 않음).
+- 🟡 **"테마를 바꿔도 2번째 색 이후 파란 계열로 고정된 것 같다"**: `presets.css`의 프리셋별
+  `--chart-1`~`--chart-5` 정의, 실제 렌더된 SVG의 `fill` 계산값을 코드 검토와 라이브 브라우저(테마
+  선택 select를 실제로 조작)로 각각 확인했으나 재현되지 않았다 — 5개 색 전부 프리셋마다 다르게
+  정의돼 있고 실제로 그렇게 바뀐다. 재현 조건(비교한 두 테마, 어느 차트)을 다음에 구체적으로
+  받아야 추가 조사가 가능하다.
+
+### Added (테스트)
+- **`useDashboardData.test.ts`**: `?data=`가 매니페스트상 비공개 항목이면 무시하는지, 매니페스트에
+  없는 파일명은 그대로 신뢰하는지, 공개 항목이면 그대로 여는지 3건.
+- **`Step2_ConfigEditor.themeOverride.test.tsx`**(신규): 저장 시 이 브라우저의 테마 오버라이드를
+  지우는지, 저장 전에는 안 건드리는지 2건.
+- **`ChartCard.test.tsx`**: donut이 `startAngle=90, endAngle=-270`로 렌더링되는지 1건.
+
+## [2026-07-22] (2) 공개 대시보드 UX 개편 — 테마 선택·탭 스타일·목록 상세보기 3방식·컬럼 선택 · `?data=` 링크 버그 수정
+
+사용자가 첨부한 목업(`storage/Snipaste_2026-07-22_15-15-38.png`)을 기준으로 공개 대시보드 헤더·탭·
+목록 화면을 개편하고, 그 과정에서 발견한 `?data=` 링크 정규화 버그와 프로젝트 목록 게시상태
+미반영 버그를 고쳤다. 프로젝트 목록 순서·기본 프로젝트 지정 기능, 목록 탭 전용 PDF 내보내기,
+차트 사이 텍스트 박스 삽입 기능도 이번 배치에 포함됐다.
+
+**결과**: 백엔드 437개(424 → +13) · 프런트 468개(417 → +51) 테스트 및 `tsc --noEmit` 전부 통과.
+
+### Fixed
+- 🔴 **`frontend/src/hooks/useDashboardData.ts` — `?data=` 링크가 항상 잘못된 경로로 fetch됨**:
+  프로젝트 URL을 정하는 4가지 경로(쿼리파라미터 `?data=`, 기본 프로젝트, 게시된 목록 첫 항목, 전체
+  목록 첫 항목) 중 `?data=` 경로만 `normalizeUrl()`을 안 거치고 원본 문자열을 그대로 썼다. 나머지
+  세 경로는 이미 정규화를 거치고 있어서 이 비대칭이 드러나지 않고 있었다. 사용자가 "게시상태를
+  바꿔도 로컬 화면이 안 바뀐다"고 보고한 현상의 실제 원인 — 링크가 애초에 잘못된 상대경로로 요청을
+  보내 조용히 실패하고 빈 대시보드 폴백 화면을 보여주고 있었다. `?data=` 경로에도 동일하게
+  `normalizeUrl()` 적용.
+- **프로젝트 게시(공개/비공개) 상태 변경이 목록 순서와 별개로 씹히는 문제**: `_update_projects_manifest`
+  (`backend/app/main.py`)가 매 파이프라인 실행마다 대상 항목을 배열에서 지웠다가 맨 뒤에 다시
+  붙이는 방식이라, 관리자가 손으로 맞춘 프로젝트 순서가 파이프라인을 한 번 돌릴 때마다 조용히
+  뒤섞이고 있었다. 기존 인덱스를 찾아 **제자리 갱신**하도록 수정(없으면 append).
+- **`DashboardThemeCard.tsx`의 `listViewMode` 설정이 죽어 있었음**: 설정 화면에 `Drawer/Modal/Page`
+  값을 고르는 select는 있었지만 공개 대시보드 어디에서도 이 값을 읽지 않아 항상 서랍(Drawer) 고정
+  이었다. `DataTable.tsx`가 실제로 `split`/`drawer`/`modal` 3가지 렌더 분기를 갖도록 구현하고,
+  값 자체도 `Drawer/Modal/Page` → `split/drawer/modal`로 다시 정의(레이아웃 아이콘 없이 동작만
+  나타내던 옛 이름이 실제 UI 설명과 안 맞았음).
+
+### Added
+- **테마·레이아웃**
+  - **헤더 테마 프리셋 선택 드롭다운** (`routes/index.tsx`): 방문자가 헤더에서 즉석으로 테마를
+    바꿔볼 수 있다. `theme-preset-override-${project}` 키로 프로젝트별 `localStorage`에 저장하고,
+    설정화면 기본값으로 되돌리면 키를 지워 서버 설정에 다시 위임한다(테마 모드 다크/라이트 토글과
+    동일한 패턴).
+  - **탭 pill/세그먼트 스타일** — "대시보드"/"목록 · 검색" `TabsTrigger`를 `bg-muted` 배경의 캡슐
+    안에서 활성 탭만 카드 배경 + 그림자로 떠 보이게 재스타일.
+  - **목록 상세보기 3방식** (`DataTable.tsx`) — `split`(표 옆에 나란히 펼침) / `drawer`(우측
+    슬라이드) / `modal`(중앙 팝업) 중 선택. 공개 대시보드에서도 `listViewMode-override-${project}`
+    키로 그 브라우저에서만 임시로 바꿔볼 수 있고, 설정화면 값이 기본값이다.
+- **목록 컬럼 선택** (`DataTable.tsx`) — "🧩 컬럼 (N/M)" 팝오버에서 체크박스로 표에 보일 컬럼을
+  즉석 토글. `visibleRowKeys()`로 얻은 실제 노출 가능 컬럼 목록만 후보로 쓰므로 `__row_id` 같은
+  내부 컬럼은 애초에 후보에 들지 않는다. `listCols-override-${project}` 키로 저장, "기본값으로"
+  링크로 설정화면 값에 복귀.
+- **차트값표시 토글 분리** (`ChartConfigCard.tsx`, `types/dashboard.ts`, `ChartCard.tsx`) — 기존
+  "비율(%) 표시" 하나로 툴팁 비율 표시와 차트 안 캡션 표시 여부를 겸하고 있었는데, 사용자가 지적한
+  대로 이 둘은 별개 요구다. `show_labels`(차트 안에 캡션을 그릴지) 를 `show_percent`(그 캡션에
+  퍼센트를 같이 넣을지, 순수 툴팁 비율)와 분리한 새 필드로 신설. 기존 저장된 설정은
+  `dashboardConfig.ts::migrateConfig()`에서 `show_labels === undefined && show_percent !== undefined`
+  일 때 `show_labels = show_percent`로 채워 넣어 시각적 동작을 그대로 유지한다.
+  - 부수적으로 발견한 실제 버그도 같이 고쳤다: `ChartCard.tsx`의 `renderPieLabel`이 문자열을
+    그대로 반환하고 있었는데, recharts는 이걸 폰트 크기가 지정 안 된 `<Text>`로 감싸 브라우저
+    기본 크기(캡션 중 유독 크게 보이던 원인)로 그린다. 직접 위치 계산한 `<text fontSize={11}>`을
+    반환하도록 수정. 바/가로바 차트는 애초에 값 라벨 자체가 없었는데(캡션 토글이 %표시와 얽혀
+    있었으므로) `renderBarLabel` + `<LabelList>` 신설.
+- **프로젝트 목록 순서·기본 프로젝트** (`admin.tsx`, `useManagerApi.ts`, `backend/app/main.py`) —
+  관리자 프로젝트 목록에 ▲▼ 순서 이동, ⭐ 기본 프로젝트 지정 버튼 추가. 새 엔드포인트
+  `PATCH /api/projects/{name}/default`, `PATCH /api/projects/reorder`. `useDashboardData.ts`가
+  `?data=` 없이 진입할 때 `published.find(p => p.is_default)`를 `published[0]` 폴백보다 먼저
+  확인하도록 변경.
+- **목록 탭 전용 PDF 내보내기** (`lib/exportListPdf.ts` 신규) — 표 페이지네이션(30행)과 무관하게
+  필터링된 전체 행을 오프스크린 `<table>`(row 데이터에서 온 텍스트는 `textContent`로만 주입 —
+  `innerHTML` 미사용, XSS 방지)로 만들어 `exportPdf.ts`의 기존 html2pdf 경로를 재사용.
+- **차트 사이 텍스트 박스** (`types/dashboard.ts::TextBlockItem`, `TextBlockCard.tsx` 신규,
+  `ChartConfigCard.tsx`, `Step2_ConfigEditor.tsx`) — `DashboardItem = ChartItem | TextBlockItem`
+  판별 유니온을 도입해 대시보드 차트 배열에 설명 문구용 텍스트 카드를 섞어 넣을 수 있게 했다.
+  이 변경으로 `charts: ChartItem[]`를 가정하던 `exportPptx.ts`/`summary.ts` 등 4곳에서 타입 에러가
+  나 각각 `.filter((c): c is ChartItem => c.type !== "text")` 가드를 추가했다(PPT/요약 집계에는
+  텍스트 박스가 끼면 안 되므로 걸러내는 게 맞는 동작).
+- **관리자 화면 폰트 크기 축소**: `ChartConfigCard.tsx`(섹션 제목 4곳), `Step2_ConfigEditor.tsx`
+  (뒤로가기·타이틀·배지·탭), `admin.tsx`(목록 표) 등 사용자가 크다고 지적한 화면 위주로 개별
+  Tailwind 클래스를 낮췄다. **중앙 폰트 토큰은 없다** — 컴포넌트별 `text-[Npx]` 하드코딩이라
+  이번처럼 눈에 띄는 곳부터 개별 조정하는 방식으로만 대응 가능하다는 점을 확인.
+
+### Investigated
+- 🟡 **브랜드 로고 클릭 시 이동 동작**: 사용자 메시지에 언급이 있었으나 별도 버그 재현이나 구체
+  요구사항이 확인되지 않아 이번 배치에서는 손대지 않았다. 필요시 다음 라운드에서 구체 동작을
+  확인 후 진행.
+
+### Verification 한계
+- 공개 대시보드의 "목록 · 검색" 탭 전환, 목록 상세보기 select, 컬럼 팝오버는 이번 세션의
+  브라우저 자동화 도구가 새로 생성한 공개 대시보드 탭에서 클릭 이벤트를 페이지까지 전달하지
+  못하는 현상(`document.visibilityState: "hidden"`인 백그라운드 탭에 합성 입력이 도달하지 않음 —
+  관리자 탭에서는 동일 방식이 반복적으로 성공했던 것과 대비됨)으로 실사용 클릭 테스트를 끝까지
+  못 마쳤다. 대신 스크린샷으로 헤더 테마 셀렉트·pill 탭 렌더링은 시각 확인했고, 나머지(상세보기
+  3방식 전환, 컬럼 체크박스)는 `DataTable.test.tsx`에 신설한 단위 테스트 15건과 `read_page` DOM
+  검사로 동작을 검증했다. **직접 브라우저에서 목록 탭 → 상세보기 방식 셀렉트 → 컬럼 팝오버를
+  한 번씩 눌러보는 수동 확인을 권장한다.**
+
+## [2026-07-22] 원본엑셀(clean xlsx) 손상 근본 원인 규명 · 설정편집 버그 3건 수정
+
+`docs/qna.md`에 접수된 7개 항목 실측 검토 중 발견한 실제 버그를 수정했다. 특히 원본엑셀 다운로드 시
+Excel이 "복구" 경고를 띄우던 문제는 Excel COM 자동화(PowerShell)로 실제 파일을 직접 열고-저장하며
+이진 탐색으로 정확한 원인 행까지 추적했다 — 정적 코드 분석만으로는 끝내 잡지 못했던 문제.
+
+**결과**: 백엔드 424개(421 → +3) · 프런트 417개 테스트 및 `tsc --noEmit` 전부 통과.
+
+### Fixed
+- 🔴 **`backend/transforms/domain/cleansing.py::normalize_number` — `UnboundLocalError`**:
+  함수 안에 있던 중복 `import math`가 파이썬 스코프 규칙상 함수 **전체**에서 `math`를 지역 변수로
+  만들어, 그 import 문 실행 전에 참조하던 앞쪽 줄(`math.isnan(val)`)에서 "cannot access local
+  variable 'math'"가 발생했다. 정제 대상 숫자 컬럼에 빈 셀이 하나라도 있으면 100% 재현되는
+  파이프라인 크래시였다. 모듈 최상단에 이미 있는 `import math`로 충분해 중복분을 제거.
+- 🔴 **`backend/engine/summarizer.py` — Excel 수식 문자열 리터럴 255자 제한으로 인한 파일 손상**:
+  Excel은 함수 종류와 무관하게 수식에 직접 박아 넣는 문자열 리터럴이 255자를 넘으면 그 수식을
+  무효 처리하고, 파일을 열 때 "일부 콘텐츠에 문제가 있습니다" 복구 대화상자와 함께 통째로 제거한다
+  (COUNTIF 전용 제약이 아니라 Excel 수식 엔진 자체의 일반 제약임을 Excel COM 합성 테스트로 확인 —
+  255자는 정상, 256자부터 손상 재현). `unique_count` 요약 섹션이 공동저자 수십 명이 쉼표로 나열된
+  값처럼 긴 텍스트를 통째로 하나의 "고유값"으로 취급해 `COUNTIF(...,"...298자...")` 같은 수식을
+  만들 때 실제로 파일이 깨졌다(books 프로젝트 실측). Excel COM으로 실제 파일을 열고-복구하는 과정을
+  자동화해 22,136개 수식 중 정확한 1개 행(4060행)까지 이진 탐색으로 특정했다.
+  → `unique_count`/`countif_exact` 섹션에서 값을 수식에 리터럴로 재삽입하는 대신, 이미 같은 행의
+  라벨 셀에 그 값이 그대로 쓰여 있으므로 **그 셀을 참조**하도록 변경(`SUMPRODUCT(--(range=라벨셀))`).
+  셀 참조는 문자열 길이 제한이 없어 원천적으로 안전하다.
+- **`backend/engine/summarizer.py` — summary 시트 비율(%) 분모 `$B$3` 고정**: "totals" 타입 섹션과
+  layout(그리드) 설정이 **둘 다** 있을 때만 실제 합계 위치를 계산하고, 그 외(= `unique_count`/
+  `binary_sum`/`countif_contains`만 쓰는 대부분의 프로젝트)에는 무조건 `"$B$3"` 리터럴로 폴백해
+  실제 합계가 B3에 없으면 모든 비율 수식이 엉뚱한 값을 나누고 있었다. `"$B$3"` 대신 정제 시트의
+  실제 데이터 행수를 세는 `COUNTA(...)` 수식으로 대체.
+- **`backend/engine/summarizer.py` — 바/꺾은선 차트 x축 제목 누락**: `_add_dynamic_charts`가
+  `chart.title`만 설정하고 `chart.x_axis.title`은 어떤 차트 타입에도 설정하지 않고 있었다(파이차트는
+  축이 없어 안 보이던 것뿐, bar/line은 원래부터 비어 있었음). `chart.x_axis.title = col_ref` 추가.
+- **`frontend/src/components/manager/Step2_ConfigEditor.tsx` — "미리보기" 버튼이 실제로는 저장 버튼**:
+  `onClick={handleSave}`로 다른 두 저장 버튼과 완전히 동일한 함수를 호출해 클릭 시마다 즉시
+  `config.yaml`/`dashboard.json`을 디스크에 쓰고 있었다. 저장 없이 미리보기만 하는
+  `POST /api/projects/{name}/preview` 엔드포인트는 원래부터 있었지만 Step3에서만 연결돼 있었다.
+  Step2 버튼을 `previewProjectConfig` 호출로 교체하고, 결과(원본→정제 비교)를 보여줄 `Dialog` 신설.
+- **`frontend/src/components/manager/config/ChartConfigCard.tsx` — 죽어 있던 `onUpdateExcelOptions`
+  연결**: `include_charts`/`include_slicers`를 끄는 백엔드 옵션(`pipeline.py`)은 원래 있었으나,
+  이걸 조작할 화면 체크박스가 아예 없었다(prop만 선언되고 실제 렌더링 0곳). "차트 구성" 카드에
+  "원본엑셀(clean xlsx) 다운로드 옵션" 체크박스 2개를 신설.
+
+### Investigated (미해결로 남김)
+- 🟡 **슬라이서 관련 파일 손상 — 위 255자 버그와는 별개의 실제 버그**: 위 수정 이후에도 books 파일은
+  여전히 Excel COM에서 복구를 요구했다. 같은 이진 탐색 기법(부분 제거→재현 확인 반복)으로 요약
+  수식·차트·표는 모두 정상임을 확인했고, `backend/engine/slicer.py`가 손수 조립하는 슬라이서 XML
+  (`drawing2.xml`+`slicerN.xml`+`slicerCacheN.xml`+워크시트 `x14:slicerList`)만 남겨두면 재현된다는
+  것까지 좁혔다. 테이블 컬럼 인덱스·`sourceName`/`name`/`cache` 속성 일치·`mc:AlternateContent`
+  래핑 누락 등 여러 가설을 실측으로 반증했으나 정확한 결함 지점은 이번 세션에서 특정하지 못했다.
+  임시 우회책(위에서 신설한 "슬라이서 포함" 체크박스를 끄기)은 Excel COM으로 정상 동작 확인됨.
+  상세: [`docs/qna.md`](../docs/qna.md) 6-c.
+
+### Added (테스트)
+- **`backend/tests/test_summarizer.py`**: 회귀 테스트 3건 — 255자 초과 값이 셀 참조로 안전하게
+  처리되는지(`test_summarizer_long_value_avoids_255_char_formula_literal`), `total_cell` 폴백이
+  `$B$3`이 아닌 `COUNTA` 수식인지(`test_summarizer_total_cell_fallback_avoids_wrong_b3`), 동적
+  차트에 x축 제목이 들어가는지(`test_dynamic_charts_bar_gets_x_axis_title`).
+
+### Docs
+- **`docs/qna.md`** (신규): 사용자가 접수한 7개 항목 전체에 대한 코드 근거 기반 검토 결과·수정
+  현황·다음 액션 우선순위를 정리. `docs/logs/qna.md`(과거 아키텍처 Q&A 아카이브)와는 별개 문서.
+
 ## [2026-07-17] 대시보드 행 편집 (1~11단계) · 로컬 실행 환경 수정
 
 [plan/pending/dashboard_edit_plan.md](plan/pending/dashboard_edit_plan.md) 의 1~11단계 구현 완료.

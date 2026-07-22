@@ -23,7 +23,14 @@ export function migrateConfig(parsed: DashboardConfig): DashboardConfig {
     .map((c: any) => {
       if (!c.layout && c.width !== undefined) {
         const { width, ...rest } = c;
-        return { ...rest, layout: width === 2 || width === "2" ? "2x1" : "1x1" };
+        c = { ...rest, layout: width === 2 || width === "2" ? "2x1" : "1x1" };
+      }
+      // show_labels(차트 내 캡션 표시) 신설 전에는 show_percent 하나가 "툴팁에 비율 표시"와
+      // "차트 안에 캡션 표시"를 겸했다. 기존에 show_percent:true로 저장된 차트가 이 변경으로
+      // 갑자기 캡션이 사라지지 않도록, show_labels가 아직 없으면 과거 show_percent 값을
+      // 그대로 물려받는다. 이후로는 두 값이 독립적으로 저장된다.
+      if (c.type !== "text" && c.show_labels === undefined && c.show_percent !== undefined) {
+        c = { ...c, show_labels: c.show_percent };
       }
       return c;
     });

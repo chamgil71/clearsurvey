@@ -164,10 +164,10 @@ class LogStream(io.TextIOBase):
 
 
 def _update_projects_manifest(project_name: str, file_name: str) -> None:
-    """web/public/data/projects.json 매니페스트 파일을 동기화 및 자동 갱신합니다."""
+    """frontend/public/data/projects.json 매니페스트 파일을 동기화 및 자동 갱신합니다."""
     manifest_path = FRONTEND_ROOT / "public" / "data" / "projects.json"
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     projects = []
     if manifest_path.exists():
         try:
@@ -175,22 +175,29 @@ def _update_projects_manifest(project_name: str, file_name: str) -> None:
                 projects = json.load(f)
         except Exception:
             projects = []
-            
-    # 기존 published 값을 먼저 조회해둔다 (제거보다 먼저 해야 값을 잃지 않는다)
+
+    # 기존 published/is_default 값을 먼저 조회해둔다 (제거보다 먼저 해야 값을 잃지 않는다)
     existing = next((p for p in projects if p.get("id") == project_name), {})
 
-    # 기존 항목이 있으면 제거 (업데이트 대상)
-    projects = [p for p in projects if p.get("id") != project_name]
-
-    # 새 항목 추가 (기존 published 값 유지)
-    projects.append({
+    entry = {
         "id": project_name,
         "name": project_name,
         "file": file_name,
         "updated": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "published": existing.get("published", False),
-    })
-    
+    }
+    if existing.get("is_default"):
+        entry["is_default"] = True
+
+    # 배열 안에서의 위치가 곧 "프로젝트 목록 순서"이므로(별도 order 필드 없음), 기존 항목이
+    # 있으면 같은 자리에서 교체한다 — 매번 끝으로 밀려나면 수동으로 정렬한 순서가
+    # 파이프라인을 돌릴 때마다 흐트러진다. 신규 프로젝트만 끝에 추가.
+    idx = next((i for i, p in enumerate(projects) if p.get("id") == project_name), None)
+    if idx is not None:
+        projects[idx] = entry
+    else:
+        projects.append(entry)
+
     try:
         with open(manifest_path, "w", encoding="utf-8") as f:
             json.dump(projects, f, ensure_ascii=False, indent=2)
@@ -1410,6 +1417,69 @@ async def set_publish_status(name: str, body: dict, user: dict = Depends(verify_
     return {"status": "ok", "project": name, "published": published}
 
 
+@app.patch("/api/projects/{name}/default")
+async def set_default_project(name: str, body: dict, user: dict = Depends(verify_supabase_token)):
+    """공개 대시보드가 첫 화면으로 여는 "기본 프로젝트"를 지정합니다.
+
+    동시에 하나만 기본일 수 있으므로, true로 지정하면 다른 모든 프로젝트의
+    is_default는 자동으로 해제된다.
+    """
+    _validate_project_name(name)
+    is_default = bool(body.get("is_default", False))
+
+    manifest_path = FRONTEND_ROOT / "public" / "data" / "projects.json"
+    if not manifest_path.exists():
+        raise HTTPException(status_code=404, detail="projects.json 파일이 없습니다.")
+
+    with open(manifest_path, encoding="utf-8") as f:
+        projects = json.load(f)
+
+    updated = False
+    for p in projects:
+        if p.get("id") == name:
+            if is_default:
+                p["is_default"] = True
+            else:
+                p.pop("is_default", None)
+            updated = True
+        elif is_default:
+            p.pop("is_default", None)
+
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"프로젝트 '{name}'을 찾을 수 없습니다.")
+
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump(projects, f, ensure_ascii=False, indent=2)
+
+    return {"status": "ok", "project": name, "is_default": is_default}
+
+
+@app.patch("/api/projects/reorder")
+async def reorder_projects(body: dict, user: dict = Depends(verify_supabase_token)):
+    """프로젝트 목록 표시 순서를 재배열합니다. body.order = 원하는 순서대로의 id 배열."""
+    order = body.get("order")
+    if not isinstance(order, list) or not all(isinstance(x, str) for x in order):
+        raise HTTPException(status_code=400, detail="order는 프로젝트 id 문자열 배열이어야 합니다.")
+
+    manifest_path = FRONTEND_ROOT / "public" / "data" / "projects.json"
+    if not manifest_path.exists():
+        raise HTTPException(status_code=404, detail="projects.json 파일이 없습니다.")
+
+    with open(manifest_path, encoding="utf-8") as f:
+        projects = json.load(f)
+
+    by_id = {p.get("id"): p for p in projects}
+    if set(order) != set(by_id.keys()):
+        raise HTTPException(status_code=400, detail="order 배열이 현재 프로젝트 목록과 일치하지 않습니다.")
+
+    reordered = [by_id[pid] for pid in order]
+
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump(reordered, f, ensure_ascii=False, indent=2)
+
+    return {"status": "ok", "order": order}
+
+
 @app.delete("/api/projects/{name}")
 async def delete_project(name: str, user: dict = Depends(verify_supabase_token)):
     """프로젝트 설정 폴더, 배포 데이터, 그리고 projects.json 매니페스트 파일 목록에서 프로젝트를 영구 제거합니다."""
@@ -1519,6 +1589,11 @@ def _build_single_html_template(project_name: str, data: dict) -> str:
     import html as html_lib
     import json
 
+    from app.report_theme import get_report_theme
+
+    theme_preset = (data.get("dashboard") or {}).get("theme", {}).get("preset")
+    report_theme = get_report_theme(theme_preset, FRONTEND_ROOT)
+
     data_json = json.dumps(data, ensure_ascii=False)
     # <script> 컨텍스트 탈출(XSS) 방지: 정제 데이터 값에 "</script>" 등이 섞여 있어도
     # 스크립트 태그를 조기 종료시켜 임의 HTML/JS를 주입할 수 없도록 이스케이프한다.
@@ -1545,5 +1620,7 @@ def _build_single_html_template(project_name: str, data: dict) -> str:
     html_doc = html_doc.replace("__XLSX_JS__", xlsx_js)
     html_doc = html_doc.replace("__DATA_JSON__", data_json)
     html_doc = html_doc.replace("__GENERATED_AT__", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    html_doc = html_doc.replace("__PRIMARY_HEX__", report_theme["primary"])
+    html_doc = html_doc.replace("__CHART_PALETTE_JSON__", json.dumps(report_theme["chart"]))
     html_doc = html_doc.replace("__PROJECT_NAME__", html_lib.escape(project_name))
     return html_doc

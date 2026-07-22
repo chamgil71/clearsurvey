@@ -115,8 +115,16 @@ class SummarySheetWriter:
             tc_col     = get_column_letter((totals_sec.start_col or 1) + 1)
             tc_row     = (totals_sec.start_row) + 2  # title+header+first data row
             total_cell = f"${tc_col}${tc_row}"
+        elif self._cfg.summary.total_cell:
+            total_cell = self._cfg.summary.total_cell
         else:
-            total_cell = self._cfg.summary.total_cell or "$B$3"
+            # "totals" 섹션이 없는 프로젝트(unique_count/binary_sum/countif_contains만
+            # 쓰는 경우)에서 "$B$3"로 고정 폴백하면, 실제 합계가 B3에 없을 때 모든
+            # 비율(%) 수식이 엉뚱한 값을 나눈다 — 실측 확인됨(2026-07-22). "totals"
+            # 섹션도 명시적 total_cell 설정도 없다면, 정제 시트의 실제 데이터 행수를
+            # 직접 세는 수식으로 대체해 항상 올바른 분모를 쓰게 한다.
+            any_col_letter = get_column_letter(next(iter(col_index_map.values()), 1))
+            total_cell = f"COUNTA({_data_ref(cleaned_name, any_col_letter)})"
 
         if sheet_name in wb.sheetnames:
             del wb[sheet_name]
@@ -185,7 +193,10 @@ class SummarySheetWriter:
                         _fval(row, scol + 2, "")
                     elif item.type == "countif_exact":
                         v = (item.value or "").replace('"', '""')
-                        _fval(row, scol + 1, f'=COUNTIF({rng},"{v}")')
+                        # COUNTIF의 criteria 인자는 255자 초과 시 파일 손상을 일으킨다
+                        # (Excel이 다음 열기에서 "복구" 경고와 함께 수식을 제거함).
+                        # SUMPRODUCT 배열 등가비교는 이 제한이 없어 길이 무관하게 안전하다.
+                        _fval(row, scol + 1, f'=SUMPRODUCT(--({rng}="{v}"))')
                         cl = get_column_letter(scol + 1)
                         _fval(row, scol + 2,
                               f'=IFERROR(ROUND({cl}{row}/{total_cell}*100,1),"")')
@@ -200,11 +211,16 @@ class SummarySheetWriter:
                     vals = sorted(vals)
                 _sec_title(srow, scol, sec.title, span=3)
                 _hdr(srow + 1, scol, ["항목", "응답수", "비율(%)"])
+                lbl_ltr = get_column_letter(scol)
                 for i, val in enumerate(vals):
                     row = srow + 2 + i
-                    safe = val.replace('"', '""')
                     _dval(row, scol, val)
-                    _fval(row, scol + 1, f'=COUNTIF({rng},"{safe}")')
+                    # 수식에 값을 리터럴 문자열로 박아 넣으면(COUNTIF든 SUMPRODUCT든) 255자를
+                    # 넘는 순간 Excel이 파일을 열 때 "복구" 경고와 함께 그 수식을 통째로
+                    # 제거한다 — 실측 확인됨(books 프로젝트 저자 목록, 2026-07-22). 같은 값을
+                    # 이미 라벨 셀({lbl_ltr}{row})에 그대로 써두므로, 리터럴 대신 그 셀을
+                    # 참조하면 길이 제한 없이 안전하다.
+                    _fval(row, scol + 1, f'=SUMPRODUCT(--({rng}={lbl_ltr}{row}))')
                     cl = get_column_letter(scol + 1)
                     _fval(row, scol + 2,
                           f'=IFERROR(ROUND({cl}{row}/{total_cell}*100,1),"")')
@@ -342,11 +358,13 @@ class SummarySheetWriter:
                 chart = BarChart()
                 chart.type = "col"
                 chart.legend = None
+                chart.x_axis.title = col_ref
             elif chart_type in ("pie", "donut"):
                 chart = PieChart()
             elif chart_type == "line":
                 chart = LineChart()
                 chart.legend = None
+                chart.x_axis.title = col_ref
             else:
                 continue
 

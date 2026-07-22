@@ -6,11 +6,14 @@ import { useRowEdit } from "@/hooks/useRowEdit";
 import { buildDefaultConfig, loadConfig } from "@/lib/dashboardConfig";
 import { filterRows } from "@/lib/aggregate";
 import type { DashboardConfig } from "@/types/dashboard";
+import { visibleRowKeys } from "@/types/dashboard";
 import { KpiRow } from "@/components/dashboard/KpiRow";
 import { FilterBar } from "@/components/dashboard/FilterBar";
 import { ChartCard } from "@/components/dashboard/ChartCard";
+import { TextBlockCard } from "@/components/dashboard/TextBlockCard";
 import { SummaryTab } from "@/components/dashboard/SummaryTab";
 import { resolveTheme, applyTheme, USER_MODE_KEY } from "@/theme/apply";
+import { THEME_PRESETS, DEFAULT_THEME_ID } from "@/theme/registry";
 import { DataTable } from "@/components/dashboard/DataTable";
 import { GuideDrawer } from "@/components/dashboard/GuideDrawer";
 import { EditReviewPanel } from "@/components/dashboard/EditReviewPanel";
@@ -152,15 +155,66 @@ function DashboardPage() {
     }
   };
 
+  // 목록탭 PDF: 화면 DataTable은 PAGE_SIZE(30)행만 그리므로 화면 DOM을 그대로 캡처하면
+  // 안 된다 — 필터링된 전체 행을 오프스크린에 다시 그려서 캡처한다(exportListPdf.ts).
+  const handleExportListPdf = async () => {
+    if (!cfg || !data) return;
+    setExporting("pdf");
+    try {
+      const [{ exportListToPdf }, { filterConditionLines }] = await Promise.all([
+        import("@/lib/exportListPdf"),
+        import("@/lib/summary"),
+      ]);
+      const visibleCols = cfg.list?.visible_cols?.length
+        ? cfg.list.visible_cols
+        : visibleRowKeys(filtered[0]);
+      const activeFilters = Object.entries(filters).filter(([, v]) => Boolean(v)) as [string, string][];
+      const filterSummary = filterConditionLines({
+        totalRows: data.rows.length,
+        filteredRows: filtered.length,
+        search,
+        filters: activeFilters,
+        get isFiltered() {
+          return Boolean(this.search) || this.filters.length > 0;
+        },
+      }).join(", ");
+      await exportListToPdf(filtered, visibleCols, data.meta.project, theme === "dark", {
+        search,
+        filterSummary,
+        generatedAt: data.meta.generated_at?.slice(0, 16).replace("T", " "),
+      });
+    } catch (e) {
+      toast.error(`PDF 내보내기 실패: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setExporting(null);
+    }
+  };
+
   const cfg: DashboardConfig | null = useMemo(() => {
     if (!data) return null;
     const saved = loadConfig(data.meta.project, data.dashboard || null, data.meta);
     return saved || buildDefaultConfig(data.meta);
   }, [data]);
 
-  // 프로젝트 테마(cfg.theme) + 사용자의 명암 선택을 합쳐 DOM 에 반영한다.
-  // 사용자가 헤더에서 토글했으면 그쪽이 프로젝트 기본값보다 우선한다(resolveTheme).
-  const resolvedTheme = useMemo(() => resolveTheme(cfg?.theme, theme), [cfg?.theme, theme]);
+  // 헤더에서 브랜드 프리셋(테마 팩)을 직접 골라 바꿀 수 있다. 기본값은 설정화면에서
+  // 정의한 값(cfg.theme.preset)이고, 여기서 바꾸면 이 브라우저·이 프로젝트에서만
+  // 우선 적용된다(서버에는 저장하지 않음 — 명암 토글과 같은 성격).
+  const [presetOverride, setPresetOverride] = useState<string | null>(null);
+  const presetOverrideKey = data ? `theme-preset-override-${data.meta.project}` : null;
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !presetOverrideKey) return;
+    setPresetOverride(localStorage.getItem(presetOverrideKey));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presetOverrideKey]);
+
+  // 프로젝트 테마(cfg.theme) + 사용자의 명암·프리셋 선택을 합쳐 DOM 에 반영한다.
+  // 사용자가 헤더에서 고른 값이 있으면 그쪽이 프로젝트 기본값보다 우선한다(resolveTheme).
+  const effectiveTheme = useMemo(
+    () => (presetOverride ? { ...cfg?.theme, preset: presetOverride } : cfg?.theme),
+    [cfg?.theme, presetOverride],
+  );
+  const resolvedTheme = useMemo(() => resolveTheme(effectiveTheme, theme), [effectiveTheme, theme]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -175,6 +229,19 @@ function DashboardPage() {
     const next = resolvedTheme.dark ? "" : "dark";
     setTheme(next);
     localStorage.setItem(USER_MODE_KEY, next);
+  };
+
+  const changePresetOverride = (presetId: string) => {
+    if (!presetOverrideKey) return;
+    const projectDefault = cfg?.theme?.preset ?? DEFAULT_THEME_ID;
+    if (presetId === projectDefault) {
+      // 설정화면에서 정의한 기본값으로 되돌리면 오버라이드 자체를 지운다.
+      localStorage.removeItem(presetOverrideKey);
+      setPresetOverride(null);
+    } else {
+      localStorage.setItem(presetOverrideKey, presetId);
+      setPresetOverride(presetId);
+    }
   };
 
   useEffect(() => {
@@ -319,6 +386,18 @@ function DashboardPage() {
                 {exporting === "docx" ? "생성 중…" : "DOCX"}
               </Button>
             </>
+          ) : tab === "list" ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportListPdf}
+              disabled={exporting !== null}
+              title="현재 검색·필터가 적용된 목록 전체를 PDF로 내보내기"
+              className="text-xs gap-1.5"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              {exporting === "pdf" ? "생성 중…" : "PDF"}
+            </Button>
           ) : (
             <>
               <Button
@@ -346,6 +425,19 @@ function DashboardPage() {
               </Button>
             </>
           )}
+
+          <select
+            value={resolvedTheme.presetId}
+            onChange={(e) => changePresetOverride(e.target.value)}
+            title="테마(브랜드 색상) 선택 — 기본값은 설정화면에서 정의한 테마입니다."
+            className="h-8 px-2 rounded-md border border-input bg-card text-xs font-medium text-foreground outline-none focus:border-ring cursor-pointer"
+          >
+            {THEME_PRESETS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </select>
 
           <Button
             variant="ghost"
@@ -479,22 +571,22 @@ function DashboardPage() {
           onValueChange={(v) => setTab(v as "dashboard" | "list")}
           className="flex-1"
         >
-          <TabsList className="h-auto w-full justify-start gap-1 rounded-none border-b border-border bg-card px-6 pt-4 pb-0">
+          <TabsList className="h-auto w-fit justify-start gap-1 rounded-lg border border-border bg-muted p-1 mx-6 mt-4 mb-0">
             <TabsTrigger
               value="dashboard"
-              className="rounded-none border-b-2 border-transparent bg-transparent px-4 py-2 text-sm font-medium text-muted-foreground shadow-none hover:text-primary data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none"
+              className="rounded-md border-none bg-transparent px-4 py-2 text-sm font-medium text-muted-foreground shadow-none transition-all hover:text-primary data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm"
             >
               📈 대시보드
             </TabsTrigger>
             <TabsTrigger
               value="list"
-              className="rounded-none border-b-2 border-transparent bg-transparent px-4 py-2 text-sm font-medium text-muted-foreground shadow-none hover:text-primary data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none"
+              className="rounded-md border-none bg-transparent px-4 py-2 text-sm font-medium text-muted-foreground shadow-none transition-all hover:text-primary data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm"
             >
               📋 목록 · 검색
             </TabsTrigger>
             <TabsTrigger
               value="summary"
-              className="rounded-none border-b-2 border-transparent bg-transparent px-4 py-2 text-sm font-medium text-muted-foreground shadow-none hover:text-primary data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none"
+              className="rounded-md border-none bg-transparent px-4 py-2 text-sm font-medium text-muted-foreground shadow-none transition-all hover:text-primary data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm"
             >
               🧾 요약
             </TabsTrigger>
@@ -520,17 +612,21 @@ function DashboardPage() {
                   }px`,
                 }}
               >
-                {(cfg.charts || []).map((c, i) => (
-                  <ChartCard
-                    key={i}
-                    chart={c}
-                    rows={filtered}
-                    data={data}
-                    onSelect={(col, val) =>
-                      setFilters((prev) => ({ ...prev, [col]: prev[col] === val ? "" : val }))
-                    }
-                  />
-                ))}
+                {(cfg.charts || []).map((c, i) =>
+                  c.type === "text" ? (
+                    <TextBlockCard key={i} item={c} />
+                  ) : (
+                    <ChartCard
+                      key={i}
+                      chart={c}
+                      rows={filtered}
+                      data={data}
+                      onSelect={(col, val) =>
+                        setFilters((prev) => ({ ...prev, [col]: prev[col] === val ? "" : val }))
+                      }
+                    />
+                  ),
+                )}
               </div>
             )}
           </TabsContent>
@@ -546,6 +642,7 @@ function DashboardPage() {
               saving={rowEdit.saving}
               onSaveRow={rowEdit.saveRow}
               editedCells={rowEdit.editedCells}
+              project={data.meta.project}
             />
           </TabsContent>
 

@@ -188,16 +188,20 @@ export const DashboardThemeCard: React.FC<DashboardThemeCardProps> = ({
             </label>
             <select
               id="list-view-mode"
-              value={layout?.listViewMode ?? "Drawer"}
+              value={layout?.listViewMode ?? "drawer"}
               onChange={(e) =>
                 onUpdateLayout({ listViewMode: e.target.value as DashboardLayout["listViewMode"] })
               }
               className="w-full h-9 px-3 rounded-md border border-input bg-card text-xs font-medium"
             >
-              <option value="Drawer">사이드 우측 서랍(Drawer) 열기</option>
-              <option value="Modal">중앙 팝업(Modal) 열기</option>
-              <option value="Page">상세 페이지로 이동</option>
+              <option value="split">우측분할 (표와 나란히 펼침)</option>
+              <option value="drawer">우측슬라이드 (서랍 열기)</option>
+              <option value="modal">중앙팝업 (모달 열기)</option>
             </select>
+            <p className="text-[11px] text-muted-foreground mt-1.5">
+              공개 대시보드의 목록·검색 탭에서도 이 값을 임시로 바꿔볼 수 있습니다(그 브라우저에서만
+              적용, 여기 저장값이 기본값).
+            </p>
           </div>
         </CardContent>
       </Card>

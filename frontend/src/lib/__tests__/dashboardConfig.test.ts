@@ -73,6 +73,59 @@ describe("migrateConfig", () => {
     expect(result.charts).toHaveLength(1);
     expect(result.kpi).toEqual([]);
   });
+
+  // show_labels 신설 전에는 show_percent 하나가 "툴팁 비율"과 "차트 내 캡션 표시"를 겸했다.
+  // 기존 저장값이 이 변경으로 캡션을 잃지 않도록 마이그레이션한다.
+  it("show_percent:true, show_labels 없음 → show_labels:true로 승격한다(기존 캡션 유지)", () => {
+    const cfg = {
+      version: 1, kpi: [],
+      charts: [{ type: "bar" as const, col: "a", show_percent: true } as any],
+      list: { visible_cols: [], filter_cols: [] },
+    };
+    const result = migrateConfig(cfg);
+    expect((result.charts[0] as any).show_labels).toBe(true);
+    expect((result.charts[0] as any).show_percent).toBe(true);
+  });
+
+  it("show_percent:false, show_labels 없음 → show_labels:false로 채운다", () => {
+    const cfg = {
+      version: 1, kpi: [],
+      charts: [{ type: "bar" as const, col: "a", show_percent: false } as any],
+      list: { visible_cols: [], filter_cols: [] },
+    };
+    const result = migrateConfig(cfg);
+    expect((result.charts[0] as any).show_labels).toBe(false);
+  });
+
+  it("show_labels가 이미 저장돼 있으면 show_percent와 무관하게 그대로 둔다", () => {
+    const cfg = {
+      version: 1, kpi: [],
+      charts: [{ type: "bar" as const, col: "a", show_percent: true, show_labels: false } as any],
+      list: { visible_cols: [], filter_cols: [] },
+    };
+    const result = migrateConfig(cfg);
+    expect((result.charts[0] as any).show_labels).toBe(false);
+  });
+
+  it("show_percent도 없는 신규 차트에는 show_labels를 억지로 채우지 않는다(컴포넌트 기본값 사용)", () => {
+    const cfg = {
+      version: 1, kpi: [],
+      charts: [{ type: "bar" as const, col: "a" } as any],
+      list: { visible_cols: [], filter_cols: [] },
+    };
+    const result = migrateConfig(cfg);
+    expect((result.charts[0] as any).show_labels).toBeUndefined();
+  });
+
+  it("텍스트 박스는 show_labels 마이그레이션 대상이 아니다", () => {
+    const cfg = {
+      version: 1, kpi: [],
+      charts: [{ type: "text", text: "x" } as any],
+      list: { visible_cols: [], filter_cols: [] },
+    };
+    const result = migrateConfig(cfg);
+    expect((result.charts[0] as any).show_labels).toBeUndefined();
+  });
 });
 
 // ── buildDefaultConfig ────────────────────────────────────────────────────────

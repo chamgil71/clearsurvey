@@ -328,7 +328,7 @@ export function useManagerApi() {
       setLogs((prev) => [
         ...prev,
         `[SUCCESS] 대시보드 JSON 파일 저장 완료!`,
-        ` - 대상 데이터: web/public/data/${data.json_file}`,
+        ` - 대상 데이터: frontend/public/data/${data.json_file}`,
       ]);
       return data;
     } catch (err: unknown) {
@@ -436,6 +436,49 @@ export function useManagerApi() {
     }
   };
 
+  const setDefaultProject = async (name: string, is_default: boolean) => {
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${name}/default`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_default }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "기본 프로젝트 지정 실패" }));
+        throw new Error(err.detail);
+      }
+      setProjects((prev) =>
+        prev.map((p) => ({ ...p, is_default: p.id === name ? is_default : is_default ? false : p.is_default })),
+      );
+      return await res.json();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(msg);
+    }
+  };
+
+  const reorderProjects = async (order: string[]) => {
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/reorder`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "프로젝트 순서 변경 실패" }));
+        throw new Error(err.detail);
+      }
+      setProjects((prev) => {
+        const byId = new Map(prev.map((p) => [p.id, p]));
+        return order.map((id) => byId.get(id)).filter((p): p is ProjectListItem => !!p);
+      });
+      return await res.json();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(msg);
+    }
+  };
+
   const deleteProject = async (name: string) => {
     setLoading(true);
     setError(null);
@@ -477,6 +520,8 @@ export function useManagerApi() {
     getProjectFreshness,
     exportDashboard,
     togglePublish,
+    setDefaultProject,
+    reorderProjects,
     deleteProject,
     getDownloadUrl,
     getExportHtmlUrl,

@@ -1,7 +1,7 @@
 # ClearSurvey — 사용 가이드
 
 > 설문·행정 데이터 정제 엔진 + 웹 대시보드 통합 가이드  
-> 최종 업데이트: 2026-05-28
+> 최종 업데이트: 2026-07-22
 
 ---
 
@@ -294,7 +294,7 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
     • → 최종 xlsx 저장
     │
     ▼
-[Phase 5] export → web/public/data/*.json → 웹 대시보드
+[Phase 5] export → frontend/public/data/*.json → 웹 대시보드
 ```
 
 ### CLI 명령어 레퍼런스
@@ -535,6 +535,14 @@ slicers:
   - col: str                 # output_col 이름
     caption: str | null
 
+excel_options:
+  include_charts: bool       # true(기본) = 요약 시트에 openpyxl 차트 자동 삽입
+  include_slicers: bool      # true(기본) = Cleaned 시트에 슬라이서 삽입
+                              # ⚠️ 알려진 이슈: 일부 프로젝트에서 슬라이서 포함 시 다운로드한
+                              # 엑셀을 열 때 Excel이 "복구" 경고를 띄운다(원인 조사 중,
+                              # docs/qna.md 6-c). 겪으면 false로 끄면 즉시 정상적으로 열린다.
+                              # Step 2 "차트 구성" 카드에 체크박스로 노출되어 있다.
+
 summary:
   sheet_name: str
   layout:
@@ -709,6 +717,8 @@ columns:
 
 | 문서 | 내용 |
 |------|------|
+| [docs/CHANGELOG.md](docs/CHANGELOG.md) | 주요 변경 이력 (버그 수정·기능 추가, 날짜순) |
 | [docs/logs/worklog.md](docs/logs/worklog.md) | 개발 작업 로그 (마일스톤 이력) |
-| [docs/logs/qna.md](docs/logs/qna.md) | 운영 Q&A 및 설계 결정 내역 |
+| [docs/logs/qna.md](docs/logs/qna.md) | 운영 Q&A 및 설계 결정 내역 (아카이브) |
+| [docs/qna.md](docs/qna.md) | 진행 중인 이슈 접수·검토 결과 트래커 (최신) — 원본엑셀 손상 원인 등 |
 | [docs/archive/system_analysis_2026-05-27.md](docs/archive/system_analysis_2026-05-27.md) | 시스템 분석 보고서 (아카이브) |

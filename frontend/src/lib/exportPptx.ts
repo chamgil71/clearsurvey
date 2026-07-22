@@ -1,5 +1,5 @@
 import type PptxGenJS from "pptxgenjs";
-import type { DashboardConfig, ProjectData, Row } from "@/types/dashboard";
+import type { ChartItem, DashboardConfig, ProjectData, Row } from "@/types/dashboard";
 import { buildChartItems, type ChartDatum } from "@/lib/aggregate";
 import { readChartPaletteHex, readTokenHex, withLightMode } from "@/theme/readColors";
 
@@ -87,7 +87,7 @@ export function buildKpiSummary(cfg: DashboardConfig, rows: Row[]): KpiSummaryIt
   });
 }
 
-function chartTitle(chart: DashboardConfig["charts"][number]): string {
+function chartTitle(chart: ChartItem): string {
   if (chart.title) return chart.title;
   return chart.type === "multibar" ? "차트" : chart.col;
 }
@@ -188,8 +188,9 @@ export async function exportToPptx(
     });
   }
 
-  // ── 슬라이드 3~N: 차트 (2개/슬라이드) ──
+  // ── 슬라이드 3~N: 차트 (2개/슬라이드) ── 텍스트 박스는 집계 대상이 아니므로 제외.
   const chartsWithData = (cfg.charts || [])
+    .filter((c): c is ChartItem => c.type !== "text")
     .map((chart) => ({ chart, items: buildChartItems(chart, rows) }))
     .filter(({ items }) => items.length > 0 && items.some((i) => i.value > 0));
 
@@ -228,7 +229,7 @@ export async function exportToPptx(
 function addChartToSlide(
   pptx: PptxGenJS,
   slide: PptxGenJS.Slide,
-  chart: DashboardConfig["charts"][number],
+  chart: ChartItem,
   items: ChartDatum[],
   pos: { x: number; y: number; w: number; h: number },
   th: PptTheme,

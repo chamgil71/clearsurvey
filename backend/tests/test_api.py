@@ -598,6 +598,137 @@ class TestUpdateProjectsManifest:
         entry = next(p for p in projects if p["id"] == "new_proj")
         assert entry["published"] is False
 
+    def test_preserves_is_default_on_repeated_calls(self, tmp_path, monkeypatch):
+        import app.main as main_module
+        monkeypatch.setattr(main_module, "FRONTEND_ROOT", tmp_path / "frontend")
+
+        manifest_path = tmp_path / "frontend" / "public" / "data" / "projects.json"
+        manifest_path.parent.mkdir(parents=True)
+        manifest_path.write_text(
+            json.dumps([{"id": "books", "name": "books", "file": "books_data.json",
+                         "updated": "2026-07-01 00:00", "published": True, "is_default": True}]),
+            encoding="utf-8",
+        )
+
+        main_module._update_projects_manifest("books", "books_data.json")
+
+        with open(manifest_path, encoding="utf-8") as f:
+            projects = json.load(f)
+        entry = next(p for p in projects if p["id"] == "books")
+        assert entry.get("is_default") is True
+
+    def test_preserves_list_position_on_repeated_calls(self, tmp_path, monkeypatch):
+        """회귀 버그: 기존엔 매번 항목을 지웠다 끝에 재추가해, 파이프라인을 돌릴 때마다
+        수동으로 정렬한 프로젝트 목록 순서가 흐트러졌다."""
+        import app.main as main_module
+        monkeypatch.setattr(main_module, "FRONTEND_ROOT", tmp_path / "frontend")
+
+        manifest_path = tmp_path / "frontend" / "public" / "data" / "projects.json"
+        manifest_path.parent.mkdir(parents=True)
+        manifest_path.write_text(
+            json.dumps([
+                {"id": "a", "name": "a", "file": "a_data.json", "updated": "", "published": True},
+                {"id": "b", "name": "b", "file": "b_data.json", "updated": "", "published": True},
+                {"id": "c", "name": "c", "file": "c_data.json", "updated": "", "published": True},
+            ]),
+            encoding="utf-8",
+        )
+
+        # 가운데 항목(b)의 파이프라인을 재실행하는 상황을 재현
+        main_module._update_projects_manifest("b", "b_data.json")
+
+        with open(manifest_path, encoding="utf-8") as f:
+            projects = json.load(f)
+        assert [p["id"] for p in projects] == ["a", "b", "c"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATCH /api/projects/{name}/default — 기본 프로젝트 지정
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestSetDefaultProject:
+    def _write_manifest(self, tmp_path):
+        data_dir = tmp_path / "frontend" / "public" / "data"
+        data_dir.mkdir(parents=True)
+        manifest_path = data_dir / "projects.json"
+        manifest_path.write_text(
+            json.dumps([
+                {"id": "a", "name": "a", "file": "a_data.json", "published": True, "is_default": True},
+                {"id": "b", "name": "b", "file": "b_data.json", "published": True},
+            ]),
+            encoding="utf-8",
+        )
+        return manifest_path
+
+    def test_set_default_clears_previous_default(self, client, tmp_path):
+        manifest_path = self._write_manifest(tmp_path)
+
+        resp = client.patch("/api/projects/b/default", json={"is_default": True})
+        assert resp.status_code == 200
+        assert resp.json()["is_default"] is True
+
+        with open(manifest_path, encoding="utf-8") as f:
+            projects = json.load(f)
+        by_id = {p["id"]: p for p in projects}
+        assert by_id["b"].get("is_default") is True
+        assert by_id["a"].get("is_default") is not True
+
+    def test_unset_default(self, client, tmp_path):
+        manifest_path = self._write_manifest(tmp_path)
+
+        resp = client.patch("/api/projects/a/default", json={"is_default": False})
+        assert resp.status_code == 200
+
+        with open(manifest_path, encoding="utf-8") as f:
+            projects = json.load(f)
+        by_id = {p["id"]: p for p in projects}
+        assert by_id["a"].get("is_default") is not True
+
+    def test_unknown_project_returns_404(self, client, tmp_path):
+        self._write_manifest(tmp_path)
+        resp = client.patch("/api/projects/nonexistent/default", json={"is_default": True})
+        assert resp.status_code == 404
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATCH /api/projects/reorder — 프로젝트 목록 순서 변경
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestReorderProjects:
+    def _write_manifest(self, tmp_path):
+        data_dir = tmp_path / "frontend" / "public" / "data"
+        data_dir.mkdir(parents=True)
+        manifest_path = data_dir / "projects.json"
+        manifest_path.write_text(
+            json.dumps([
+                {"id": "a", "name": "a", "file": "a_data.json"},
+                {"id": "b", "name": "b", "file": "b_data.json"},
+                {"id": "c", "name": "c", "file": "c_data.json"},
+            ]),
+            encoding="utf-8",
+        )
+        return manifest_path
+
+    def test_reorder_applies_new_order(self, client, tmp_path):
+        manifest_path = self._write_manifest(tmp_path)
+
+        resp = client.patch("/api/projects/reorder", json={"order": ["c", "a", "b"]})
+        assert resp.status_code == 200
+
+        with open(manifest_path, encoding="utf-8") as f:
+            projects = json.load(f)
+        assert [p["id"] for p in projects] == ["c", "a", "b"]
+
+    def test_reorder_mismatched_ids_returns_400(self, client, tmp_path):
+        self._write_manifest(tmp_path)
+        resp = client.patch("/api/projects/reorder", json={"order": ["a", "b"]})  # c 누락
+        assert resp.status_code == 400
+
+    def test_reorder_non_list_body_returns_400(self, client, tmp_path):
+        self._write_manifest(tmp_path)
+        resp = client.patch("/api/projects/reorder", json={"order": "not-a-list"})
+        assert resp.status_code == 400
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # POST /api/projects/{name}/preview — 정제 규칙 미리보기

@@ -140,7 +140,6 @@ def normalize_number(val, *, as_int: bool = False, **kw) -> int | float | None:
         except ValueError:
             return None
 
-    import math
     if isinstance(v, float) and math.isnan(v):
         return None
 

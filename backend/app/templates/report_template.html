@@ -15,6 +15,29 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", "맑은 고딕", sans-serif;
       background-color: #f8fafc;
     }
+    /* 프로젝트가 고른 테마 색(__PRIMARY_HEX__)을 반영. Tailwind는 오프라인용으로 미리
+       컴파일된 정적 CSS라 CSS 변수로 스위칭할 수 없어, 실제 쓰이는 유틸리티 클래스를
+       직접 덮어쓴다. */
+    .bg-blue-600 { background-color: __PRIMARY_HEX__ !important; }
+    .hover\:bg-blue-700:hover { filter: brightness(0.9); }
+    .text-blue-600 { color: __PRIMARY_HEX__ !important; }
+    .bg-blue-50 { background-color: color-mix(in srgb, __PRIMARY_HEX__ 12%, white) !important; }
+    .focus\:ring-blue-500:focus { --tw-ring-color: __PRIMARY_HEX__ !important; }
+
+    @media print {
+      @page { size: A4 landscape; margin: 10mm; }
+      body { background: white !important; }
+      .no-print { display: none !important; }
+      #charts-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8mm !important; }
+      #charts-grid > div {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        box-shadow: none !important;
+        border: 1px solid #e2e8f0 !important;
+      }
+      header, .bg-white { box-shadow: none !important; }
+      table { font-size: 9px !important; }
+    }
   </style>
 </head>
 <body class="p-6 md:p-8">
@@ -29,7 +52,10 @@
         <h1 class="text-2xl font-extrabold text-slate-800 mt-1">__PROJECT_NAME__ 대시보드 리포트</h1>
         <p class="text-xs text-slate-500 mt-0.5">정제 일시: __GENERATED_AT__</p>
       </div>
-      <div>
+      <div class="no-print flex items-center gap-2">
+        <button onclick="window.print()" class="px-5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5">
+          🖨️ 인쇄 / PDF 저장
+        </button>
         <button onclick="exportToCSV()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm hover:shadow transition-all flex items-center gap-1.5">
           💾 현재 필터링 목록 다운로드 (CSV)
         </button>
@@ -49,6 +75,10 @@
         </div>
         <!-- 동적 필터바 영역 -->
         <div id="filters-container" class="flex flex-wrap items-center gap-3"></div>
+        <!-- 검색/필터 초기화 -->
+        <button onclick="resetFilters()" class="no-print h-10 px-4 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all whitespace-nowrap self-end">
+          ↺ 초기화
+        </button>
       </div>
     </div>
 
@@ -68,8 +98,8 @@
           <tbody class="divide-y divide-slate-100 text-slate-700" id="table-body"></tbody>
         </table>
       </div>
-      <!-- 페이지네이션 -->
-      <div class="flex items-center justify-between text-xs pt-2">
+      <!-- 페이지네이션 (인쇄 시에는 숨기고 전체 목록을 대신 보여준다) -->
+      <div class="no-print flex items-center justify-between text-xs pt-2">
         <span id="pagination-info" class="text-slate-400"></span>
         <div class="flex items-center gap-2">
           <button onclick="prevPage()" id="prev-btn" class="px-3 py-1.5 border rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent">이전</button>
@@ -82,17 +112,47 @@
   <!-- 데이터 및 자바스크립트 로직 주입 -->
   <script>
     const data = __DATA_JSON__;
+    const CHART_PALETTE = __CHART_PALETTE_JSON__;
     let currentFilters = {};
     let searchTerm = "";
     let filteredRows = [...data.rows];
     let currentPage = 1;
     const pageSize = 15;
     let chartInstances = [];
+    // 인쇄 중에는 페이지네이션을 무시하고 필터링된 전체 행을 표에 담는다
+    // (화면은 15행씩 나눠 보여주지만, 인쇄 결과가 현재 페이지 15건뿐이면 "필터링한 내용 전부"가
+    // 아니게 된다).
+    let isPrinting = false;
 
     // 초기화 함수
     window.onload = function() {
       initFilters();
       updateDashboard();
+    };
+
+    // 검색어/필터 초기화 → 전체 목록으로 복원
+    function resetFilters() {
+      searchTerm = "";
+      currentFilters = {};
+      document.getElementById("search-input").value = "";
+      document.querySelectorAll("#filters-container select").forEach((sel) => { sel.value = ""; });
+      filteredRows = [...data.rows];
+      currentPage = 1;
+      updateDashboard();
+    }
+
+    // 인쇄 시작 직전: 전체 필터 결과를 표에 담고, Chart.js 캔버스를 인쇄 레이아웃 폭에
+    // 맞춰 다시 그린다(브라우저 인쇄는 resize 이벤트를 쏘지 않아 화면 크기 그대로 남는다 —
+    // 화면보다 인쇄 페이지가 좁으면 캔버스가 카드 밖으로 넘친다).
+    window.onbeforeprint = function() {
+      isPrinting = true;
+      renderTable();
+      chartInstances.forEach((item) => item.inst.resize());
+    };
+    window.onafterprint = function() {
+      isPrinting = false;
+      renderTable();
+      chartInstances.forEach((item) => item.inst.resize());
     };
 
     // 1. 필터바 생성
@@ -236,7 +296,7 @@
           const ctx = document.getElementById(`chart-canvas-${idx}`).getContext("2d");
           const chartInst = new Chart(ctx, {
             type: c.type === "donut" ? "doughnut" : "bar",
-            data: { labels: [], datasets: [{ data: [], backgroundColor: ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"] }] },
+            data: { labels: [], datasets: [{ data: [], backgroundColor: CHART_PALETTE }] },
             options: {
               responsive: true,
               maintainAspectRatio: false,
@@ -317,11 +377,11 @@
       });
       thead.appendChild(trHead);
 
-      // 테이블 바디 (페이징 적용)
+      // 테이블 바디 (인쇄 중이면 페이징을 건너뛰고 필터링된 전체 행을 담는다)
       tbody.innerHTML = "";
-      const start = (currentPage - 1) * pageSize;
-      const end = start + pageSize;
-      const paged = filteredRows.slice(start, end);
+      const paged = isPrinting
+        ? filteredRows
+        : filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
       if (paged.length === 0) {
         tbody.innerHTML = `<tr><td colspan="${visibleCols.length}" class="px-4 py-8 text-center text-slate-400">표시할 데이터가 없습니다.</td></tr>`;

@@ -5,7 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, Plus, GripVertical, Pin, BarChart2, List, Filter } from "lucide-react";
 
-import type { DashboardConfig, KpiItem, ChartItem } from "@/types/dashboard";
+import type { DashboardConfig, KpiItem, ChartItem, DashboardItem } from "@/types/dashboard";
 import type { ProjectConfig } from "@/hooks/useManagerApi";
 import { resolveSummaryColumns, SUMMARY_COLUMN_LABELS, SUMMARY_COLUMN_ORDER } from "@/lib/summary";
 
@@ -23,6 +23,7 @@ interface ChartConfigCardProps {
 
   onUpdateChart: (index: number, patch: Record<string, any>) => void;
   onAddChart: () => void;
+  onAddTextBlock?: () => void;
   onMoveChart: (index: number, dir: -1 | 1) => void;
   onDeleteChart: (index: number) => void;
 
@@ -42,6 +43,7 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
   onDeleteKpi,
   onUpdateChart,
   onAddChart,
+  onAddTextBlock,
   onMoveChart,
   onDeleteChart,
   onUpdateExcelOptions,
@@ -62,7 +64,7 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
       <div className="bg-card rounded-xl shadow-sm border border-input p-6">
         <div className="flex items-center gap-2 mb-6">
           <Pin className="h-5 w-5 text-destructive fill-destructive" />
-          <h3 className="text-[15px] font-bold text-foreground">KPI 카드 <span className="text-muted-foreground font-normal text-[13px] ml-1">(최대 4개 권장)</span></h3>
+          <h3 className="text-[14px] font-bold text-foreground">KPI 카드 <span className="text-muted-foreground font-normal text-[13px] ml-1">(최대 4개 권장)</span></h3>
         </div>
 
         <div className="space-y-3">
@@ -141,7 +143,7 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
           <div className="flex items-center justify-between gap-2 mb-1.5">
             <div className="flex items-center gap-2">
               <BarChart2 className="h-5 w-5 text-primary fill-primary" />
-              <h3 className="text-[15px] font-bold text-foreground">차트 구성 <span className="text-muted-foreground font-normal text-[13px] ml-1">(드래그로 순서 변경)</span></h3>
+              <h3 className="text-[14px] font-bold text-foreground">차트 구성 <span className="text-muted-foreground font-normal text-[13px] ml-1">(드래그로 순서 변경)</span></h3>
             </div>
             {onUpdateLayout && (
               <div className="flex items-center gap-2 shrink-0">
@@ -164,6 +166,32 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
           <p className="text-[12px] text-muted-foreground">
             donut - 도넛 차트 (category) | bar - 세로막대 | hbar - 가로막대 | histogram - 분포도 (numeric) | multibar - 여러 0/1 응답 비교 (0, * 목적 등)
           </p>
+
+          <div className="mt-3 pt-3 border-t border-border flex items-center gap-4 flex-wrap">
+            <label className="text-[12px] font-semibold text-muted-foreground shrink-0">
+              원본엑셀(clean xlsx) 다운로드 옵션
+            </label>
+            <label className="flex items-center gap-1.5 text-[12px] font-medium text-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={config?.excel_options?.include_charts ?? true}
+                onChange={(e) => onUpdateExcelOptions({ include_charts: e.target.checked })}
+              />
+              차트 포함
+            </label>
+            <label
+              className="flex items-center gap-1.5 text-[12px] font-medium text-foreground cursor-pointer"
+              title="일부 프로젝트에서 슬라이서 포함 시 다운로드한 엑셀 파일을 열 때 Excel이 '복구' 경고를 띄우는 알려진 문제가 있습니다. 그런 경우 여기서 끄면 즉시 정상적으로 열립니다."
+            >
+              <input
+                type="checkbox"
+                checked={config?.excel_options?.include_slicers ?? true}
+                onChange={(e) => onUpdateExcelOptions({ include_slicers: e.target.checked })}
+              />
+              슬라이서 포함
+              <span className="text-muted-foreground font-normal">(다운로드 시 열기 경고가 뜨면 꺼보세요)</span>
+            </label>
+          </div>
 
           {/* 요약 탭은 위 차트를 순서대로 표로 옮긴다. 차트는 전부 포함, 표에 보일 열만 고른다. */}
           {onUpdateSummary && (
@@ -201,7 +229,51 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
         </div>
 
         <div className="space-y-3">
-          {dashboard.charts.map((c: ChartItem, i: number) => {
+          {dashboard.charts.map((c: DashboardItem, i: number) => {
+            if (c.type === "text") {
+              return (
+                <div key={i} className="flex items-start gap-3 bg-card border border-border rounded-lg p-3">
+                  <div className="flex flex-col gap-0.5 w-6 cursor-grab pt-1">
+                    <Button variant="ghost" size="icon" onClick={() => onMoveChart(i, -1)} disabled={i === 0} className="h-4 w-4 text-muted-foreground p-0 m-0"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="m18 15-6-6-6 6"/></svg></Button>
+                    <GripVertical className="h-4 w-4 text-muted-foreground/60 mx-auto" />
+                    <Button variant="ghost" size="icon" onClick={() => onMoveChart(i, 1)} disabled={i === dashboard.charts.length - 1} className="h-4 w-4 text-muted-foreground p-0 m-0"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="m6 9 6 6 6-6"/></svg></Button>
+                  </div>
+                  <div className="flex-1 flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-[11px] font-semibold shrink-0">텍스트 박스</Badge>
+                      <select
+                        value={c.layout ?? "2x1"}
+                        title="박스 크기(비율)"
+                        onChange={(e) => onUpdateChart(i, { layout: e.target.value as any })}
+                        className="h-8 px-2 rounded-md border border-input bg-card text-[12px] font-medium text-foreground outline-none focus:border-ring"
+                      >
+                        <option value="1x1">크기: 기본 (1:1)</option>
+                        <option value="2x1">크기: 가로 2배 (2:1)</option>
+                        <option value="2x2">크기: 크게 (2:2)</option>
+                        <option value="0.5x1">크기: 절반 (1/2)</option>
+                        <option value="full">크기: 한 줄 전체</option>
+                      </select>
+                    </div>
+                    <textarea
+                      placeholder="차트 사이에 표시할 설명 문구를 입력하세요"
+                      value={c.text ?? ""}
+                      onChange={(e) => onUpdateChart(i, { text: e.target.value })}
+                      rows={2}
+                      className="w-full px-3 py-2 rounded-md border border-input bg-card text-[13px] text-foreground outline-none focus:border-ring resize-y"
+                    />
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onDeleteChart(i)}
+                    className="h-10 w-10 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0 border border-border"
+                  >
+                    <span className="text-lg leading-none font-light">×</span>
+                  </Button>
+                </div>
+              );
+            }
+
             const isMultibar = c.type === "multibar";
             const multibarCols: { col: string; label: string }[] = isMultibar
               ? ((c as any).cols || [])
@@ -345,8 +417,17 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
                   <option value={0}>전체 표시</option>
                 </select>
                 <select
+                  value={c.show_labels ? "yes" : "no"}
+                  title="차트 안(도넛 조각·막대 위)에 항목명·값을 캡션으로 항상 표시할지. 마우스를 올렸을 때 나오는 툴팁과는 별개입니다."
+                  onChange={(e) => onUpdateChart(i, { show_labels: e.target.value === "yes" })}
+                  className="h-8 px-2 rounded-md border border-input bg-card text-[12px] max-w-[150px] flex-1 font-medium text-foreground outline-none focus:border-ring"
+                >
+                  <option value="no">차트값표시: 표시 안 함</option>
+                  <option value="yes">차트값표시: 표시함</option>
+                </select>
+                <select
                   value={c.show_percent ? "yes" : "no"}
-                  title="비중(%) 표시 여부"
+                  title="마우스를 올렸을 때(툴팁) 비율(%)을 같이 보여줄지. 차트 안 캡션에도 켜져 있으면 같이 적용됩니다."
                   onChange={(e) => onUpdateChart(i, { show_percent: e.target.value === "yes" })}
                   className="h-8 px-2 rounded-md border border-input bg-card text-[12px] max-w-[140px] flex-1 font-medium text-foreground outline-none focus:border-ring"
                 >
@@ -370,7 +451,7 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
             );
           })}
 
-          <div className="pt-2">
+          <div className="pt-2 flex gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -379,6 +460,17 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
             >
               + 차트 추가
             </Button>
+            {onAddTextBlock && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onAddTextBlock}
+                title="차트 사이에 넣을 설명 문구 박스를 추가합니다."
+                className="text-[13px] text-muted-foreground font-semibold gap-1 border-input h-9 px-4"
+              >
+                + 텍스트 박스 추가
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -388,7 +480,7 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-1.5">
             <List className="h-5 w-5 text-destructive" />
-            <h3 className="text-[15px] font-bold text-foreground">목록 컬럼 선택</h3>
+            <h3 className="text-[14px] font-bold text-foreground">목록 컬럼 선택</h3>
           </div>
           <p className="text-[12px] text-muted-foreground">표시할 항목을 선택하세요</p>
         </div>
@@ -425,7 +517,7 @@ export const ChartConfigCard: React.FC<ChartConfigCardProps> = ({
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-1.5">
             <Filter className="h-5 w-5 text-primary fill-primary" />
-            <h3 className="text-[15px] font-bold text-foreground">필터 컬럼 선택 <span className="text-muted-foreground font-normal text-[13px] ml-1">(category 타입만 지원)</span></h3>
+            <h3 className="text-[14px] font-bold text-foreground">필터 컬럼 선택 <span className="text-muted-foreground font-normal text-[13px] ml-1">(category 타입만 지원)</span></h3>
           </div>
         </div>
 

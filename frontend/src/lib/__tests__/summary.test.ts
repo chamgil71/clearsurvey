@@ -147,6 +147,18 @@ describe("buildSummary", () => {
     const doc = buildSummary(makeCfg(), rows, "p", 4, "", {});
     expect(doc.filterNote.isFiltered).toBe(false);
   });
+
+  it("텍스트 박스는 집계 대상이 아니므로 요약 섹션에서 제외된다", () => {
+    const cfg = makeCfg({
+      charts: [
+        { type: "donut", col: "지역", title: "A" },
+        { type: "text", text: "설명 문구", layout: "2x1" },
+        { type: "bar", col: "지역", title: "B" },
+      ],
+    });
+    const doc = buildSummary(cfg, rows, "proj", 4, "", {});
+    expect(doc.sections.map((s) => s.title)).toEqual(["A", "B"]);
+  });
 });
 
 describe("필터 기준 문구", () => {

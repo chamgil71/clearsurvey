@@ -190,7 +190,7 @@ def test_summarizer_sheet_writer_smoke():
     assert ws.cell(3, 1).value == "전체 건수"
     assert ws.cell(3, 2).value == "=COUNTA('정제'!A3:A10000)"  # COUNTA 수식
     assert ws.cell(4, 1).value == "만족 건수"
-    assert ws.cell(4, 2).value == '=COUNTIF(\'정제\'!D3:D10000,"1")'
+    assert ws.cell(4, 2).value == '=SUMPRODUCT(--(\'정제\'!D3:D10000="1"))'
     
     # unique_count 검증
     assert ws.cell(1, 5).value == "부서별 분포"
@@ -198,7 +198,152 @@ def test_summarizer_sheet_writer_smoke():
     assert ws.cell(3, 5).value == "개발본부"
     assert ws.cell(4, 5).value == "개발팀"
     assert ws.cell(5, 5).value == "영업팀"
-    assert ws.cell(3, 6).value == '=COUNTIF(\'정제\'!B3:B10000,"개발본부")'
+    assert ws.cell(3, 6).value == "=SUMPRODUCT(--('정제'!B3:B10000=E3))"
+
+
+def test_summarizer_long_value_avoids_255_char_formula_literal():
+    """255자를 넘는 고유값(예: 저자 다수 나열)을 수식에 리터럴 문자열로 박아 넣으면
+    (COUNTIF든 SUMPRODUCT든 함수와 무관하게) Excel이 파일을 열 때 "복구" 경고와 함께
+    해당 수식을 통째로 제거한다 — 실측 확인됨(books 프로젝트 저자 목록 + Excel COM
+    합성 테스트로 255자 정상/256자부터 손상을 정확히 재현, 2026-07-22). 같은 값이 이미
+    라벨 셀에 쓰여 있으므로 리터럴 대신 그 셀을 참조해야 길이 무관하게 안전하다."""
+    long_value = "저자" + ("A" * 260)
+    assert len(long_value) > 255
+
+    cfg = SurveyConfig(
+        project="test_proj",
+        sheets={"cleaned": "정제", "summary": "요약"},
+        columns=[ColumnDef(output_col="저자", source_col=1, transform="copy")],
+        summary=SummaryConfig(
+            sheet_name="요약",
+            total_cell="$B$3",
+            sections=[
+                SummarySection(
+                    title="저자별 분포",
+                    type="unique_count",
+                    start_row=1,
+                    start_col=1,
+                    col_ref="저자",
+                    sort=True,
+                ),
+            ],
+        ),
+    )
+
+    df = pd.DataFrame([[long_value]])
+    col_index_map = {"저자": 1}
+    cleaned_col_vals = {"저자": [long_value]}
+
+    wb = Workbook()
+    wb.create_sheet("정제")
+    writer = SummarySheetWriter(cfg)
+    writer.write(wb, df, col_index_map, cleaned_col_vals)
+
+    ws = wb["요약"]
+    assert ws.cell(3, 1).value == long_value  # 라벨 셀에는 값이 그대로 보존됨
+    formula = ws.cell(3, 2).value
+    assert formula == "=SUMPRODUCT(--('정제'!A3:A10000=A3))"
+    assert long_value not in formula  # 리터럴로 재삽입되지 않았는지 확인
+    assert "COUNTIF" not in formula
+
+
+def test_summarizer_total_cell_fallback_avoids_wrong_b3():
+    """"totals" 섹션도, 명시적 summary.total_cell 설정도 없는 프로젝트(예: unique_count만
+    쓰는 gpu_4/books 유형)에서 비율(%) 분모가 무조건 "$B$3" 리터럴로 고정되면, 실제 합계가
+    B3에 없을 때 모든 비율이 틀어진다(실측 확인됨, 2026-07-22). "$B$3"를 그대로 쓰는 대신
+    정제 시트의 실제 행수를 세는 COUNTA 수식으로 대체해야 한다."""
+    cfg = SurveyConfig(
+        project="test_proj",
+        sheets={"cleaned": "정제", "summary": "요약"},
+        columns=[ColumnDef(output_col="부서", source_col=1, transform="copy")],
+        summary=SummaryConfig(
+            sheet_name="요약",
+            # total_cell 미지정, "totals" 섹션도 없음 → 이전에는 무조건 "$B$3"로 폴백했음
+            sections=[
+                SummarySection(
+                    title="부서별 분포",
+                    type="unique_count",
+                    start_row=1,
+                    start_col=1,
+                    col_ref="부서",
+                    sort=True,
+                ),
+            ],
+        ),
+    )
+
+    df = pd.DataFrame([["개발팀"], ["영업팀"]])
+    col_index_map = {"부서": 1}
+    cleaned_col_vals = {"부서": ["개발팀", "영업팀"]}
+
+    wb = Workbook()
+    wb.create_sheet("정제")
+    writer = SummarySheetWriter(cfg)
+    writer.write(wb, df, col_index_map, cleaned_col_vals)
+
+    ws = wb["요약"]
+    pct_formula = ws.cell(3, 3).value  # 비율(%) 열
+    assert "$B$3" not in pct_formula
+    assert "COUNTA('정제'!A3:A10000)" in pct_formula
+
+
+def test_dynamic_charts_bar_gets_x_axis_title():
+    """막대/꺾은선 차트에는 x축(카테고리 축) 제목이 들어가야 한다. 이전에는 chart.title만
+    설정하고 x_axis.title은 어떤 차트 타입에도 설정하지 않아, 파이차트처럼 축이 없는
+    차트에서는 티가 안 나다가 막대/선 차트에서만 x축 제목이 비어 있었다(실측 확인됨,
+    2026-07-22). _add_dynamic_charts는 backend/의 상위(레포 루트) 기준
+    storage/projects/{project}/dashboard.json 을 직접 읽으므로, 유일한 테스트 전용
+    프로젝트명으로 그 실제 경로에 파일을 썼다가 테스트 후 정리한다."""
+    import json
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[2]
+    project = "__test_dynamic_charts_x_axis__"
+    dashboard_dir = repo_root / "storage" / "projects" / project
+    dashboard_dir.mkdir(parents=True, exist_ok=True)
+    dashboard_path = dashboard_dir / "dashboard.json"
+    dashboard_path.write_text(
+        json.dumps({"charts": [{"type": "bar", "col": "부서", "title": "부서별 분포"}]}),
+        encoding="utf-8",
+    )
+
+    try:
+        cfg = SurveyConfig(
+            project=project,
+            sheets={"cleaned": "정제", "summary": "요약"},
+            columns=[ColumnDef(output_col="부서", source_col=1, transform="copy")],
+            summary=SummaryConfig(
+                sheet_name="요약",
+                total_cell="$B$3",
+                sections=[
+                    SummarySection(
+                        title="부서별 분포",
+                        type="unique_count",
+                        start_row=1,
+                        start_col=1,
+                        col_ref="부서",
+                        sort=True,
+                    ),
+                ],
+            ),
+        )
+
+        df = pd.DataFrame([["개발팀"], ["영업팀"]])
+        col_index_map = {"부서": 1}
+        cleaned_col_vals = {"부서": ["개발팀", "영업팀"]}
+
+        wb = Workbook()
+        wb.create_sheet("정제")
+        writer = SummarySheetWriter(cfg)
+        writer.write(wb, df, col_index_map, cleaned_col_vals)
+
+        ws = wb["요약"]
+        charts = list(ws._charts)
+        assert len(charts) == 1
+        assert charts[0].x_axis.title is not None
+    finally:
+        dashboard_path.unlink(missing_ok=True)
+        dashboard_dir.rmdir()
 
 
 def test_dry_run_pipeline(tmp_path):

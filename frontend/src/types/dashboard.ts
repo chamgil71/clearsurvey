@@ -45,6 +45,8 @@ export interface ProjectListItem {
   file: string;
   updated?: string;
   published?: boolean;
+  /** true면 공개 대시보드가 첫 화면으로 여는 기본 프로젝트. 동시에 하나만 가능. */
+  is_default?: boolean;
 }
 
 export type KpiItem =
@@ -60,7 +62,10 @@ export type ChartItem =
       sep?: string;
       sort_by?: string;
       max_items?: number;
+      /** 툴팁(마우스 오버)에 비율(%)을 같이 보여줄지. 차트 위 캡션 표시는 show_labels가 따로 결정한다. */
       show_percent?: boolean;
+      /** 차트 안(도넛 조각·막대 위)에 항목명·값을 캡션으로 항상 표시할지. 기본 꺼짐(마우스 오버 툴팁만). */
+      show_labels?: boolean;
       layout?: "1x1" | "2x1" | "2x2" | "0.5x1" | "full";
     }
   | {
@@ -69,9 +74,22 @@ export type ChartItem =
       cols: { col: string; label: string }[];
       sort_by?: string;
       max_items?: number;
+      /** 툴팁(마우스 오버)에 비율(%)을 같이 보여줄지. 차트 위 캡션 표시는 show_labels가 따로 결정한다. */
       show_percent?: boolean;
+      /** 차트 안(도넛 조각·막대 위)에 항목명·값을 캡션으로 항상 표시할지. 기본 꺼짐(마우스 오버 툴팁만). */
+      show_labels?: boolean;
       layout?: "1x1" | "2x1" | "2x2" | "0.5x1" | "full";
     };
+
+/** 차트 사이에 끼워 넣는 일반 설명 문구 박스. 집계 대상 데이터가 없다 — 순수 표시용. */
+export interface TextBlockItem {
+  type: "text";
+  text: string;
+  layout?: "1x1" | "2x1" | "2x2" | "0.5x1" | "full";
+}
+
+/** 대시보드 그리드에 순서대로 나열되는 항목. 차트 또는 텍스트 박스. */
+export type DashboardItem = ChartItem | TextBlockItem;
 
 /**
  * 프로젝트별 테마. 없으면 앱 기본 테마를 쓴다(하위 호환).
@@ -104,7 +122,8 @@ export interface DashboardLayout {
   heroBtnUrl?: string;
   useFooter?: boolean;
   footerText?: string;
-  listViewMode?: "Drawer" | "Modal" | "Page";
+  /** 목록탭에서 행 클릭 시 상세를 보여주는 방식. 기본 "drawer"(우측 슬라이드). */
+  listViewMode?: "split" | "drawer" | "modal";
   /** 차트 그리드 가로 배열 최대 개수 (기본값 4). 화면이 넓어도 이 값을 넘는 열은 생성하지 않음. */
   maxColumns?: number;
 }
@@ -120,7 +139,9 @@ export interface DashboardSummary {
 export interface DashboardConfig {
   version: number;
   kpi: KpiItem[];
-  charts: ChartItem[];
+  /** 차트와 텍스트 박스가 순서대로 섞여 들어간다 — 화면·PPT·요약 탭 등 소비처는
+   * 실제로 집계할 수 있는 ChartItem만 걸러 써야 한다(item.type !== "text"). */
+  charts: DashboardItem[];
   list: {
     visible_cols: string[];
     filter_cols: string[];

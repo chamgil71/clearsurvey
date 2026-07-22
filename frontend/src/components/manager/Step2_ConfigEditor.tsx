@@ -14,6 +14,14 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { useManagerApi } from "@/hooks/useManagerApi";
 
 import {
   ColumnConfigTab,
@@ -53,7 +61,10 @@ interface Step2Props {
   } | null;
   onSaveConfig: (config: ProjectConfig, dashboard: DashboardConfig | null) => Promise<void>;
   onBack: () => void;
-  /** 저장 후 화면만 이동 (파이프라인 실행 없음) — "저장 후 대시보드로" 버튼 */
+  /** 저장 후 화면만 이동 (파이프라인 실행·재배포 없음) — "저장 후 실행 화면으로" 버튼.
+   * 실제 공개 대시보드(퍼블릭 사이트)는 이 버튼만으로는 갱신되지 않는다 — 거기까지
+   * 반영하려면 이동한 실행 화면에서 "엔진 가동"을 한 번 더 눌러야 한다("저장 후
+   * 파이프라인 가동" 버튼을 쓰면 이 두 단계를 한 번에 한다). */
   onNext: () => void;
   /** 저장 후 화면 이동 + 파이프라인 실행 — "저장 후 파이프라인 가동" 버튼 */
   onNextAndRun: () => void;
@@ -74,6 +85,14 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
     normDashboard(config?.dashboard),
   );
   const [activeSubTab, setActiveSubTab] = useState<"columns" | "dashboard">("columns");
+
+  const api = useManagerApi();
+  const [previewRows, setPreviewRows] = useState<
+    { raw: Record<string, string>; cleaned: Record<string, string> }[] | null
+  >(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (config) {
@@ -270,6 +289,13 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
     }));
   };
 
+  const addTextBlock = () => {
+    setLocalDashboard((prev: any) => ({
+      ...prev,
+      charts: [...prev.charts, { type: "text", text: "", layout: "2x1" }],
+    }));
+  };
+
   const deleteChart = (i: number) => {
     setLocalDashboard((prev: any) => ({
       ...prev,
@@ -311,6 +337,30 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
       list: localDashboard.list ?? { visible_cols: [], filter_cols: [] },
     };
     await onSaveConfig(localConfig, updatedDashboard);
+    // 관리자가 방금 저장한 테마가 새 기본값이다 — 같은 브라우저에 남아있는 공개
+    // 대시보드 헤더의 테마 임시 선택(이 브라우저에서만 적용)이 그걸 계속 가리면
+    // "저장했는데 왜 안 바뀌지"로 보인다. 저장 시점에 이 브라우저의 오버라이드를 지운다.
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(`theme-preset-override-${projectName}`);
+    }
+  };
+
+  /** "미리보기" 버튼 전용 — 저장하지 않고 마지막으로 저장된 설정을 원본 상위 5행에
+   * 적용한 결과만 보여준다. 화면에 아직 입력 중인(저장 전) 변경 사항은 반영되지
+   * 않으므로, 방금 고친 규칙을 확인하려면 먼저 저장 버튼을 눌러야 한다. */
+  const handlePreview = async () => {
+    setPreviewLoading(true);
+    setPreviewError(null);
+    try {
+      const rows = await api.previewProjectConfig(projectName);
+      setPreviewRows(rows ?? []);
+      setPreviewOpen(true);
+    } catch (err) {
+      setPreviewError(err instanceof Error ? err.message : String(err));
+      setPreviewOpen(true);
+    } finally {
+      setPreviewLoading(false);
+    }
   };
 
   const activeColumns: ColumnDef[] = localConfig?.columns
@@ -356,17 +406,17 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
           <Button
             variant="ghost"
             onClick={onBack}
-            className="text-muted-foreground hover:text-foreground hover:bg-muted font-bold gap-2 text-[15px]"
+            className="text-muted-foreground hover:text-foreground hover:bg-muted font-bold gap-2 text-[13px]"
           >
             ◀ 프로젝트 목록으로
           </Button>
           <div className="h-5 w-px bg-muted" />
-          <h2 className="text-[17px] font-bold text-primary flex items-center gap-2">
+          <h2 className="text-[15px] font-bold text-primary flex items-center gap-2">
             <Settings className="h-5 w-5" />
             대시보드 설정 <span className="text-muted-foreground font-normal">{projectName}</span>
           </h2>
         </div>
-        <div className="text-[15px] font-bold text-muted-foreground bg-muted px-4 py-2 rounded-full">
+        <div className="text-[13px] font-bold text-muted-foreground bg-muted px-4 py-2 rounded-full">
           총 {localConfig.columns.length}건 구성 중
         </div>
       </div>
@@ -380,14 +430,14 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
           <TabsList className="flex w-fit bg-transparent gap-2 mb-6 p-0">
             <TabsTrigger 
               value="columns" 
-              className="text-[14px] font-bold gap-2 py-2.5 px-5 rounded-t-lg data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-[0_-2px_10px_rgba(0,0,0,0.05)] data-[state=active]:border-b-2 data-[state=active]:border-b-blue-600 data-[state=inactive]:text-muted-foreground"
+              className="text-[13px] font-bold gap-2 py-2.5 px-5 rounded-t-lg data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-[0_-2px_10px_rgba(0,0,0,0.05)] data-[state=active]:border-b-2 data-[state=active]:border-b-blue-600 data-[state=inactive]:text-muted-foreground"
             >
               <ListCollapse className="h-4 w-4" />
               1. 컬럼 정제 및 매핑 설정
             </TabsTrigger>
             <TabsTrigger 
               value="dashboard" 
-              className="text-[14px] font-bold gap-2 py-2.5 px-5 rounded-t-lg data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-[0_-2px_10px_rgba(0,0,0,0.05)] data-[state=active]:border-b-2 data-[state=active]:border-b-blue-600 data-[state=inactive]:text-muted-foreground"
+              className="text-[13px] font-bold gap-2 py-2.5 px-5 rounded-t-lg data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-[0_-2px_10px_rgba(0,0,0,0.05)] data-[state=active]:border-b-2 data-[state=active]:border-b-blue-600 data-[state=inactive]:text-muted-foreground"
             >
               <BarChart3 className="h-4 w-4" />
               2. 대시보드 비주얼 레이아웃
@@ -426,6 +476,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                 onAddKpi={addKpi}
                 onUpdateChart={updateChart}
                 onAddChart={addChart}
+                onAddTextBlock={addTextBlock}
                 onMoveChart={moveChart}
                 onDeleteChart={deleteChart}
                 onUpdateExcelOptions={handleUpdateExcelOptions}
@@ -477,11 +528,12 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
           <div className="flex gap-3">
             <Button
               variant="secondary"
-              onClick={handleSave}
+              onClick={handlePreview}
+              disabled={previewLoading}
               className="bg-primary/10 text-primary hover:bg-primary/20 gap-2 h-12 px-6 rounded-lg border border-primary/30 font-bold"
             >
               <Eye className="h-5 w-5" />
-              미리보기
+              {previewLoading ? "불러오는 중..." : "미리보기"}
             </Button>
             <Button
               onClick={() => {
@@ -490,7 +542,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
               disabled={loading}
               className="bg-primary hover:bg-primary text-white font-bold h-11 px-8 rounded-lg shadow-sm"
             >
-              {loading ? "저장 중..." : "저장 후 대시보드로"}
+              {loading ? "저장 중..." : "저장 후 실행 화면으로"}
             </Button>
             <Button
               onClick={async () => {
@@ -506,6 +558,52 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
           </div>
         </div>
       </div>
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>미리보기 — 저장된 설정 기준 (원본 상위 5행)</DialogTitle>
+            <DialogDescription>
+              저장 없이 확인만 합니다. 방금 편집한 내용을 확인하려면 먼저 저장 버튼을 눌러주세요.
+            </DialogDescription>
+          </DialogHeader>
+          {previewError && (
+            <p className="text-sm text-destructive">{previewError}</p>
+          )}
+          {!previewError && (!previewRows || previewRows.length === 0) && (
+            <p className="text-sm text-muted-foreground">표시할 미리보기 행이 없습니다.</p>
+          )}
+          {!previewError && previewRows && previewRows.length > 0 && (
+            <div className="space-y-6">
+              {previewRows.map((row, i) => (
+                <div key={i} className="border border-border rounded-lg overflow-hidden">
+                  <div className="bg-muted px-3 py-1.5 text-xs font-bold text-muted-foreground">
+                    샘플 행 {i + 1}
+                  </div>
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left px-3 py-1.5 font-semibold">컬럼</th>
+                        <th className="text-left px-3 py-1.5 font-semibold">원본</th>
+                        <th className="text-left px-3 py-1.5 font-semibold">정제 후</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.keys({ ...row.raw, ...row.cleaned }).map((col) => (
+                        <tr key={col} className="border-b border-border last:border-0">
+                          <td className="px-3 py-1.5 font-mono text-muted-foreground">{col}</td>
+                          <td className="px-3 py-1.5">{row.raw?.[col] ?? ""}</td>
+                          <td className="px-3 py-1.5">{row.cleaned?.[col] ?? ""}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -114,7 +114,7 @@ export const ColumnConfigTab: React.FC<ColumnConfigTabProps> = ({
     <div className="space-y-4">
       <div className="border border-input bg-card rounded-xl shadow-sm">
         <div className="px-5 py-4 border-b border-border flex flex-col gap-1">
-          <h3 className="text-[15px] font-bold text-foreground">컬럼 정제 정의 시트</h3>
+          <h3 className="text-[14px] font-bold text-foreground">컬럼 정제 정의 시트</h3>
           <p className="text-[13px] text-muted-foreground">
             각 설문 문항의 정제 규칙과 원본 컬럼(1-based 인덱스) 번호를 매핑합니다. 타입 선택은 표시용이며, 내보내기 시 실제 데이터로 감지됩니다.
           </p>
