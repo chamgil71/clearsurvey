@@ -39,5 +39,12 @@
     "name": "mumhwa",
     "file": "mumhwa_data.json",
     "updated": "2026-07-15 17:18"
+  },
+  {
+    "id": "books",
+    "name": "books",
+    "file": "books_data.json",
+    "updated": "2026-07-22 09:28",
+    "published": true
   }
 ]
