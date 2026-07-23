@@ -469,7 +469,16 @@ function main() {
       // :not(.dark) 로 라이트를 한정해야 자체 다크가 없는 테마에서 기본 .dark 가 살아난다.
       cssBlock(`html[data-theme="${e.id}"]:not(.dark)`, e, "light"),
       "",
-      ...(e.dark ? [cssBlock(`html[data-theme="${e.id}"].dark`, e, "dark"), ""] : []),
+      // 다크 전용(darkFirst) 수작업 테마는 팔레트가 light 슬롯에만 있고 별도 dark 색상이
+      // 없다(e.dark === null) — 그런데도 런타임(resolveTheme)은 darkFirst 테마를 고르면
+      // 무조건 .dark 클래스를 켠다. .dark 블록을 안 만들면 :not(.dark) 조건이 깨져서
+      // 테마 색이 통째로 안 뜨고 기본 shadcn .dark 색으로 떨어진다 — light 팔레트를
+      // .dark 블록에도 그대로 심어 어느 쪽이든 같은 색이 나오게 한다.
+      ...(e.dark
+        ? [cssBlock(`html[data-theme="${e.id}"].dark`, e, "dark"), ""]
+        : e.handmadeDarkMode
+          ? [cssBlock(`html[data-theme="${e.id}"].dark`, e, "light"), ""]
+          : []),
     ]),
   ].join("\n");
   writeFileSync(PRESETS_FILE, presets, "utf-8");

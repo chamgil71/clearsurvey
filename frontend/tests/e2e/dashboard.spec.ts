@@ -14,8 +14,12 @@ test.describe("공개 대시보드 (/)", () => {
   });
 
   // 프로젝트 선택은 shadcn <Select>(Radix)라 native <select>가 아닌 role=combobox 트리거로 렌더된다.
+  // 헤더에는 테마(브랜드 색상) 선택용 네이티브 <select>도 있고 그것도 암묵적으로 role=combobox라
+  // 이름으로 좁혀야 한다 — 안 좁히면 두 콤보박스가 잡혀 strict mode violation이 난다.
   test("프로젝트 선택 드롭다운이 존재한다", async ({ page }) => {
-    await expect(page.locator("header").getByRole("combobox")).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.locator("header").getByRole("combobox", { name: "프로젝트 선택" }),
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   // 탭은 shadcn <Tabs>(Radix)라 <nav>가 아닌 role=tablist/tab/tabpanel로 렌더된다.
@@ -49,7 +53,9 @@ test.describe("공개 대시보드 (/)", () => {
 
   test("가이드 버튼 클릭 시 드로어가 열린다", async ({ page }) => {
     await page.locator("header").waitFor({ timeout: 10_000 });
-    await page.getByText("가이드").first().click();
+    // getByText("가이드")는 테마 선택 <select>의 "애플 휴먼 인터페이스 가이드라인" 옵션도
+    // 매칭해버린다(DOM 순서상 그게 먼저다) — role로 실제 버튼만 좁혀야 한다.
+    await page.getByRole("button", { name: "가이드" }).click();
     // 가이드 패널이 열렸는지 — 제목 heading 이 노출되면 성공
     await expect(page.getByRole("heading", { name: /가이드/ })).toBeVisible({
       timeout: 5_000,
