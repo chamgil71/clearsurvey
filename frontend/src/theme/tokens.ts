@@ -56,3 +56,32 @@ export const SCALAR_TOKENS = ["radius"] as const;
 
 /** 차트 팔레트 슬롯 수. --chart-1 ~ --chart-N. */
 export const CHART_SLOTS = 5;
+
+/**
+ * primary 브랜드 색의 10단계 명도 스케일(`--color-primary-50`~`900`) — 모노톤 그러데이션
+ * 팔레트(예: 순서형 데이터의 명도 램프)를 만들 때 쓸 재료.
+ *
+ * `COLOR_TOKENS`와 달리 **선택적**이다 — 원본 가이드가 있는 11종(가이드 파생 활성 테마)만
+ * 채워지고, `light`/`dark`(기본 shadcn)와 `ink`/`forest`(수작업 이관, 가이드 없음)는 없다.
+ * 그래서 무결성 테스트가 이 스케일의 존재를 전체 활성 테마에 강제하지 않는다 — 대신
+ * `hasPrimaryScale()`로 있는지 확인하고 없으면 폴백하는 쪽이 책임진다.
+ */
+export const PRIMARY_SCALE_STEPS = [
+  "50",
+  "100",
+  "200",
+  "300",
+  "400",
+  "500",
+  "600",
+  "700",
+  "800",
+  "900",
+] as const;
+
+export type PrimaryScaleStep = (typeof PRIMARY_SCALE_STEPS)[number];
+
+/** `--color-primary-{step}` CSS 변수 이름. */
+export function primaryScaleVar(step: PrimaryScaleStep): string {
+  return `--color-primary-${step}`;
+}

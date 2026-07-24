@@ -319,7 +319,7 @@ def _write_merge_config_yaml(
     # build column list from first file's headers
     az = ExcelAnalyzer(xlsx_files[0])
     raw_cells = az.all_headers()
-    from engine.analyzer import _suggest_transform, _unique_label
+    from engine.base_analyzer import _suggest_transform, _unique_label
     columns = []
     seen: dict[str, int] = {}
     for i, cell in enumerate(raw_cells, 1):

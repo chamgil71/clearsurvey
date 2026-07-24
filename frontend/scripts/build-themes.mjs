@@ -174,21 +174,53 @@ function mapToShadcn(d) {
   };
 }
 
+const PRIMARY_SCALE_STEPS = ["50", "100", "200", "300", "400", "500", "600", "700", "800", "900"];
+
+/**
+ * 가이드의 primary 10단계 스케일(`--color-primary-50`~`900`)을 그대로 뽑는다.
+ *
+ * new-beginnings 비교 문서(new_beginnings_comparison_plan.md §2-D)가 지적한 대로, 이 프로젝트의
+ * 테마 시스템엔 브랜드 하나의 명도 변주만으로 만드는 모노톤 그러데이션 팔레트를 만들 방법이
+ * 없었다(`--chart-1~5` 5개 개별 색만 존재) — 이 스케일이 그 재료다. 소비(차트에서 실제로
+ * 쓰는 로직)는 이번 범위 밖이다: 어떤 차트가 categorical 대신 sequential 팔레트를 쓸지는
+ * 제품 결정이라 UI를 임의로 추가하지 않는다(CLAUDE.md §6 "임의 기능 추가 금지").
+ *
+ * 가이드에 없는 단계는 건너뛴다(패딩하지 않는다) — 완전하지 않은 스케일을 억지로 채우면
+ * 값이 아닌데 값처럼 보이는 게 더 나쁘다. `light`/`dark` 기본 테마와 `ink`/`forest`
+ * 수작업 테마는 애초에 가이드가 없어 이 스케일 자체가 없다(선택적 필드로 둔다).
+ */
+function extractPrimaryScale(d) {
+  const out = {};
+  for (const step of PRIMARY_SCALE_STEPS) {
+    const v = d[`color-primary-${step}`];
+    if (v) out[`color-primary-${step}`] = v;
+  }
+  return out;
+}
+
 /**
  * 차트 팔레트 자동 도출 — **초안일 뿐이다**.
- * new-beginnings 의 synthesizePalette 는 error.fg(빨강)를 후보에 넣는데, 중립 카테고리
- * 차트에 빨강이 섞이면 "위험/이상치"로 오독된다(theme_system_plan §2-D 원칙 3).
- * 여기서는 빨강을 빼고 색상(hue)이 벌어지는 순서로 고른 뒤, overrides/ 가 있으면 그쪽이 이긴다.
+ *
+ * 우선순위는 브랜드 고유 색(메인/서브/강조1·2/중립)을 semantic 색(success/warning/info)보다
+ * 먼저 쓴다: 메인(primary-500) → 서브(secondary-500) → 강조1(primary-300, 밝은 톤) →
+ * 강조2(primary-700, 어두운 톤) → 중립(neutral-700) → 그래도 5개가 안 차면 semantic 색으로
+ * 보충한다(info → success → warning; error/빨강은 계속 제외 — theme_system_plan §2-D 원칙 3.
+ * 중립 카테고리 차트에 빨강이 섞이면 "위험/이상치"로 오독된다).
+ *
+ * 2026-07-24 변경: 이전엔 success/warning/info를 secondary/primary tint보다 먼저 넣어서,
+ * 브랜드에 굳이 없어도 되는 곳(예: 토스 chart-3)에 warning 주황이 새어 들어갔다. 브랜드 자체
+ * 색상 스케일이 있으면 그걸 우선하도록 순서를 바꿨다. overrides/ 가 있으면 여전히 그쪽이 이긴다.
  */
 function draftPalette(d) {
   const cands = [
     d["color-primary-500"],
-    d["color-info-fg"],
-    d["color-success-fg"],
-    d["color-warning-fg"],
     d["color-secondary-500"],
     d["color-primary-300"],
     d["color-primary-700"],
+    d["color-neutral-700"],
+    d["color-info-fg"],
+    d["color-success-fg"],
+    d["color-warning-fg"],
   ].filter(Boolean);
   const uniq = [...new Set(cands)];
   while (uniq.length < 5) uniq.push(uniq[uniq.length - 1] || "#888888");
@@ -241,8 +273,10 @@ function buildFromGuides() {
       source: `design_system_guides/${id}.md`,
       hasDark: Boolean(darkDecls),
       radius,
-      light: toOklchMap(mapToShadcn(lightDecls)),
-      dark: darkDecls ? toOklchMap(mapToShadcn(darkDecls)) : null,
+      light: { ...toOklchMap(mapToShadcn(lightDecls)), ...toOklchMap(extractPrimaryScale(lightDecls)) },
+      dark: darkDecls
+        ? { ...toOklchMap(mapToShadcn(darkDecls)), ...toOklchMap(extractPrimaryScale(darkDecls)) }
+        : null,
       chart: {
         light: draftPalette(lightDecls).map((h) => hexToOklchString(h) ?? h),
         dark: darkDecls ? draftPalette(darkDecls).map((h) => hexToOklchString(h) ?? h) : null,

@@ -86,10 +86,14 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
     if (files && files.length > 0) {
       if (uploadMode === "single") {
         const file = files[0];
-        if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
+        if (
+          file.name.endsWith(".xlsx") ||
+          file.name.endsWith(".csv") ||
+          file.name.endsWith(".json")
+        ) {
           setSelectedFile(file);
         } else {
-          toast.error("Excel 파일(.xlsx, .xls)만 업로드할 수 있습니다.");
+          toast.error("Excel(.xlsx), CSV(.csv) 또는 JSON(.json) 파일만 업로드할 수 있습니다.");
         }
       } else {
         const validFiles = Array.from(files).filter(
@@ -360,10 +364,10 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
                     type="file"
                     ref={fileInputRef}
                     onChange={handleFileChange}
-                    accept=".xlsx"
+                    accept={uploadMode === "single" ? ".xlsx,.csv,.json" : ".xlsx"}
                     multiple={uploadMode === "merge"}
                     className="hidden"
-                    title="설문지 엑셀 파일 선택"
+                    title="설문지 파일 선택"
                     disabled={!isBackendAlive || loading}
                   />
                   <Upload className="h-8 w-8 text-muted-foreground mb-2" />
@@ -373,7 +377,11 @@ export const Step1_ProjectUpload: React.FC<Step1Props> = ({
                         ? "클릭 또는 파일을 여기에 드래그 앤 드롭"
                         : "클릭 또는 복수 파일을 여기에 드래그 앤 드롭"}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">Excel 통합 문서 (*.xlsx)</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {uploadMode === "single"
+                        ? "Excel 통합 문서 (*.xlsx), CSV (*.csv) 또는 JSON (*.json)"
+                        : "Excel 통합 문서 (*.xlsx)"}
+                    </p>
                   </div>
                 </div>
               </div>

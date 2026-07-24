@@ -1,49 +1,15 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import openpyxl
+
+from engine.base_analyzer import BaseAnalyzer
 
 
 _MAX_HEADER_SEARCH = 5   # look up to this many rows for the header
 _DATA_SCAN_ROWS    = 5   # rows to scan after header for actual data start
 _DATA_MIN_DENSITY  = 0.1 # minimum fill ratio to consider a row as real data
-
-_DEFAULT_COL_WIDTH = 16
-
-# ---------------------------------------------------------------------------
-# Transform auto-suggestion — keyword → transform mapping (first match wins)
-# ---------------------------------------------------------------------------
-
-_TRANSFORM_HINTS: list[tuple[list[str], str]] = [
-    (["이메일", "email", "e-mail", "메일"],                          "validate_email"),
-    (["url", "홈페이지", "웹사이트", "링크"],                         "validate_url"),
-    (["일시", "날짜", "date", "time", "등록일", "신청일", "접수일", "완료일", "시작일", "종료일"],
-                                                                    "normalize_date"),
-    (["연락처", "전화", "phone", "tel", "휴대폰", "핸드폰", "mobile"], "normalize_phone"),
-    (["기관명", "회사명", "법인명", "업체명"],                         "normalize_company"),
-    (["성명", "담당자명"],                                            "name_blind"),
-    (["직급", "직책", "직함", "position"],                            "normalize_title"),
-]
-
-
-def _suggest_transform(label: str) -> str:
-    """Return the most appropriate transform for a column label, or 'copy'."""
-    lower = label.lower()
-    for keywords, transform in _TRANSFORM_HINTS:
-        if any(kw.lower() in lower for kw in keywords):
-            return transform
-    return "copy"
-
-
-def _unique_label(label: str, seen: dict[str, int]) -> str:
-    """Return a label unique within seen, appending _2, _3 ... as needed."""
-    if label in seen:
-        seen[label] += 1
-        return f"{label}_{seen[label]}"
-    seen[label] = 1
-    return label
 
 
 def _row_cells(ws, row: int) -> list[Any]:
@@ -96,11 +62,14 @@ def _detect_data_start(ws, header_row: int) -> int:
     return header_row + 1
 
 
-class ExcelAnalyzer:
-    """Inspect an xlsx file and propose source configuration."""
+class ExcelAnalyzer(BaseAnalyzer):
+    """Inspect an xlsx file and propose source configuration.
 
-    def __init__(self, path: str | Path):
-        self._path = Path(path)
+    병합 셀·다중 타이틀 행처럼 사람이 손으로 만든 xlsx의 "머리말이 몇 번째 줄인지 애매한"
+    문제를 점수 매겨 추정한다(`_score_row`/`_detect_data_start`) — 이 모호함 자체가
+    엑셀에만 있는 문제라, 이 클래스에만 존재하는 로직이다. `CsvAnalyzer`는 이 모호함이
+    구조적으로 없어 헤더를 1행 고정으로 둔다(csv_analyzer.py 참고).
+    """
 
     def sheet_names(self) -> list[str]:
         wb = openpyxl.load_workbook(self._path, read_only=True, data_only=True)
@@ -135,17 +104,6 @@ class ExcelAnalyzer:
             "all_scores": [(r, sc) for r, sc, _ in scores],
         }
 
-    def analyze(self, sheet_name: str | None = None) -> dict:
-        """Full analysis: sheets, header detection, column count."""
-        sheets = self.sheet_names()
-        target = sheet_name or sheets[0]
-        detection = self.detect_header_row(target)
-        return {
-            "file": self._path.name,
-            "sheets": sheets,
-            **detection,
-        }
-
     def all_headers(self, sheet_name: str | None = None) -> list[str | None]:
         """Return every cell value from the detected header row (None for empty)."""
         wb = openpyxl.load_workbook(self._path, read_only=True, data_only=True)
@@ -158,148 +116,3 @@ class ExcelAnalyzer:
         cells = _row_cells(ws, hrow)
         wb.close()
         return cells
-
-    def generate_config_yaml(
-        self,
-        output_path: str | Path,
-        sheet_name: str | None = None,
-        project_name: str | None = None,
-        source_override: str | None = None,
-    ) -> Path:
-        """Generate a starter config.yaml with detected header/data rows and all columns.
-
-        source_override: use this path string for source.file instead of self._path.
-        """
-        import yaml
-
-        sheets = self.sheet_names()
-        target = sheet_name or sheets[0]
-        detection = self.detect_header_row(target)
-        hrow   = detection.get("header_row", 1)
-        dstart = detection.get("data_start_row", hrow + 1)
-        raw_cells = self.all_headers(target)
-
-        proj = project_name or self._path.stem
-
-        # prefer relative path from config file's directory
-        out = Path(output_path)
-        if source_override:
-            src_path = source_override
-        else:
-            import os
-            src_path = os.path.relpath(
-                self._path.resolve(),
-                out.parent.resolve()
-            ).replace("\\", "/")
-
-        columns = []
-        seen: dict[str, int] = {}
-        for i, cell in enumerate(raw_cells, 1):
-            label = str(cell).strip() if cell is not None else ""
-            if not label:
-                label = f"열{i}"
-            # deduplicate to avoid Excel Table/JSON key conflicts
-            label = _unique_label(label, seen)
-            columns.append({
-                "output_col": label,
-                "source_col": i,
-                "transform": _suggest_transform(label),
-                "width": _DEFAULT_COL_WIDTH,
-            })
-
-        cfg: dict = {
-            "project": proj,
-            "style_file": None,
-            "patterns_file": "../../../backend/config/patterns.yaml",
-            "source": {
-                "file": src_path,
-                "sheet": target if target != sheets[0] else None,
-                "header_row": hrow,
-                "data_start_row": dstart,
-            },
-            "paths": {
-                "output_dir": "output",
-                "output_file": f"{proj}_cleaned.xlsx",
-            },
-            "sheets": {"cleaned": "Cleaned", "summary": "Summary"},
-            "columns": columns,
-            "transform_kwargs": {},
-            "slicers": [],
-            "summary": {"sheet_name": "Summary", "sections": []},
-        }
-
-        out.parent.mkdir(parents=True, exist_ok=True)
-        with open(out, "w", encoding="utf-8") as f:
-            yaml.dump(cfg, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
-        return out
-
-    def generate_draft_xlsx(
-        self,
-        output_path: str | Path,
-        sheet_name: str | None = None,
-        project_name: str | None = None,
-    ) -> Path:
-        """Create a draft Config xlsx from the analyzed file.
-
-        Opens in Excel → user edits the Config sheet → re-runs with:
-            python main.py run <draft.xlsx> --input <original.xlsx>
-        """
-        from openpyxl import Workbook
-        from engine.config import (
-            ColumnDef, PathsConfig, PreprocessConfig, RowFilterConfig,
-            SourceConfig, SummaryConfig, OutputSheetsConfig, SurveyConfig,
-        )
-        from engine.config_excel import write_config_sheet, write_guide_sheet
-
-        sheets = self.sheet_names()
-        target = sheet_name or sheets[0]
-        detection = self.detect_header_row(target)
-        hrow       = detection.get("header_row", 1)
-        dstart     = detection.get("data_start_row", hrow + 1)
-        raw_cells  = self.all_headers(target)
-
-        proj = project_name or Path(self._path).stem
-
-        # Build ColumnDef list — one per non-empty header cell (deduplicated)
-        col_defs: list[ColumnDef] = []
-        seen: dict[str, int] = {}
-        for i, cell in enumerate(raw_cells, 1):
-            label = str(cell).strip() if cell is not None else ""
-            if not label:
-                label = f"열{i}"
-            label = _unique_label(label, seen)
-            col_defs.append(ColumnDef(
-                output_col      = label,
-                source_col_name = label,   # original header — read-only reference
-                source_col      = i,
-                transform       = "copy",
-                width           = _DEFAULT_COL_WIDTH,
-            ))
-
-        cfg = SurveyConfig(
-            project  = proj,
-            source   = SourceConfig(
-                sheet          = target if target != sheets[0] else None,
-                file           = str(self._path),
-                header_row     = hrow,
-                data_start_row = dstart,
-            ),
-            paths    = PathsConfig(
-                output_dir  = "output",
-                output_file = f"{proj}_cleaned.xlsx",
-            ),
-            sheets   = OutputSheetsConfig(cleaned="cleaned", summary="summary"),
-            columns  = col_defs,
-            preprocess = PreprocessConfig(row_filter=RowFilterConfig()),
-            summary  = SummaryConfig(sections=[]),
-        )
-
-        wb = Workbook()
-        wb.remove(wb.active)
-        write_config_sheet(wb, cfg)
-        write_guide_sheet(wb)
-
-        out = Path(output_path)
-        out.parent.mkdir(parents=True, exist_ok=True)
-        wb.save(out)
-        return out

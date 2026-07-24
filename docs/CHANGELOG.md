@@ -2,7 +2,52 @@
 
 All notable changes to the ClearSurvey project will be documented in this file.
 
-## [2026-07-22] (3) 관리자 테마 오염·도넛 시작점 버그 수정 · `web/`→`frontend/` 경로 문자열 정리
+## [2026-07-24] new-beginnings 대비 격차 분석 실행 — CSV/JSON 업로드, 테마 차트 팔레트 수정, 리커트 척도 오분류 수정
+
+`c:\ai\new-beginnings`(자매 프로젝트) 대비 기능 격차를 분석(`docs/plan/complete/new_beginnings_comparison_plan.md`)하고
+그 결과로 나온 4개 항목(테마 재점검·CSV·JSON·primary 색상 스케일)을 전부 실행했다. 마지막에
+CSV/JSON 업로드가 드러낸 부작용(리커트 척도 오분류)도 함께 고쳤다.
+
+**결과**: 백엔드 476개(437 → +39) · 프런트 505개(481 → +24) 테스트 전부 통과.
+
+### Fixed
+- 🔴 **토스 테마 차트 팔레트에 브랜드와 무관한 주황(warning)이 섞여 나옴**: 원인은
+  `theme/overrides/toss.json`에 사람이 직접 기록해 둔 값이었다(버그가 아니라 "구분 가능성
+  우선" 기준으로 내린 의도된 선택). `build-themes.mjs`의 자동 도출 함수 `draftPalette()`
+  후보 우선순위를 "메인→서브→강조1(밝은 톤)→강조2(어두운 톤)→중립" 순으로 바꿔, 브랜드
+  자체 색상 스케일만으로 토스 차트가 재도출되게 함(`#0064FF #191F28 #4795FF #003EA8
+  #8B95A1`). override 파일은 필요 없어져 삭제. 나머지 활성 테마 9개(override 있음) + 1개
+  (override 없던 datadog)를 새 알고리즘과 대조 재점검 — 대부분은 브랜드 primary 램프 자체가
+  좁아 알고리즘 개선으로 해결 안 되는 문제라 override를 그대로 유지. `linear`는 새 알고리즘이
+  오히려 브랜드 secondary의 빨강 기미를 슬롯에 끌어올리는 부작용을 발견해 override 유지로
+  대응(알고리즘의 알려진 한계로 기록).
+- 🔴 **CSV/JSON 업로드 시 리커트 척도(만족도 1~5점 등)가 "합계" KPI로 자동 제안됨**: 값이
+  정수면 `_detect_type()`(exporter.py)이 무조건 `numeric`으로 분류해 "OO 합계" KPI를 자동
+  생성했다. xlsx는 셀을 텍스트 서식으로 지정해 우회할 수 있었지만 CSV/JSON엔 그 우회 수단이
+  없어 새로 드러남. `_looks_like_rating_scale()`을 추가해 정수·0또는1 시작·최댓값 10 이하·
+  고유값 3~11개·반복 응답 있음을 모두 만족하는 컬럼만 `category`로 재분류(이진 0/1 플래그는
+  제외 — O_ 접두사 컬럼의 multibar 자동 구성이 깨지지 않도록). 도넛/바 차트 자체는
+  `aggCategory()`가 값을 문자열화해 세므로 원래도 안전했다. 새 프로젝트(또는 재분석)에만
+  적용되고 기존 프로젝트엔 소급 적용 안 됨.
+
+### Added
+- **CSV/JSON 업로드 지원** (`backend/app/main.py`, `engine/base_analyzer.py`,
+  `engine/csv_analyzer.py`, `engine/json_analyzer.py`, `engine/pipeline.py`,
+  `Step1_ProjectUpload.tsx`): `.xlsx` 하드 게이트를 확장자 기반 분석기 매핑으로 교체.
+  포맷 무관 로직(`generate_config_yaml`/`generate_draft_xlsx`)을 `BaseAnalyzer`로 분리하고
+  `CsvAnalyzer`/`JsonAnalyzer`는 헤더 탐지 세 메서드만 구현. CSV는 인코딩 자동 감지
+  (utf-8-sig→utf-8→cp949→euc-kr, 외부 의존성 없음)와 앞자리 0 보존(전화번호 등 숫자열이
+  정수로 깨지는 사고 방지) 처리. JSON은 평면 배열-of-객체만 지원, 레코드마다 키가 달라도
+  첫 등장 순서 합집합을 헤더로 통일. xlsx/csv/json 세 포맷에 동일 데이터를 넣어 결과가
+  같은지 비교하는 회귀 테스트 포함. 덤으로 프론트가 `.xls`를 지원한다고 표시했지만 서버·
+  openpyxl 둘 다 애초에 처리 못 하던 잠재 버그도 함께 제거.
+- **primary 50~900 컬러 스케일 토큰** (`build-themes.mjs`, `theme/tokens.ts`): 가이드 기반
+  활성 테마 11종에 `--color-primary-50`~`900`을 CSS로 컴파일. 가이드 없는 4종
+  (`light`/`dark`/`ink`/`forest`)은 채우지 않는 선택적 필드. 차트 컴포넌트가 이 토큰을 실제로
+  쓰게 만드는 건 "임의 기능 추가 금지" 원칙에 따라 하지 않음 — 데이터만 존재.
+
+### Investigated (실행 안 함, 문서화만)
+- 350종 테마 전부 노출, 차트 슬롯 5→7 확대: 사용자가 범위 밖으로 명시. 필요 시 별도 논의.
 
 (2) 배치를 실사용해보면서 나온 후속 버그 리포트 3건을 조사·수정했다.
 

@@ -111,11 +111,21 @@
   --sidebar-accent-foreground: oklch(0.216 0.012 254.082);
   --sidebar-border: oklch(0.901 0 0);
   --sidebar-ring: oklch(0.438 0.183 299.148);
+  --color-primary-50: oklch(0.953 0.02 311.086);
+  --color-primary-100: oklch(0.893 0.047 309.181);
+  --color-primary-200: oklch(0.788 0.096 309.155);
+  --color-primary-300: oklch(0.682 0.145 308.214);
+  --color-primary-400: oklch(0.636 0.154 303.603);
+  --color-primary-500: oklch(0.438 0.183 299.148);
+  --color-primary-600: oklch(0.376 0.155 298.972);
+  --color-primary-700: oklch(0.316 0.128 299.413);
+  --color-primary-800: oklch(0.251 0.099 299.665);
+  --color-primary-900: oklch(0.186 0.068 299.495);
   --chart-1: oklch(0.438 0.183 299.148);
-  --chart-2: oklch(0.618 0.143 254.346);
-  --chart-3: oklch(0.687 0.143 162.177);
-  --chart-4: oklch(0.793 0.171 70.67);
-  --chart-5: oklch(0.734 0.163 25.784);
+  --chart-2: oklch(0.734 0.163 25.784);
+  --chart-3: oklch(0.682 0.145 308.214);
+  --chart-4: oklch(0.316 0.128 299.413);
+  --chart-5: oklch(0.496 0.015 251.687);
 }
 
 .dark {
@@ -153,11 +163,21 @@
   --sidebar-accent-foreground: oklch(0.925 0 0);
   --sidebar-border: oklch(0.304 0.018 262.231);
   --sidebar-ring: oklch(0.636 0.154 303.603);
+  --color-primary-50: oklch(0.213 0.058 296.573);
+  --color-primary-100: oklch(0.259 0.064 302.551);
+  --color-primary-200: oklch(0.332 0.096 298.313);
+  --color-primary-300: oklch(0.419 0.124 296.883);
+  --color-primary-400: oklch(0.516 0.182 300.673);
+  --color-primary-500: oklch(0.636 0.154 303.603);
+  --color-primary-600: oklch(0.717 0.122 305.658);
+  --color-primary-700: oklch(0.797 0.089 307.212);
+  --color-primary-800: oklch(0.876 0.055 307.76);
+  --color-primary-900: oklch(0.946 0.026 308.159);
   --chart-1: oklch(0.636 0.154 303.603);
-  --chart-2: oklch(0.682 0.128 253.232);
-  --chart-3: oklch(0.773 0.153 163.103);
-  --chart-4: oklch(0.818 0.153 72.95);
-  --chart-5: oklch(0.761 0.142 25.572);
+  --chart-2: oklch(0.761 0.142 25.572);
+  --chart-3: oklch(0.419 0.124 296.883);
+  --chart-4: oklch(0.797 0.089 307.212);
+  --chart-5: oklch(0.789 0.015 254.626);
 }
 
 @layer base {

@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import catalog from "../catalog.json";
 import { THEME_PRESETS, DEFAULT_THEME_ID, resolveThemeId } from "../registry";
-import { COLOR_TOKENS, CHART_SLOTS } from "../tokens";
+import { COLOR_TOKENS, CHART_SLOTS, PRIMARY_SCALE_STEPS, primaryScaleVar } from "../tokens";
 
 /**
  * 테마가 230종이라 사람이 눈으로 검사할 수 없다. 여기서 기계가 잡는다.
@@ -83,6 +83,57 @@ describe("활성 테마 토큰 무결성", () => {
 
   it.each(activeIds)("%s — radius 가 있다", (id) => {
     expect(byId.get(id)!.radius).toBeTruthy();
+  });
+});
+
+describe("primary 50~900 스케일 (모노톤 팔레트 재료)", () => {
+  // 가이드가 없는 4종(light/dark/ink/forest)은 스케일이 없는 게 정상 — 선택적 필드다.
+  const guideIds = activeIds.filter((id) => !["light", "dark", "ink", "forest"].includes(id));
+
+  const oklchLightness = (v: string): number => {
+    const m = v.match(/^oklch\(([\d.]+)/);
+    if (!m) throw new Error(`oklch 형식이 아님: ${v}`);
+    return parseFloat(m[1]);
+  };
+
+  it("가이드 파생 활성 테마(11종)에는 전부 스케일이 있다", () => {
+    // 새로 하나 추가됐는데 가이드에 스케일이 없으면 여기서 바로 드러나야 한다(조용히 빠지지 않게).
+    expect(guideIds.length).toBeGreaterThan(0);
+    for (const id of guideIds) {
+      const e = byId.get(id)!;
+      for (const step of PRIMARY_SCALE_STEPS) {
+        const key = primaryScaleVar(step).replace("--", "");
+        expect(e.light[key], `${id}.light 의 ${primaryScaleVar(step)}`).toBeTruthy();
+      }
+    }
+  });
+
+  it.each(guideIds)("%s — 50이 900보다 밝다(끝점 검증)", (id) => {
+    // 중간 단계까지 엄격한 단조 감소를 요구하진 않는다 — vercel처럼 500(순검정)을 바닥으로
+    //찍고 600~900을 다크모드 표면색으로 다시 밝혀 쓰는 정당한 소스 데이터가 있다
+    // (vercel.md 원본이 그렇게 정의돼 있다. 버그가 아니다). 그래도 "50번이 900번보다 밝다"는
+    // 전 브랜드가 공유하는 최소 불변식이라, 추출이 뒤집히거나 엉뚱한 값을 집는 사고는 잡는다.
+    const e = byId.get(id)!;
+    const l50 = oklchLightness(e.light[primaryScaleVar("50").replace("--", "")]);
+    const l900 = oklchLightness(e.light[primaryScaleVar("900").replace("--", "")]);
+    expect(l50, `${id}: 50번이 900번보다 밝아야 한다`).toBeGreaterThan(l900);
+  });
+
+  it("가이드 없는 4종(light/dark/ink/forest)은 스케일이 없다 — 억지로 채우지 않는다", () => {
+    for (const id of ["light", "dark", "ink", "forest"]) {
+      const e = byId.get(id)!;
+      const key = primaryScaleVar("500").replace("--", "");
+      expect(e.light[key], `${id}에 스케일이 생기면 안 된다(가이드가 없다)`).toBeUndefined();
+    }
+  });
+
+  it.each(guideIds)("%s.css 드롭인에 스케일 10단계가 전부 컴파일돼 있다", (id) => {
+    const css = readFileSync(path.join(THEME_DIR, `${id}.css`), "utf-8");
+    const root = parseBlock(css, ":root");
+    for (const step of PRIMARY_SCALE_STEPS) {
+      const key = primaryScaleVar(step).replace("--", "");
+      expect(root[key], `${id}.css 의 ${primaryScaleVar(step)}`).toBeTruthy();
+    }
   });
 });
 

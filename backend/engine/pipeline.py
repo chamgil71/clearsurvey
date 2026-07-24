@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,8 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from engine.config import ROW_ID_COL, SurveyConfig, make_row_id
+from engine.csv_analyzer import read_csv_rows
+from engine.json_analyzer import json_records_to_columns, load_json_records
 from engine.overrides import OverrideApplier, load_overrides
 from engine.preprocessor import Preprocessor
 from engine.writer import CleanedSheetWriter
@@ -60,8 +63,89 @@ def _sheet_to_dataframe(wb: openpyxl.Workbook, cfg: SurveyConfig) -> pd.DataFram
     return pd.DataFrame(padded, index=pd.Index(row_ids, name=ROW_ID_COL))
 
 
+# 앞에 0이 붙지 않은 정수/소수만 숫자로 본다("01012345678" 같은 전화번호 문자열이 앞자리 0을
+# 잃고 조용히 정수로 바뀌는 사고를 막는다 — "0" 단독이나 "0.5" 같은 소수는 허용).
+_CSV_INT_RE = re.compile(r"^-?(0|[1-9]\d*)$")
+_CSV_FLOAT_RE = re.compile(r"^-?(0|[1-9]\d*)\.\d+$")
+
+
+def _coerce_csv_value(raw: str | None) -> Any:
+    """CSV는 모든 셀이 문자열이다 — openpyxl이 주는 타입 있는 값(int/float/None)과 맞춘다.
+
+    `_detect_type`(exporter.py)이 `isinstance(v, (int, float))`로만 숫자를 세므로, 이 보정이
+    없으면 csv로 올린 숫자 컬럼이 전부 "text"로 오분류된다.
+    """
+    if raw is None:
+        return None
+    s = raw.strip()
+    if s == "":
+        return None
+    if _CSV_INT_RE.match(s):
+        return int(s)
+    if _CSV_FLOAT_RE.match(s):
+        return float(s)
+    return raw
+
+
+def _csv_to_dataframe(path: Path, cfg: SurveyConfig) -> pd.DataFrame:
+    """CSV를 `_sheet_to_dataframe`과 동일한 계약(0-based 컬럼, 원본 행번호 index)으로 읽는다.
+
+    이 계약만 지키면 `Preprocessor` 이후(transform·override·writer)는 xlsx 경로와 코드 한 줄도
+    다르지 않다 — `docs/plan/pending/new_beginnings_comparison_plan.md` §1-B 참고.
+    """
+    all_rows = read_csv_rows(path)
+
+    data_start = cfg.source.data_start_row or (cfg.source.header_row + 1)
+    rows: list[list[Any]] = []
+    row_ids: list[int] = []
+    for csv_row_num, row_vals in enumerate(all_rows, start=1):
+        if csv_row_num < data_start:
+            continue
+        coerced = [_coerce_csv_value(v) for v in row_vals]
+        if any(v is not None and str(v).strip() != "" for v in coerced):
+            rows.append(coerced)
+            row_ids.append(csv_row_num)
+
+    if not rows:
+        return pd.DataFrame()
+
+    n_cols = max(len(r) for r in rows)
+    padded = [r + [None] * (n_cols - len(r)) for r in rows]
+    return pd.DataFrame(padded, index=pd.Index(row_ids, name=ROW_ID_COL))
+
+
+def _json_to_dataframe(path: Path, cfg: SurveyConfig) -> pd.DataFrame:
+    """배열-of-객체 JSON을 `_sheet_to_dataframe`과 동일 계약으로 읽는다.
+
+    JSON은 이미 값에 타입이 있다(숫자는 정수/실수로, 문자열은 문자열로) — csv처럼 값 보정이
+    필요 없다. "행 번호"는 헤더가 가상의 1행을 차지한다고 보고 배열 인덱스+2로 매긴다
+    (레코드 0번째 = 2행, 그래야 data_start_row=2 관례와 맞는다).
+    """
+    records = load_json_records(path)
+    _headers, matrix = json_records_to_columns(records)
+
+    data_start = cfg.source.data_start_row or (cfg.source.header_row + 1)
+    rows: list[list[Any]] = []
+    row_ids: list[int] = []
+    for offset, row_vals in enumerate(matrix):
+        json_row_num = offset + 2  # 헤더가 가상의 1행
+        if json_row_num < data_start:
+            continue
+        if any(v is not None and str(v).strip() != "" for v in row_vals):
+            rows.append(row_vals)
+            row_ids.append(json_row_num)
+
+    if not rows:
+        return pd.DataFrame()
+
+    n_cols = max(len(r) for r in rows)
+    padded = [r + [None] * (n_cols - len(r)) for r in rows]
+    return pd.DataFrame(padded, index=pd.Index(row_ids, name=ROW_ID_COL))
+
+
 def _write_raw_sheet(out_wb: Workbook, src_wb: openpyxl.Workbook | None,
-                     cfg: SurveyConfig, raw_df: pd.DataFrame) -> None:
+                     cfg: SurveyConfig, raw_df: pd.DataFrame,
+                     source_headers: list[str] | None = None) -> None:
     """Write raw (pre-transform) source data to '원본' sheet."""
     sheet_name = "원본"
     if sheet_name in out_wb.sheetnames:
@@ -70,7 +154,7 @@ def _write_raw_sheet(out_wb: Workbook, src_wb: openpyxl.Workbook | None,
 
     n_cols = raw_df.shape[1]
 
-    # original header labels from source workbook
+    # original header labels from source workbook (xlsx) or csv/json header row
     if src_wb is not None:
         src_ws = (
             src_wb[cfg.source.sheet]
@@ -79,6 +163,11 @@ def _write_raw_sheet(out_wb: Workbook, src_wb: openpyxl.Workbook | None,
         )
         hrow = cfg.source.header_row
         headers = [src_ws.cell(hrow, c).value for c in range(1, n_cols + 1)]
+    elif source_headers is not None:
+        headers = [
+            source_headers[i] if i < len(source_headers) else f"열{i + 1}"
+            for i in range(n_cols)
+        ]
     else:
         headers = [f"열{i}" for i in range(1, n_cols + 1)]
 
@@ -200,6 +289,7 @@ class SurveyPipeline:
 
         # ── input: merger or direct file ──────────────────────────────────────
         src_wb: openpyxl.Workbook | None = None
+        source_headers: list[str] | None = None
         if cfg.merge:
             from engine.merger import DataMerger
             df = DataMerger(cfg.merge).run()
@@ -224,9 +314,19 @@ class SurveyPipeline:
             if not src_path or not src_path.exists():
                 raise FileNotFoundError(f"입력 파일을 찾을 수 없습니다: {src_path}")
             print(f"읽는 중: {src_path.name}")
-            wb = openpyxl.load_workbook(src_path, data_only=True)
-            src_wb = wb
-            df = _sheet_to_dataframe(wb, cfg)
+            ext = src_path.suffix.lower()
+            if ext == ".csv":
+                # src_wb는 None으로 남는다 — _write_raw_sheet가 source_headers로 대신 헤더를 얻는다.
+                df = _csv_to_dataframe(src_path, cfg)
+                all_csv_rows = read_csv_rows(src_path)
+                source_headers = all_csv_rows[0] if all_csv_rows else []
+            elif ext == ".json":
+                df = _json_to_dataframe(src_path, cfg)
+                source_headers, _ = json_records_to_columns(load_json_records(src_path))
+            else:
+                wb = openpyxl.load_workbook(src_path, data_only=True)
+                src_wb = wb
+                df = _sheet_to_dataframe(wb, cfg)
 
         print(f"원본 행수: {len(df)}")
 
@@ -335,7 +435,7 @@ class SurveyPipeline:
             SummarySheetWriter(cfg).write(out_wb, df, col_index_map, cleaned_col_vals)
 
         # ── 원본 시트 ─────────────────────────────────────────────────────────
-        _write_raw_sheet(out_wb, src_wb, cfg, raw_df)
+        _write_raw_sheet(out_wb, src_wb, cfg, raw_df, source_headers=source_headers)
 
         # ── Config / Guide sheets ─────────────────────────────────────────────
         from engine.config_excel import write_config_sheet, write_guide_sheet

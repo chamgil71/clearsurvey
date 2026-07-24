@@ -98,6 +98,9 @@ FRONTEND_ROOT = BACKEND_ROOT.parent / "frontend"
 from engine.config import ROW_ID_COL, SurveyConfig, PathsConfig
 from engine.pipeline import SurveyPipeline
 from engine.analyzer import ExcelAnalyzer
+from engine.csv_analyzer import CsvAnalyzer
+from engine.json_analyzer import JsonAnalyzer, JsonFormatError
+from engine.base_analyzer import BaseAnalyzer
 from engine.config_excel import read_config_from_excel
 from engine.exporter import (
     _read_cleaned_sheet,
@@ -285,6 +288,24 @@ def _safe_filename(filename: str) -> str:
     return name
 
 
+# 업로드 허용 확장자와 분석기 매핑 — 여기 한 곳만 늘리면 새 포맷이 붙는다.
+# .xls(레거시 바이너리)는 넣지 않는다 — openpyxl이 애초에 못 읽는다. 기존 프론트가
+# accept에 .xls를 걸어놓고도 서버는 .xlsx만 받던 잠재 불일치였다(둘 다 이번에 정리).
+_ANALYZER_BY_EXT: dict[str, type[BaseAnalyzer]] = {
+    ".xlsx": ExcelAnalyzer,
+    ".csv": CsvAnalyzer,
+    ".json": JsonAnalyzer,
+}
+
+
+def _make_analyzer(path: Path) -> BaseAnalyzer:
+    ext = path.suffix.lower()
+    analyzer_cls = _ANALYZER_BY_EXT.get(ext)
+    if analyzer_cls is None:
+        raise HTTPException(status_code=400, detail=f"지원하지 않는 파일 형식입니다: {ext}")
+    return analyzer_cls(path)
+
+
 def _get_project_dir(name: str) -> Path:
     proj_dir = STORAGE_ROOT / "projects" / name
     return proj_dir
@@ -403,9 +424,10 @@ async def create_project(
     _validate_project_name(name)
 
     safe_fname = _safe_filename(file.filename or "upload.xlsx")
-    # xlsx 확장자만 허용
-    if not safe_fname.lower().endswith(".xlsx"):
-        raise HTTPException(status_code=400, detail="xlsx 파일만 업로드할 수 있습니다.")
+    ext = Path(safe_fname).suffix.lower()
+    if ext not in _ANALYZER_BY_EXT:
+        allowed = ", ".join(sorted(_ANALYZER_BY_EXT))
+        raise HTTPException(status_code=400, detail=f"{allowed} 파일만 업로드할 수 있습니다.")
 
     storage_dir = STORAGE_ROOT / "raw"
     storage_dir.mkdir(parents=True, exist_ok=True)
@@ -414,7 +436,7 @@ async def create_project(
     raw_file_path = storage_dir / safe_fname
     with open(raw_file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-        
+
     # Prepare project directory
     proj_dir = _get_project_dir(name)
     if proj_dir.exists():
@@ -423,12 +445,12 @@ async def create_project(
     else:
         proj_dir.mkdir(parents=True, exist_ok=True)
     (proj_dir / "output").mkdir(exist_ok=True)
-    
+
     # Run analyzer
     try:
-        analyzer = ExcelAnalyzer(raw_file_path)
+        analyzer = _make_analyzer(raw_file_path)
         detection = analyzer.analyze()
-        
+
         # Save draft excel config
         draft_path = proj_dir / f"draft_{raw_file_path.stem}.xlsx"
         analyzer.generate_draft_xlsx(draft_path, project_name=name)
@@ -495,6 +517,8 @@ async def create_project(
             "column_count": detection["column_count"],
             "draft_path": os.path.relpath(draft_path, BACKEND_ROOT.parent)
         }
+    except JsonFormatError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"설문 분석 및 프로젝트 생성 실패: {exc}")
 

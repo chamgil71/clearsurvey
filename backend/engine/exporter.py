@@ -30,6 +30,44 @@ from engine.config import ROW_ID_COL, SurveyConfig
 # Type detection
 # ---------------------------------------------------------------------------
 
+# 리커트/평점 척도로 볼 수 있는 최대 고유값 개수(NPS 0~10 = 11개 포함).
+_RATING_SCALE_MAX_UNIQUE = 11
+_RATING_SCALE_MAX_VALUE = 10
+# O_ 이진 플래그(0/1)는 합계가 "체크한 사람 수"라는 뜻이 있어 numeric으로 남겨야
+# multibar 자동 구성(_build_default_dashboard의 binary_cols)이 깨지지 않는다 — 3 미만 제외.
+_RATING_SCALE_MIN_UNIQUE = 3
+
+
+def _looks_like_rating_scale(values: list[Any]) -> bool:
+    """만족도 1~5점처럼 정수로 저장된 리커트 척도인지 판별한다.
+
+    설문 응답이 1/2/3/4/5 같은 정수로 들어오면 `_detect_type`이 그냥 두면 "numeric"으로
+    분류되고, `_build_default_dashboard`가 이를 "OO 합계" KPI로 자동 제안한다 — "만족도 합계
+    327" 처럼 의미 없는 숫자가 나온다. 실제 의도는 "1점 N명, 2점 M명…" 카운트다.
+
+    신호 3가지를 함께 요구한다(하나만으로는 오탐이 많다):
+    1. 정수만 있다 — 소수가 섞이면 평균 점수 같은 실측값일 가능성이 높아 합계 배제 대상이 아니다.
+    2. 값이 0 또는 1에서 시작하고 10을 넘지 않는다 — 리커트(1~5·1~7)·NPS(0~10)의 공통 범위.
+       연도(2020~2023)처럼 낮은 자리에서 시작하지 않는 진짜 numeric은 걸러진다.
+    3. 고유값이 3~11개이고, 응답 수가 고유값의 최소 2배 — "같은 값이 반복되는 척도"라는 뜻.
+       고유값이 2개(0/1 이진 플래그, `split_binary`류 O_ 컬럼)는 제외한다 — 그건 numeric으로
+       남아야 `_build_default_dashboard`의 O_ 이진 컬럼 multibar 합산이 그대로 동작한다.
+    """
+    nums = [v for v in values if isinstance(v, (int, float))]
+    if not nums:
+        return False
+    if any(isinstance(v, float) and not float(v).is_integer() for v in nums):
+        return False
+    ints = [int(v) for v in nums]
+    unique = set(ints)
+    if not (_RATING_SCALE_MIN_UNIQUE <= len(unique) <= _RATING_SCALE_MAX_UNIQUE):
+        return False
+    lo, hi = min(unique), max(unique)
+    if lo not in (0, 1) or hi > _RATING_SCALE_MAX_VALUE:
+        return False
+    return len(ints) >= len(unique) * 2
+
+
 def _detect_type(values: list[Any]) -> str:
     if not values:
         return "text"
@@ -39,6 +77,8 @@ def _detect_type(values: list[Any]) -> str:
 
     numeric_count = sum(1 for v in non_null if isinstance(v, (int, float)))
     if numeric_count / len(non_null) >= 0.8:
+        if _looks_like_rating_scale(non_null):
+            return "category"
         return "numeric"
 
     unique_strs = {str(v).strip() for v in non_null if str(v).strip()}

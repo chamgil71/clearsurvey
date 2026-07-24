@@ -69,6 +69,56 @@ class TestDetectType:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# _detect_type — 리커트/평점 척도(1~5 등) 오탐 방지
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestDetectTypeRatingScale:
+    def test_likert_1_to_5_is_category_not_numeric(self):
+        # 만족도 1~5점, 반복 응답 → "OO 합계" KPI가 자동 생성되면 안 됨
+        vals = [1, 2, 3, 4, 5, 3, 2, 1, 4, 5, 3, 2] * 3
+        assert _detect_type(vals) == "category"
+
+    def test_nps_0_to_10_is_category(self):
+        vals = ([0, 5, 10, 7, 8, 9, 6, 5, 4, 3, 2, 1] * 3)
+        assert _detect_type(vals) == "category"
+
+    def test_likert_scale_string_values_also_category(self):
+        # 리커트 문항이 문자열로 저장돼도(예: 엑셀 텍스트 서식) 기존 low_unique_ratio 규칙으로
+        # 이미 category였다 — 이번 변경으로 numeric 경로가 하나 더 생겼을 뿐, 기존 경로는 그대로.
+        vals = ["1", "2", "3", "4", "5"] * 4
+        assert _detect_type(vals) == "category"
+
+    def test_binary_0_1_flag_stays_numeric(self):
+        # O_ 접두사 이진 컬럼(0/1) — multibar 자동 구성이 num_cols를 전제하므로 유지돼야 한다.
+        vals = [0, 1, 1, 0, 1, 0, 0, 1, 1, 1]
+        assert _detect_type(vals) == "numeric"
+
+    def test_sequential_scores_without_repetition_stay_numeric(self):
+        # 반복 없이 각 값이 한 번씩만 나오면(척도라기보다 개별 실측값) numeric 유지
+        assert _detect_type([1, 2, 3, 4, 5]) == "numeric"
+
+    def test_score_out_of_100_stays_numeric(self):
+        # 상한이 10을 넘으면(리커트 범위 밖) numeric 유지
+        vals = [78, 85, 90, 92, 78, 85, 90, 92, 78, 85]
+        assert _detect_type(vals) == "numeric"
+
+    def test_year_column_stays_numeric(self):
+        # 낮은 자리에서 시작하지 않는 컬럼(연도)은 리커트로 오인하면 안 된다.
+        vals = [2020, 2021, 2022, 2023, 2020, 2021, 2022, 2023, 2020, 2021]
+        assert _detect_type(vals) == "numeric"
+
+    def test_average_score_with_decimals_stays_numeric(self):
+        # 소수가 섞이면 평균 점수 같은 실측값일 가능성이 높아 category로 바꾸지 않는다.
+        vals = [1.5, 2.0, 3.5, 4.0, 1.5, 2.0, 3.5, 4.0, 1.5, 2.0]
+        assert _detect_type(vals) == "numeric"
+
+    def test_too_many_unique_values_for_rating_scale_stays_numeric(self):
+        # 고유값이 11개를 넘으면(리커트/NPS 범위 밖) numeric 유지
+        vals = list(range(0, 15)) * 2
+        assert _detect_type(vals) == "numeric"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # _build_default_dashboard — 컬럼 목록 → DashboardConfig 구조
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -257,6 +307,35 @@ class TestExportToJson:
         wb.save(path)
         result = export_to_json(path, minimal_cfg)
         assert "점수" not in result["aggregates"]
+
+    def test_likert_column_gets_donut_not_sum_kpi_end_to_end(self, tmp_path, minimal_cfg):
+        """만족도 1~5점(정수 저장) 컬럼이 자동 대시보드에서 '합계' KPI가 아니라 카운트 차트로
+        나와야 한다 — 이 테스트가 실패하면 "만족도 합계 327" 같은 KPI가 되돌아온 것이다."""
+        path = tmp_path / "result_likert.xlsx"
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Cleaned"
+        ws.cell(1, 1, "섹션")
+        ws.cell(2, 1, "만족도")
+        responses = [1, 2, 3, 4, 5, 3, 2, 1, 4, 5, 3, 2, 4, 5, 1]
+        for i, v in enumerate(responses, 3):
+            ws.cell(i, 1, v)
+        wb.save(path)
+
+        result = export_to_json(path, minimal_cfg)
+        col = next(c for c in result["meta"]["columns"] if c["key"] == "만족도")
+        assert col["type"] == "category"
+
+        dash = result["dashboard"]
+        assert not any(k["type"] == "sum" and k.get("col") == "만족도" for k in dash["kpi"])
+        chart = next((c for c in dash["charts"] if c.get("col") == "만족도"), None)
+        assert chart is not None
+        assert chart["type"] == "donut"
+
+        # aggregates도 "1점 N명, 2점 M명…" 형태로 정확히 카운트돼야 한다.
+        agg = result["aggregates"]["만족도"]
+        assert agg["1"] == 3
+        assert agg["5"] == 3
 
     def test_rows_are_dicts_with_header_keys(self, cleaned_xlsx, minimal_cfg):
         result = export_to_json(cleaned_xlsx, minimal_cfg)
