@@ -6,7 +6,7 @@
 > **상태: 1~11단계 구현 완료 · 실데이터 검증 미완** (자동 테스트 백엔드 421 · 프런트 417 통과).
 > 작업 PC 에 `storage/projects/` 가 없어 화면에서 끝까지 못 돌렸다 →
 > **[§12 원본 PC 인수인계](#12--원본-pc-인수인계--여기서부터-이어서-한다)부터 읽을 것.**
-> 상위: [`ROADMAP.md`](../ROADMAP.md) · 관련: [`project_files_lifecycle.md`](../../guides/project_files_lifecycle.md), [`multi_pc_data_sync.md`](../../guides/multi_pc_data_sync.md)
+> 상위: [`ROADMAP.md`](../ROADMAP.md) · 관련: [`project_files_lifecycle.md`](../../reference/project_files_lifecycle.md), [`multi_pc_data_sync.md`](../../guides/multi_pc_data_sync.md)
 
 ---
 
@@ -656,7 +656,7 @@ deploy  (드물게)       → + git 커밋·푸시                      → 「�
 11. ✅ **발행(`/deploy`) + 가드 3종** — **완료(2026-07-17).** `app/git_sync.py`.
     **가드 테스트를 먼저 통과시킨 뒤** 엔드포인트를 얹었다(신규 17 테스트, 진짜 git 저장소로 검증).
     가드에 걸리면 409 + 이유 — 오류가 아니라 **의도된 정지**다.
-12. ✅ **문서 갱신** — 이 문서 · [CHANGELOG](../../CHANGELOG.md) · [`project_files_lifecycle.md`](../../guides/project_files_lifecycle.md) §4.9(`overrides.json`) · [`multi_pc_data_sync.md`](../../guides/multi_pc_data_sync.md) **§3.1 신설**(발행 가드 — §3 의 금지선을 자동화하는 물건이라 설명이 그 규칙 옆에 있어야 한다) · INDEX · ROADMAP. **원본 PC 인수인계는 §12.**
+12. ✅ **문서 갱신** — 이 문서 · [CHANGELOG](../../CHANGELOG.md) · [`project_files_lifecycle.md`](../../reference/project_files_lifecycle.md) §4.9(`overrides.json`) · [`multi_pc_data_sync.md`](../../guides/multi_pc_data_sync.md) **§3.1 신설**(발행 가드 — §3 의 금지선을 자동화하는 물건이라 설명이 그 규칙 옆에 있어야 한다) · INDEX · ROADMAP. **원본 PC 인수인계는 §12.**
 
 ---
 

@@ -148,7 +148,7 @@ def inject_slicers(output_path: Path, cfg, col_index_map) -> None:
 ```
 
 `inject_slicers` 는 **저장된 xlsx 를 zip 레벨에서 다시 여는** 후처리다(openpyxl 이 슬라이서를
-지원하지 않아 이렇게 만들어졌다 — [`project_files_lifecycle.md §4.8`](../../guides/project_files_lifecycle.md)).
+지원하지 않아 이렇게 만들어졌다 — [`project_files_lifecycle.md §4.8`](../../reference/project_files_lifecycle.md)).
 **`upload/download` 추상화로 감쌀 수 없다.** 반드시 실제 파일 경로가 필요하다.
 
 → **따라서 "완전한 스토리지 추상화"는 불가능하고, 하이브리드가 유일한 현실이다**:

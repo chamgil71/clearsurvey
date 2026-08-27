@@ -1,5 +1,12 @@
 # ClearSurvey — 기본 프로젝트 구성 및 설정 가이드 (Project Configuration Guide)
 
+> ⚠️ **아카이브됨 (2026-08-27)**: 이 문서는 [`docs/reference/config_guide.md`](../reference/config_guide.md)
+> (config.yaml 전체 스키마 + Excel Config 시트 10열)와
+> [`docs/reference/project_files_lifecycle.md`](../reference/project_files_lifecycle.md)
+> (프로젝트 폴더 파일 구성)로 대체되었습니다. 이 문서의 최상위 필드(`project`/`style_file`/
+> `patterns_file`) 내용은 `config_guide.md` §0으로 옮겨졌습니다. 더 상세하고 최신인 두 문서를
+> 참고하세요 — 이 파일은 과거 참고용으로만 보존합니다.
+
 본 문서는 **ClearSurvey** 파이프라인 엔진의 기초가 되는 프로젝트 설정 및 `config.yaml` 작성 표준 가이드입니다. 설문 구조 기획 및 정제 흐름을 설계하는 차세대 개발자를 위해 상세하게 명세합니다.
 
 ---

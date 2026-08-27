@@ -1,5 +1,11 @@
 # ClearSurvey — 통합 가이드: 전체 프로젝트 연계 및 데이터 플로우 (Integrated Guide)
 
+> ⚠️ **아카이브됨 (2026-08-27)**: §1~3(Step 1~3 데이터 흐름)은 `GUIDE.md`(루트) §1과
+> [`docs/guides/system_flow_diagram.md`](../guides/system_flow_diagram.md)의 다이어그램과 내용이
+> 중복되어 그쪽이 최신 기준입니다. §4(대시보드 값 직접 수정·발행)의 운영 절차는
+> [`docs/guides/dashboard_edit_operations.md`](../guides/dashboard_edit_operations.md)로 그대로
+> 옮겨졌습니다. 이 파일은 과거 참고용으로만 보존합니다.
+
 본 문서는 **ClearSurvey**의 3대 독립 영역(Python 데이터 정제 엔진, FastAPI 백엔드, React 웹 프론트엔드)이 로컬 및 분리 배포 환경에서 어떻게 유기적으로 맞물려 전체 설문 프로젝트 수명 주기를 제어하는지 연계 데이터 흐름(Data Lifecycle)을 다루는 통합 가이드입니다.
 
 ---

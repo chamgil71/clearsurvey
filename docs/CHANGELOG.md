@@ -2,6 +2,75 @@
 
 All notable changes to the ClearSurvey project will be documented in this file.
 
+## [2026-08-27] 문서 정확성 점검·재구조화, gpu_4 데이터 노출 대응, 공개 데이터 감사 기능 신설
+
+README/GUIDE.md를 코드와 대조해 실제와 다른 서술을 고치고, `docs/guides/`를 운영 가이드/참고
+자료로 재분리했다. 그 점검 과정에서 실제로 공개 서빙되고 있던 설문 자유서술 응답(기관명·담당자
+언급 포함)을 발견해 조치했고, 재발 방지용으로 "매니페스트에 등록되지 않은 채 배포된 파일(고아
+파일)"을 찾아 지우는 기능을 CLI와 어드민 화면 양쪽에 만들었다.
+
+**결과**: 백엔드 476 → 485개(+9), 프런트 505 → 509개(+4) 테스트 전부 통과. `tsc --noEmit` 클린.
+
+### Security
+- 🔴 **`frontend/public/data/gpu_4_data.json`에 실제 설문 자유서술 응답이 그대로 노출**:
+  "GPU 활용지원 사업에 바라는 점" 문항 원문에 기관명(NIPA)과 담당자 언급이 포함돼 있었다.
+  `storage/projects/gpu_4/config.yaml`에서 해당 컬럼 transform을 `copy`→`exclude`로 바꾸고
+  파이프라인을 재실행(`run`→`export`)해 결과물에서 통째로 제거했다(자유서술 텍스트는 부분
+  마스킹이 의미가 없어 `exclude`가 유일한 방법).
+- 🔴 **gpu_4 프로젝트를 `published: false`로만 두었던 것으로는 비공개가 안 됨**: Vercel은
+  `frontend/public/data/*.json`을 `published` 값과 무관하게 그대로 정적 서빙하며, `published`는
+  앱 화면·`?data=` 딥링크만 가리는 UI 레벨 필터라 파일 URL을 직접 알면 열람 가능했다. 파일 자체를
+  `frontend/public/data/`에서 삭제하고 `projects.json` 매니페스트 항목도 제거해 완전히 비공개화.
+- **`FilterBar.tsx`의 전역 검색창 placeholder에 GPU 프로젝트 특정 문구**("기관명, GPU종류, 지역
+  등...")가 하드코딩돼 있어, 이 공용 컴포넌트를 쓰는 다른 모든 프로젝트 대시보드에도 노출되고
+  있었다. 프로젝트 중립적인 문구("전체 검색...")로 수정.
+
+### Added
+- **고아 파일 감사·삭제 기능** — "매니페스트(`projects.json`)에 등록되지 않은 채 배포된 정적
+  파일"은 `published` 필터를 아예 거치지 않아 URL을 알면 그대로 열람되는 가장 위험한 케이스임을
+  확인하고 대응책을 두 갈래로 마련:
+  - `backend/engine/public_data_audit.py`(신규) — 감사 로직을 순수 함수로 분리, CLI/API 공유.
+  - CLI `python main.py audit-public` — 배포 전 수동 점검용.
+  - `GET /api/public-data/audit`, `POST /api/public-data/cleanup`(신규, 인증 필요) — 삭제
+    요청은 서버가 삭제 직전 다시 감사해 **실제 고아 파일만** 지운다(매니페스트 등록 파일은
+    요청에 섞여 있어도 보호 — 테스트로 이 안전장치가 실제로 작동하는지 확인).
+  - `frontend/src/components/manager/PublicDataAuditPanel.tsx`(신규) — `/admin` 프로젝트 목록
+    화면에 점검 카드 추가. 진입 시 자동 점검, 고아 파일별 삭제 버튼(확인창 포함).
+- **`docs/plan/market_research.md`**: 웹 검색 기반 유사·참고 서비스 조사(KoboToolbox·
+  SurveyCTO/ODK·OpenRefine·Power Query·pyjanitor/pdpipe·Metabase/Superset/Redash·Evidence.dev·
+  Datawrapper/Flourish·Quarto 등). "정제→대시보드→멀티포맷 발행을 하나로 묶은 도구는 드물다"는
+  결론과 Excel 슬라이서가 `openpyxl` 공식 미지원 영역이라는 확인 포함.
+- **`docs/guides/system_flow_diagram.md`**: 프로젝트 전체 흐름 Mermaid 다이어그램. 최초 버전은
+  대시보드 기능이 배포 단계 안에 노드 하나로 묻혀 있고 다운로드가 과도하게 강조돼 있던 것을,
+  대시보드 기능을 독립 단계로 승격하고 색상(사람/코드/강조) 체계를 classDef로 통합해 재작성.
+
+### Changed — `docs/` 재구조화
+`docs/guides/`에 "운영 절차"와 "스펙 레퍼런스"가 섞여 있던 것을 분리:
+- **`docs/reference/`(신규 폴더)**: `config_guide.md`, `project_files_lifecycle.md`,
+  `design-system-guide.md`를 이동 — "필드·스펙이 무엇인가"를 다루는 사전류.
+- **`docs/guides/`**: 운영 절차만 남김 — `system_flow_diagram.md`, `cli_vs_web_guide.md`,
+  `admin_auth_guide.md`, `vercel_deploy_guide.md`, `multi_pc_data_sync.md`,
+  `dashboard_edit_operations.md`(신규 — 구 `integrated_guide.md` §4를 분리 이관).
+- **`docs/archive/`로 이동**: `integrated_guide.md`(§1~3이 `GUIDE.md`와 중복), `project_config_guide.md`
+  (`config_guide.md`에 흡수, 고유했던 최상위 필드 정보는 그쪽 §0으로 이관).
+- `docs/guides/README.md`, `docs/reference/README.md`(둘 다 신규) — 상황별 찾기표를 포함한 목차.
+  `docs/INDEX.md`도 새 구조에 맞춰 전면 갱신.
+- `docs/guides/vercel_deploy_guide.md` §6.1(신규): 푸시 전 `audit-public` 점검 절차 추가.
+
+### Fixed — README.md / GUIDE.md 정확성
+- Python 배지 `3.9+` → 실제 `backend/pyproject.toml` 기준 `3.11+`.
+- "정적 모드"가 GitHub Pages에서 서비스된다고 서술돼 있었으나 실제 배포 경로는 Vercel뿐 —
+  기능 설명·비용 표 모두 수정.
+- 디렉토리 구조에 존재하지 않는 `storage/backup/` 언급 제거(실존은 `raw/`, `projects/`만).
+- 상단 "Fully Hybrid" 배지가 본문에 없는 앵커(`#2-백엔드-서버-분리-운영-설계의-타당성`)를
+  가리키던 죽은 링크를 하이브리드 비용 섹션으로 수정.
+- **Supabase 인증이 항상 활성화된 것처럼 서술된 부분 전면 수정**(README·GUIDE.md 양쪽): 이
+  저장소는 `.env`/`.env.local`에 실제 Supabase 프로젝트 정보가 없어 기본값이 **로컬 우회
+  모드**(무인증)다. 인증 섹션·Docker Compose 섹션·시퀀스 다이어그램에 현재 상태 경고와 조건부
+  표현 추가.
+- README "주요 특징" 절을 5개 소제목(하이브리드 아키텍처/정제 파이프라인/인터랙티브 대시보드/
+  내보내기/브랜드 테마)으로 재구성 — 기존엔 문장 6~7개가 붙은 불릿 하나로 뭉쳐 있었음.
+
 ## [2026-07-24] new-beginnings 대비 격차 분석 실행 — CSV/JSON 업로드, 테마 차트 팔레트 수정, 리커트 척도 오분류 수정
 
 `c:\ai\new-beginnings`(자매 프로젝트) 대비 기능 격차를 분석(`docs/plan/complete/new_beginnings_comparison_plan.md`)하고

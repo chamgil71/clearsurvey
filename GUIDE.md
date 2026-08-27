@@ -69,6 +69,11 @@ flowchart TD
 
 #### 2) 웹 마법사 및 백엔드 실시간 정제 시퀀스 다이어그램 (Sequence Diagram)
 
+> ⚠️ 아래 `Auth` 상호작용은 **실제 Supabase 프로젝트가 연결된 경우에만** 일어납니다. 이
+> 저장소를 그대로 받아 기본 상태로 실행하면(`.env`/`.env.local`에 Supabase 값 없음) 인증이
+> 로컬 우회 모드로 바이패스되어 이 왕복이 생략됩니다 — 상세는 [§🔐 백엔드 API 보안
+> 가이드](#-백엔드-api-보안-가이드) 참고.
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -207,6 +212,8 @@ start_web.bat       # → http://localhost:5173
    SUPABASE_URL=https://<your-project>.supabase.co
    SUPABASE_ANON_KEY=<your-anon-key>
    ```
+   > ⚠️ **선택 사항입니다.** 비워두면 백엔드가 이를 감지해 인증을 완전히 바이패스합니다 —
+   > 모든 어드민 API가 로그인 없이 열립니다. 로컬 테스트가 아니라면 반드시 채우세요.
 2. Docker Compose 빌드 및 가동:
    ```bash
    docker compose up --build -d
@@ -218,8 +225,14 @@ start_web.bat       # → http://localhost:5173
 
 ## 🔐 백엔드 API 보안 가이드
 
-- **JWT 토큰 검증**: 백엔드의 `/api/projects/...` 하위 모든 어드민용 API는 외부 비인증 호출을 방지하기 위해 요청 헤더의 `Authorization: Bearer <token>`을 Supabase Auth 서버에 전송하여 실시간 검증합니다.
-- **인증 헤더 우회(Bypass) 환경**: 로컬 개발 서버 구동 시 `SUPABASE_URL` 환경변수가 플레이스홀더(`placeholder.supabase.co`)이거나 빈 값으로 잡혀있을 때는, 인증 필터가 자동으로 로컬 개발 모드로 분기하여 바이패스함으로써 CI 및 오프라인 테스트가 끊김 없이 작동하게 지원합니다.
+> ⚠️ **현재 이 저장소의 기본 상태 = Supabase 미연결(로컬 우회 모드).** `frontend/.env`(git
+> 커밋됨)에는 `VITE_SUPABASE_URL`이 없고 `.env.local`도 만들어져 있지 않습니다. 즉 아래
+> "인증 헤더 우회 환경"이 예외가 아니라 **기본 동작**입니다 — 로그인 없이 관리자 화면·API가
+> 전부 열립니다. 실제로 로그인을 강제하려면 `frontend/.env.local`과 루트 `.env`에 Supabase
+> 프로젝트 정보를 채우세요.
+
+- **인증 헤더 우회(Bypass) 환경 — 기본값**: `SUPABASE_URL`/`VITE_SUPABASE_URL` 환경변수가 플레이스홀더(`placeholder.supabase.co`)이거나 빈 값으로 잡혀있을 때는, 인증 필터가 자동으로 로컬 개발 모드로 분기하여 바이패스합니다. 로컬 개발·CI뿐 아니라 이 값을 채우지 않고 배포한 프로덕션도 동일하게 무인증 상태가 됩니다.
+- **JWT 토큰 검증 (Supabase 연결 시)**: 값을 채운 경우 백엔드의 `/api/projects/...` 하위 모든 어드민용 API는 외부 비인증 호출을 방지하기 위해 요청 헤더의 `Authorization: Bearer <token>`을 Supabase Auth 서버에 전송하여 실시간 검증합니다.
 - **SSE/다운로드용 쿼리 토큰**: 헤더를 전송하기 어려운 EventSource(로그 스트림) 및 다운로드 요청의 경우 `?token=...` 쿼리 파라미터를 파싱해 검증을 완수합니다.
 
 ---
@@ -475,7 +488,7 @@ Step 3 — 실행 및 내보내기
 - ⚠️ **편집은 그 PC 에만 있습니다** (`storage/` 는 gitignore). 원본이 있는 PC 1대에서만
   편집·발행하십시오 → [multi_pc_data_sync.md](docs/guides/multi_pc_data_sync.md)
 
-상세: [docs/guides/integrated_guide.md](docs/guides/integrated_guide.md) ④
+상세: [docs/guides/dashboard_edit_operations.md](docs/guides/dashboard_edit_operations.md)
 
 ### Admin Step 2 — Transform 선택 (드롭다운)
 
@@ -692,18 +705,24 @@ columns:
 
 > 문서 전체 인덱스: [docs/INDEX.md](docs/INDEX.md)
 
-### 운영 가이드
+### 운영 가이드 (`docs/guides/` — 목차: [docs/guides/README.md](docs/guides/README.md))
 
 | 문서 | 내용 |
 |------|------|
-| [docs/guides/integrated_guide.md](docs/guides/integrated_guide.md) | 전체 시스템 연계 데이터 플로우 (백엔드 API, 프론트엔드 연동, 정제 워크플로우 통합) |
-| [docs/guides/config_guide.md](docs/guides/config_guide.md) | config.yaml + Excel Config 시트 상세 |
-| [docs/guides/project_config_guide.md](docs/guides/project_config_guide.md) | 프로젝트 폴더 구성 및 설정 스키마 |
-| [docs/guides/project_files_lifecycle.md](docs/guides/project_files_lifecycle.md) | 프로젝트 폴더 내 각 파일의 역할·생성 시점 |
-| [docs/guides/admin_auth_guide.md](docs/guides/admin_auth_guide.md) | Admin 화면 Supabase 인증(JWT) 동작 방식 |
+| [docs/guides/system_flow_diagram.md](docs/guides/system_flow_diagram.md) | 업로드→정제→대시보드→다운로드→재사용 전체 흐름도 |
 | [docs/guides/cli_vs_web_guide.md](docs/guides/cli_vs_web_guide.md) | CLI 모드와 웹 마법사 모드의 차이·선택 기준 |
+| [docs/guides/admin_auth_guide.md](docs/guides/admin_auth_guide.md) | Admin 화면 Supabase 인증(JWT) 동작 방식 — **선택 기능**, 미설정 시 로컬 우회 |
 | [docs/guides/vercel_deploy_guide.md](docs/guides/vercel_deploy_guide.md) | Vercel 정적 대시보드 배포 가이드 |
 | [docs/guides/multi_pc_data_sync.md](docs/guides/multi_pc_data_sync.md) | 여러 PC 작업 시 데이터 동기화·Vercel 충돌 방지 |
+| [docs/guides/dashboard_edit_operations.md](docs/guides/dashboard_edit_operations.md) | 대시보드 값 직접 수정·엑셀 왕복·발행 운영 절차 |
+
+### 참고 자료 (`docs/reference/` — 목차: [docs/reference/README.md](docs/reference/README.md))
+
+| 문서 | 내용 |
+|------|------|
+| [docs/reference/config_guide.md](docs/reference/config_guide.md) | config.yaml + Excel Config 시트 필드 스키마 상세 |
+| [docs/reference/project_files_lifecycle.md](docs/reference/project_files_lifecycle.md) | 프로젝트 폴더 내 각 파일의 역할·생성 시점 |
+| [docs/reference/design-system-guide.md](docs/reference/design-system-guide.md) | 디자인시스템(Tailwind v4 + shadcn) 이론·마이그레이션 경험 |
 
 ### 설계 및 기획서 (구버전 개별 가이드는 `docs/archive/`에 있음)
 

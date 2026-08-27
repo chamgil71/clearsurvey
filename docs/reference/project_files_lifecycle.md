@@ -16,7 +16,7 @@ storage/projects/mumhwa/
     └── mumhwa_cleaned.xlsx              # 최종 정제 결과 엑셀 (다운로드되는 파일)
 ```
 
-`config.yaml`의 스키마 자체(어떤 필드가 있는지)는 [project_config_guide.md](project_config_guide.md)를
+`config.yaml`의 스키마 자체(어떤 필드가 있는지)는 [config_guide.md](config_guide.md)를
 참고하세요. 이 문서는 "폴더 안의 파일들이 어떤 순서로, 어떤 트리거로 생성되는가"에 집중합니다.
 
 ---
@@ -97,7 +97,7 @@ fetch하는 파일은 **`frontend/public/data/{name}_data.json`** 쪽입니다 (
 ### 4.1 `config.yaml`
 파이프라인 전체를 관장하는 유일한 필수 설정 파일 (`SurveyConfig` Pydantic 모델).
 컬럼 매핑, 정제 규칙(`transform`), 슬라이서 대상, 요약 시트 레이아웃 등을 담습니다.
-스키마 상세는 [project_config_guide.md](project_config_guide.md) 참고.
+스키마 상세는 [config_guide.md](config_guide.md) 참고.
 
 ### 4.2 `dashboard.json`
 웹 대시보드 KPI/차트/필터 목록(`list.filter_cols` 등)을 담는 JSON.
@@ -176,5 +176,6 @@ raw.xlsx ──transform──> 값 ──[overrides.json 이 덮어씀]──> 
 
 ## 5. 참고
 
-- 컬럼 매핑/`transform` 규칙 상세: [project_config_guide.md](project_config_guide.md), [config_guide.md](config_guide.md)
-- API 엔드포인트 및 프런트 연동 전체 흐름: [integrated_guide.md](integrated_guide.md)
+- 컬럼 매핑/`transform` 규칙 상세: [config_guide.md](config_guide.md)
+- 전체 시스템 흐름도: [../guides/system_flow_diagram.md](../guides/system_flow_diagram.md)
+- 대시보드 값 편집·발행 운영 절차: [../guides/dashboard_edit_operations.md](../guides/dashboard_edit_operations.md)

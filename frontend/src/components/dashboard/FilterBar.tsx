@@ -47,7 +47,7 @@ export function FilterBar({
             <Input
               id="global-search"
               type="search"
-              placeholder="전체 검색 (기관명, GPU종류, 지역 등...)"
+              placeholder="전체 검색..."
               value={search}
               onChange={(e) => onSearch(e.target.value)}
               className="h-8 pl-8 text-sm"

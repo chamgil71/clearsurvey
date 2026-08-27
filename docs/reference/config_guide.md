@@ -4,6 +4,26 @@
 > `python main.py analyze <xlsx>` 또는 `init` 명령어로 자동 생성되며, 헤더 및 데이터 행 감지 및 컬럼명 기반 transform 자동 추천 기능이 포함되어 있습니다.
 > 컬럼 정의 및 transform 수정만 필요한 경우, 결과 엑셀(`*_cleaned.xlsx`) 내의 **Config 시트**를 엑셀에서 직접 편집한 뒤 재실행할 수 있습니다.
 > 단, 전처리(`preprocess`) 및 복잡한 `summary` 설정 등은 `config.yaml` 텍스트 설정 파일에서만 지원됩니다.
+>
+> 프로젝트 폴더에 어떤 파일이 언제 생기는지는 이 문서가 아니라
+> [project_files_lifecycle.md](project_files_lifecycle.md)를 참고하세요. 이 문서는 `config.yaml`
+> 자체의 필드 스키마에 집중합니다.
+
+---
+
+## 0. `config.yaml` 최상위 필드 (Top-Level)
+
+`columns`/`preprocess`/`summary`(아래 1~6절) 외에, `SurveyConfig`(`backend/engine/config.py`)에는
+프로젝트 전체에 적용되는 최상위 필드가 있습니다:
+
+| 필드 | 설명 | 기본값 |
+|---|---|---|
+| `project` | 프로젝트 영문 고유 식별자 (예: `customer_satisfaction_2026`) | — |
+| `source.file` | 정제할 원본 엑셀 경로. **`config.yaml` 파일 위치 기준 상대경로** (`storage/projects/{name}/config.yaml` → `../../raw/파일.xlsx`) | — |
+| `source.sheet` | 읽어들일 시트명 | 첫 번째 시트 |
+| `source.header_row` / `source.data_start_row` | 헤더/데이터 시작 행 번호(1-based) | 자동 감지 |
+| `style_file` | 적용할 `style.yaml` 상대경로 | `null` — **명시하지 않으면 스타일이 적용되지 않습니다** (프로젝트 폴더에 `style.yaml`이 자동 복사되어 있어도 이 필드가 그것을 가리켜야만 `engine/styler.py`가 읽습니다) |
+| `patterns_file` | 주소·전화번호·사업자번호 등 공통 마스킹/분할 정규식 사전 YAML 경로 | `config/patterns.yaml` |
 
 ---
 

@@ -4,12 +4,16 @@
 
 > 시작점은 프로젝트 루트의 [`GUIDE.md`](../GUIDE.md)(빠른 시작·CLI·Config 레퍼런스)입니다. 이 인덱스는 그보다 더 깊은 개별 주제 문서를 찾을 때 사용하세요.
 
-**분류 기준**
-- **`plan/`** — 앞으로 할 일 또는 "왜 이렇게 만들었는지"를 설명하는 설계/기획 문서. 구현 완료 여부와 무관하게 기획 의도를 남기기 위해 보관합니다. 완료된 계획은 `plan/complete/`, 착수하지 않은 항목의 상세 스펙은 `plan/pending/`에 두고, `plan/` 최상위에는 살아있는 문서(`ROADMAP.md`·`prd.md`)만 남깁니다. **앞으로 할 일은 `plan/ROADMAP.md` 가 단일 출처**입니다.
-- **`guides/`** — 지금 이 순간의 운영/사용 방법을 설명하는 살아있는 참조 문서. 코드가 바뀌면 같이 갱신되어야 합니다.
-- **`design/`** — 브랜드 350종의 디자인 시스템 가이드. 읽는 문서이자 **테마 팩의 원본 데이터**로, `frontend/scripts/build-themes.mjs` 가 파싱해 `frontend/src/theme/` 을 생성합니다. 상세: [design/README.md](design/README.md)
+**분류 기준** (2026-08-27 재정립)
+- **`plan/`** — 앞으로 할 일 또는 "왜 이렇게 만들었는지"를 설명하는 설계/기획 문서. 구현 완료 여부와 무관하게 기획 의도를 남기기 위해 보관합니다. 완료된 계획은 `plan/complete/`, 착수하지 않은 항목의 상세 스펙은 `plan/pending/`에 두고, `plan/` 최상위에는 살아있는 문서(`ROADMAP.md`·`prd.md`·`market_research.md`)만 남깁니다. **앞으로 할 일은 `plan/ROADMAP.md` 가 단일 출처**입니다.
+- **`guides/`** — **지금 무엇을, 어떻게 해야 하는가**(운영 절차)를 다루는 살아있는 문서. 코드가 바뀌면 같이 갱신됩니다. 목차: [guides/README.md](guides/README.md)
+- **`reference/`** — **필드·스펙·이론이 무엇인가**(사전/레퍼런스)를 다루는 살아있는 문서. 순서대로 실행하는 절차가 아니라 필요할 때 찾아보는 자료입니다. 목차: [reference/README.md](reference/README.md)
+- **`design/`** — 브랜드 350종의 디자인 시스템 가이드. 읽는 문서이자 **테마 팩의 원본 데이터**로, `frontend/scripts/build-themes.mjs` 가 파싱해 `frontend/src/theme/` 을 생성합니다. `reference/`와 성격은 같지만 규모가 커서 별도 폴더로 유지합니다. 상세: [design/README.md](design/README.md)
 - **`logs/`** — 과거 시점의 작업 이력·테스트 결과 기록. 사후에 고치지 않는 append-only 기록입니다.
 - **`archive/`** — 더 이상 현재 아키텍처와 맞지 않거나 다른 문서에 흡수되어 참고용으로만 남긴 구버전 문서.
+
+> **`guides/` vs `reference/` 구분법**: "지금 이걸 하려면 뭘 눌러야 하지?"에 답하면 `guides/`,
+> "이 필드가 정확히 뭘 뜻하지?"에 답하면 `reference/`입니다.
 
 ---
 
@@ -20,6 +24,7 @@
 
 * **[plan/ROADMAP.md](plan/ROADMAP.md)** — 🗺 **앞으로 할 일의 단일 출처.** 6개 항목(디자인 시스템 완성 · Railway 이전 · 클라우드 스토리지 · Tauri · 지도 · 로컬 GUI)의 우선순위·종속·중복 관계와 "무엇이 막고 있는가"를 정리했습니다. **"다음에 뭐 하지?"는 여기부터 봅니다.** `pending/` 의 개별 문서는 상세 스펙 보관소이고, 착수 여부·우선순위는 이 파일이 기준입니다.
 * **[plan/prd.md](plan/prd.md)**: ClearSurvey 서비스의 제품 정의, 핵심 기능 스코프, 기술 아키텍처를 정의한 제품 요구사항 정의서(PRD).
+* **[plan/market_research.md](plan/market_research.md)** — 🔎 2026-08-27: 웹 검색 기반 유사·참고 서비스 조사(KoboToolbox·SurveyCTO/ODK·OpenRefine·Power Query·pyjanitor/pdpipe·Metabase/Superset/Redash·Evidence.dev·Datawrapper/Flourish·Glide류·Quarto). 카테고리별 비교표와 "정제→대시보드→멀티포맷 발행을 하나로 묶은 도구는 드물다"는 결론, Excel 슬라이서가 `openpyxl` 공식 미지원 영역이라는 확인 포함.
 
 ### 완료된 계획 (`docs/plan/complete/`)
 
@@ -50,23 +55,31 @@
 
 ---
 
-## 2. 📂 운영 및 사용자 가이드 (`docs/guides/`)
+## 2. 📂 운영 가이드 (`docs/guides/`)
 
-설문 정제 매뉴얼, 컬럼 매핑 가이드 등 실무 운영을 위한 살아있는 참조 문서입니다.
+**지금 무엇을 어떻게 해야 하는가**를 다루는 실무 운영 절차 문서입니다. 목차·상황별 찾기표:
+[guides/README.md](guides/README.md).
 
-* **[guides/integrated_guide.md](guides/integrated_guide.md)**: 백엔드 API, 프론트엔드 연동, 전체 정제 정산 워크플로우를 포괄하는 시스템 통합 가이드.
-* **[guides/project_config_guide.md](guides/project_config_guide.md)**: 정제 폴더 구조 정의 및 config.yaml 매뉴얼 가이드.
-* **[guides/config_guide.md](guides/config_guide.md)**: Excel Config 규칙(10열) 상세 정의서.
-* **[guides/project_files_lifecycle.md](guides/project_files_lifecycle.md)**: 프로젝트 폴더 내 각 파일(config.yaml/dashboard.json/style.yaml/draft·output xlsx/*_data.json 등)의 역할, 생성 시점, 생성 주체를 정리한 가이드.
-* **[guides/admin_auth_guide.md](guides/admin_auth_guide.md)**: Admin 화면 Supabase 인증(JWT) 동작 방식 가이드.
+* **[guides/system_flow_diagram.md](guides/system_flow_diagram.md)** — 업로드 → 정제 → **대시보드 기능** → 다운로드/내보내기 → 재사용 전체 흐름도(Mermaid). 2026-08-27: 대시보드 기능이 예전엔 배포 단계에 작은 노드 하나로 묻혀 있던 것을 독립 단계로 승격하고, 과도하게 강조돼 있던 다운로드 강조를 낮춤.
 * **[guides/cli_vs_web_guide.md](guides/cli_vs_web_guide.md)**: CLI 모드와 웹 마법사 모드의 차이·선택 기준 가이드.
-* **[guides/design-system-guide.md](guides/design-system-guide.md)**: legacy CSS → Tailwind v4 + shadcn/ui 마이그레이션 경험을 바탕으로 한 디자인시스템 가이드.
+* **[guides/admin_auth_guide.md](guides/admin_auth_guide.md)**: Admin 화면 Supabase 인증(JWT) 동작 방식 가이드 — 실서버/로컬 우회 2모드. ⚠️ **이 저장소의 기본 상태는 Supabase 미연결(로컬 우회)**입니다 — 실제 로그인을 켜려면 `.env.local`에 프로젝트 정보를 채워야 합니다.
 * **[guides/vercel_deploy_guide.md](guides/vercel_deploy_guide.md)**: GitHub 비공개 저장소를 유지한 채 정적 대시보드를 Vercel에 배포하는 가이드. Vercel은 **git push된 `frontend/public/data/`만** 반영한다는 점(로컬 저장/실행만으로는 갱신 안 됨)이 핵심.
 * **[guides/multi_pc_data_sync.md](guides/multi_pc_data_sync.md)**: 여러 PC에서 작업 시 `storage/` gitignore로 인한 프로젝트 미표시·Vercel 덮어쓰기 충돌 원인과 안전 운영 방법(작성 PC 지정·레시피 화이트리스트·클라우드 동기화).
+* **[guides/dashboard_edit_operations.md](guides/dashboard_edit_operations.md)**: 대시보드 값 직접 수정 → 엑셀 왕복(rebuild/import) → 발행까지의 실제 조작 절차와 가드 3종. 2026-08-27: 구 `integrated_guide.md` §4에서 독립 문서로 분리.
 
 ---
 
-## 3. 📂 개발 이력 및 테스트 검증 보고서 (`docs/logs/`)
+## 3. 📂 참고 자료 (`docs/reference/`)
+
+**필드·스펙·이론이 무엇인가**를 다루는 레퍼런스 문서입니다. 목차: [reference/README.md](reference/README.md).
+
+* **[reference/config_guide.md](reference/config_guide.md)**: `config.yaml` 전체 필드 스키마(§0 최상위 필드 포함) + Excel Config 시트 10열 정의 + `transform` 전체 목록. 2026-08-27: 구 `guides/project_config_guide.md`의 최상위 필드(`style_file`/`patterns_file`) 내용을 §0으로 흡수.
+* **[reference/project_files_lifecycle.md](reference/project_files_lifecycle.md)**: 프로젝트 폴더 내 각 파일(config.yaml/dashboard.json/style.yaml/draft·output xlsx/*_data.json/overrides.json 등)의 역할, 생성 시점, 생성 주체를 정리한 가이드.
+* **[reference/design-system-guide.md](reference/design-system-guide.md)**: legacy CSS → Tailwind v4 + shadcn/ui 마이그레이션 경험을 바탕으로 한 디자인시스템 이론과 AI 프롬프트 템플릿.
+
+---
+
+## 4. 📂 개발 이력 및 테스트 검증 보고서 (`docs/logs/`)
 
 운영 이력, 테스트 리포트, Playwright 테스트 등 로그 데이터 보관소입니다. 과거 시점 기록이므로 사후에 고치지 않습니다.
 
@@ -77,22 +90,24 @@
 
 ---
 
-## 4. 📂 레거시 및 백업 보관소 (`docs/archive/`)
+## 5. 📂 레거시 및 백업 보관소 (`docs/archive/`)
 
 통합 가이드 문서에 흡수되어 중복되었거나, 프로젝트 개편(예: `web/` → `frontend/` 리네임, React 마이그레이션)으로 현재 아키텍처와 맞지 않게 된 구버전 문서 보관 폴더입니다. 참고용으로만 남기며 최신 상태를 반영하지 않습니다.
 
+* **[archive/integrated_guide.md](archive/integrated_guide.md)** ⚠️ 2026-08-27 아카이브: §1~3(데이터 흐름)은 `GUIDE.md` + `guides/system_flow_diagram.md`와 중복되어 대체됨. §4(대시보드 편집/발행 절차)는 [guides/dashboard_edit_operations.md](guides/dashboard_edit_operations.md)로 그대로 이관.
+* **[archive/project_config_guide.md](archive/project_config_guide.md)** ⚠️ 2026-08-27 아카이브: [reference/config_guide.md](reference/config_guide.md)(스키마)와 [reference/project_files_lifecycle.md](reference/project_files_lifecycle.md)(폴더 구성)가 더 상세하고 최신이라 대체됨. 고유 내용(최상위 필드)은 `config_guide.md` §0으로 흡수.
 * **[archive/react_migration_plan.md](archive/react_migration_plan.md)**: React 이전 설계서.
 * **[archive/basic_implementation_plan.md](archive/basic_implementation_plan.md)**, **[archive/implementation_plan.md](archive/implementation_plan.md)**: 초기 구현 설계서.
-* **[archive/backend_guide.md](archive/backend_guide.md)**, **[archive/frontend_guide.md](archive/frontend_guide.md)**, **[archive/python_guide.md](archive/python_guide.md)**, **[archive/workflow_guide.md](archive/workflow_guide.md)**: 통합 가이드(`guides/integrated_guide.md`)에 흡수된 레거시 개별 가이드.
+* **[archive/backend_guide.md](archive/backend_guide.md)**, **[archive/frontend_guide.md](archive/frontend_guide.md)**, **[archive/python_guide.md](archive/python_guide.md)**, **[archive/workflow_guide.md](archive/workflow_guide.md)**: 통합 가이드(구 `guides/integrated_guide.md`, 현재는 `archive/integrated_guide.md`)에 흡수된 레거시 개별 가이드.
 * **[archive/analyze_and_merge.md](archive/analyze_and_merge.md)**: 분석·병합 상세 설계(구버전).
 * **[archive/system_analysis_2026-05-27.md](archive/system_analysis_2026-05-27.md)**: 2026-05-27 시점 시스템 분석 보고서.
 * **[archive/unit_detailed_design.md](archive/unit_detailed_design.md)**, **[archive/web_plan.md](archive/web_plan.md)**, **[archive/improvements.md](archive/improvements.md)**: 구버전 상세 설계·개선 메모.
 * **[archive/project_budget.md](archive/project_budget.md)**: budget 임시 테스트용 데이터 명세서.
-* **[archive/frontend_migration_and_usage.md](archive/frontend_migration_and_usage.md)** ⚠️: 프론트엔드 대시보드를 **별도 백엔드 레포로 이식**하는 시나리오를 전제로 작성된 구버전 문서(`frontend/docs/`에서 이동). `legacy-dashboard.css`, `web/src` 등 삭제된 경로를 참조하고 있어 현재 모노레포 구조와 맞지 않음 — KPI/차트/필터 설정 방법 등 여전히 유효한 내용은 `guides/project_config_guide.md`·`guides/integrated_guide.md`로 이관이 필요.
+* **[archive/frontend_migration_and_usage.md](archive/frontend_migration_and_usage.md)** ⚠️: 프론트엔드 대시보드를 **별도 백엔드 레포로 이식**하는 시나리오를 전제로 작성된 구버전 문서(`frontend/docs/`에서 이동). `legacy-dashboard.css`, `web/src` 등 삭제된 경로를 참조하고 있어 현재 모노레포 구조와 맞지 않음 — KPI/차트/필터 설정 방법 등 여전히 유효한 내용은 `reference/config_guide.md`·`guides/system_flow_diagram.md`로 이관이 필요.
 
 ---
 
-## 5. 📄 `docs/` 루트
+## 6. 📄 `docs/` 루트
 
 * **[CHANGELOG.md](CHANGELOG.md)**: 주요 변경 이력.
 * **[qna.md](qna.md)**: 진행 중인 이슈 접수·검토 결과 트래커. `logs/qna.md`(과거 아키텍처 Q&A 아카이브, append-only)와 달리 이 문서는 항목이 해결될 때마다 갱신된다. 2026-07-22 항목: 원본엑셀(clean xlsx) 다운로드 손상 근본 원인(Excel 수식 255자 리터럴 제한) 규명 및 수정, 설정편집 버그 3건.

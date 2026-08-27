@@ -545,6 +545,59 @@ def export_json(
         typer.echo(f"[경고] 배포 폴더 복사 실패: {exc}", err=True)
 
 
+@app.command("audit-public")
+def audit_public(
+    data_dir: Optional[Path] = typer.Option(
+        None, "--dir", "-d",
+        help="검사할 정적 배포 폴더 (기본: frontend/public/data/)",
+    ),
+) -> None:
+    """frontend/public/data/ 의 실제 JSON 파일과 projects.json 매니페스트를 대조합니다.
+
+    매니페스트에 없는 '고아 파일'은 published 필터를 거치지 않고 URL로 직접 접근
+    가능해 가장 위험합니다. 매니페스트에는 있지만 파일이 없는 '깨진 참조'도 함께 찾습니다.
+    """
+    from engine.public_data_audit import compute_public_data_audit
+
+    data_dir = data_dir or (BACKEND_ROOT.parent / "frontend" / "public" / "data")
+
+    if not data_dir.exists():
+        typer.echo(f"[오류] 폴더 없음: {data_dir}", err=True)
+        raise typer.Exit(1)
+    if not (data_dir / "projects.json").exists():
+        typer.echo(f"[경고] 매니페스트 없음: {data_dir / 'projects.json'}", err=True)
+
+    result = compute_public_data_audit(data_dir)
+    orphans = result["orphans"]
+    broken = result["broken"]
+    unpublished_but_deployed = result["unpublished_but_deployed"]
+
+    typer.echo(f"검사 폴더: {data_dir}")
+    typer.echo(f"  디스크 파일 {result['disk_count']}개  /  매니페스트 항목 {result['manifest_count']}개\n")
+
+    if orphans:
+        typer.echo(f"[위험] 고아 파일 {len(orphans)}건: 매니페스트에 없지만 배포되어 있어, URL을 알면 ?data= 검사도 거치지 않고 그대로 열람됩니다.")
+        for f in orphans:
+            typer.echo(f"  - {f}")
+    else:
+        typer.echo("고아 파일 없음.")
+
+    if broken:
+        typer.echo(f"\n[경고] 깨진 참조 {len(broken)}건: 매니페스트엔 있지만 파일이 없습니다.")
+        for f in broken:
+            typer.echo(f"  - {f}")
+
+    if unpublished_but_deployed:
+        typer.echo(f"\n[참고] published=false 지만 파일은 여전히 배포된 항목 {len(unpublished_but_deployed)}건")
+        typer.echo("  (앱 화면·?data= 링크는 막히지만, 파일 URL을 직접 알면 여전히 열람 가능합니다)")
+        for f in unpublished_but_deployed:
+            typer.echo(f"  - {f}")
+
+    if orphans or broken:
+        raise typer.Exit(1)
+    typer.echo("\n정상: 고아 파일·깨진 참조 없음.")
+
+
 @app.command("deploy")
 def deploy_project(
     config: Path = typer.Argument(..., help="config.yaml 또는 cleaned.xlsx 경로"),

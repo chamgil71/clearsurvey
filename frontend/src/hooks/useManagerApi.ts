@@ -59,6 +59,18 @@ export interface ProjectFreshness {
   is_stale: boolean;
 }
 
+/**
+ * GET /api/public-data/audit 응답 구조.
+ * frontend/public/data/ 의 실제 파일과 projects.json 매니페스트 대조 결과.
+ */
+export interface PublicDataAudit {
+  orphans: string[]; // 매니페스트에 없지만 배포된 파일 — published 필터를 안 거쳐 가장 위험
+  broken: string[]; // 매니페스트엔 있지만 파일이 없음
+  unpublished_but_deployed: string[]; // published=false 지만 여전히 배포됨 (참고용)
+  disk_count: number;
+  manifest_count: number;
+}
+
 export function useManagerApi() {
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -309,6 +321,31 @@ export function useManagerApi() {
     return await res.json();
   };
 
+  /** frontend/public/data/ 실제 파일과 매니페스트를 대조한다. */
+  const auditPublicData = async (): Promise<PublicDataAudit> => {
+    const res = await fetchWithAuth(`${API_BASE}/api/public-data/audit`);
+    if (!res.ok) {
+      throw new Error("공개 데이터 점검에 실패했습니다.");
+    }
+    return await res.json();
+  };
+
+  /** 지정한 고아 파일을 삭제한다. 서버가 삭제 직전 다시 감사해 실제 고아만 지운다. */
+  const cleanupPublicData = async (
+    files: string[],
+  ): Promise<{ deleted: string[]; skipped: string[]; audit: PublicDataAudit }> => {
+    const res = await fetchWithAuth(`${API_BASE}/api/public-data/cleanup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ files }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: "고아 파일 삭제 실패" }));
+      throw new Error(err.detail || "고아 파일 삭제 실패");
+    }
+    return await res.json();
+  };
+
   /** 로그 메시지 한 줄 추가 (폴링 로직에서 사용) */
   const addLog = (msg: string) => setLogs((prev) => [...prev, msg]);
 
@@ -518,6 +555,8 @@ export function useManagerApi() {
     runPipeline,
     getPipelineStatus,
     getProjectFreshness,
+    auditPublicData,
+    cleanupPublicData,
     exportDashboard,
     togglePublish,
     setDefaultProject,

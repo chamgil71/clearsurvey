@@ -7,6 +7,7 @@ import type { DashboardConfig, ProjectListItem } from "@/types/dashboard";
 import { Step1_ProjectUpload } from "@/components/manager/Step1_ProjectUpload";
 import { Step2_ConfigEditor } from "@/components/manager/Step2_ConfigEditor";
 import { Step3_RunDeploy } from "@/components/manager/Step3_RunDeploy";
+import { PublicDataAuditPanel } from "@/components/manager/PublicDataAuditPanel";
 import { GuideDrawer } from "@/components/dashboard/GuideDrawer";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { supabase } from "@/lib/supabase";
@@ -403,6 +404,7 @@ function AdminDashboard({ user }: { user: User }) {
                   setSelectedProject("");
                 }}
               />
+              <PublicDataAuditPanel isBackendAlive={api.isBackendAlive} />
             </div>
           </div>
         ) : (

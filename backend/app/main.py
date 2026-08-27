@@ -102,6 +102,7 @@ from engine.csv_analyzer import CsvAnalyzer
 from engine.json_analyzer import JsonAnalyzer, JsonFormatError
 from engine.base_analyzer import BaseAnalyzer
 from engine.config_excel import read_config_from_excel
+from engine.public_data_audit import compute_public_data_audit
 from engine.exporter import (
     _read_cleaned_sheet,
     build_data_json,
@@ -1502,6 +1503,44 @@ async def reorder_projects(body: dict, user: dict = Depends(verify_supabase_toke
         json.dump(reordered, f, ensure_ascii=False, indent=2)
 
     return {"status": "ok", "order": order}
+
+
+@app.get("/api/public-data/audit")
+def audit_public_data(user: dict = Depends(verify_supabase_token)):
+    """frontend/public/data/ 의 실제 JSON 파일과 projects.json 매니페스트를 대조합니다.
+
+    매니페스트에 없는 '고아 파일'은 published 필터를 거치지 않고 URL로 직접 접근 가능해
+    가장 위험합니다. 상세: docs/guides/vercel_deploy_guide.md §6.1
+    """
+    data_dir = FRONTEND_ROOT / "public" / "data"
+    return compute_public_data_audit(data_dir)
+
+
+@app.post("/api/public-data/cleanup")
+def cleanup_public_data(body: dict, user: dict = Depends(verify_supabase_token)):
+    """지정한 고아 파일을 frontend/public/data/ 에서 삭제합니다.
+
+    안전장치: 클라이언트가 보낸 목록을 그대로 믿지 않고, 삭제 직전 다시 감사를 돌려
+    '지금 이 순간에도 실제로 고아인 파일'만 지웁니다. 매니페스트에 등록된 파일은
+    절대 지우지 않습니다 — 요청에 섞여 있어도 skipped 로 돌려보냅니다.
+    """
+    requested = body.get("files")
+    if not isinstance(requested, list) or not requested:
+        raise HTTPException(status_code=400, detail="files 배열이 필요합니다.")
+
+    data_dir = FRONTEND_ROOT / "public" / "data"
+    orphan_set = set(compute_public_data_audit(data_dir)["orphans"])
+
+    deleted: list[str] = []
+    skipped: list[str] = []
+    for name in requested:
+        if name in orphan_set:
+            (data_dir / name).unlink(missing_ok=True)
+            deleted.append(name)
+        else:
+            skipped.append(name)
+
+    return {"deleted": deleted, "skipped": skipped, "audit": compute_public_data_audit(data_dir)}
 
 
 @app.delete("/api/projects/{name}")
