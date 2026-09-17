@@ -313,6 +313,18 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
     });
   };
 
+  const reorderChart = (from: number, to: number) => {
+    setLocalDashboard((prev: any) => {
+      const charts = [...prev.charts];
+      if (from < 0 || from >= charts.length || to < 0 || to >= charts.length || from === to) {
+        return prev;
+      }
+      const [moved] = charts.splice(from, 1);
+      charts.splice(to, 0, moved);
+      return { ...prev, charts };
+    });
+  };
+
   const updateDashboardList = (
     patch: Partial<{ visible_cols: string[]; filter_cols: string[] }>,
   ) => {
@@ -478,6 +490,7 @@ export const Step2_ConfigEditor: React.FC<Step2Props> = ({
                 onAddChart={addChart}
                 onAddTextBlock={addTextBlock}
                 onMoveChart={moveChart}
+                onReorderChart={reorderChart}
                 onDeleteChart={deleteChart}
                 onUpdateExcelOptions={handleUpdateExcelOptions}
                 onUpdateLayout={updateLayout}

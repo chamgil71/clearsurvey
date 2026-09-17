@@ -2,6 +2,25 @@
 
 All notable changes to the ClearSurvey project will be documented in this file.
 
+## [2026-08-29] 차트 구성 카드 드래그 재배치 구현
+
+`ChartConfigCard.tsx`에 "차트 구성 (드래그로 순서 변경)"이라는 라벨은 있었지만, 실제로는 위/아래
+화살표 버튼으로만 순서를 바꿀 수 있었고 그립(`GripVertical`) 아이콘은 장식용이었다(드래그
+핸들러 미구현). 실제 드래그 재배치를 붙였다.
+
+### Added
+- **차트 카드 드래그 재배치**: 그립을 마우스 다운한 항목만 `draggable`을 켜는 HTML5 네이티브
+  Drag & Drop 방식(신규 의존성 없음)으로 임의 위치 재배치를 구현. `Step2_ConfigEditor.tsx`에
+  `reorderChart(from, to)` 추가, `ChartConfigCard`에 `onReorderChart` prop으로 연결. 위/아래
+  버튼은 키보드 접근성을 위해 그대로 유지.
+- `frontend/src/components/manager/config/__tests__/ChartConfigCard.reorder.test.tsx`(신규):
+  그립을 잡고 드롭하면 `onReorderChart(from, to)` 호출, 그립을 잡지 않은 드래그·같은 행 드롭·
+  `onReorderChart` 미전달 시 무시되는지 검증.
+
+### Changed
+- `ChartConfigCard.tsx`(552줄)에서 차트 행(텍스트 박스/일반 차트) 렌더링을
+  `ChartRow.tsx`(신규)로 분리(God Component 방지, `agents.md` §5).
+
 ## [2026-08-27] 문서 정확성 점검·재구조화, gpu_4 데이터 노출 대응, 공개 데이터 감사 기능 신설
 
 README/GUIDE.md를 코드와 대조해 실제와 다른 서술을 고치고, `docs/guides/`를 운영 가이드/참고
